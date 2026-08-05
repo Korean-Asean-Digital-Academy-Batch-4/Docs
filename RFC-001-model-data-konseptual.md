@@ -9,11 +9,11 @@
 | **Disusun oleh** | Re:Code |
 | **Sumber kebenaran** | [PRD.md](PRD.md) v3.0 dan [ATURAN-DAN-KRITERIA.md](ATURAN-DAN-KRITERIA.md) v1.0 |
 | **Menggantikan** | [SCHEMA-STATIS.md](SCHEMA-STATIS.md) dan [SCHEMA-DINAMIS.md](SCHEMA-DINAMIS.md), keduanya diturunkan menjadi arsip |
-| **Dokumen lanjutan** | RFC-002 (stack dan arsitektur), RFC-003 (skema fisik), RFC-004 (kontrak API) |
+| **Dokumen lanjutan** | `ARCHITECTURE.md` (stack dan arsitektur), `SCHEMA.md` (skema fisik), `API.md` (kontrak endpoint) |
 
 > Dokumen ini menetapkan **entitas, relasi, dan aturan yang harus dijamin** oleh basis data EduTrack.
 > Dokumen ini **netral teknologi**: tidak menyebut mesin basis data, tipe kolom, indeks, maupun mekanisme penegakan.
-> Pemilihan mesin dan cara penegakan ditetapkan pada RFC-002 dan RFC-003.
+> Pemilihan mesin dan cara penegakan ditetapkan pada `ARCHITECTURE.md` dan `SCHEMA.md`.
 
 ---
 
@@ -74,14 +74,14 @@ Entitas, atribut, relasi, kardinalitas, dan invarian yang harus dijamin sistem.
 
 | Hal | Ditetapkan pada |
 |---|---|
-| Mesin basis data, runtime, penerapan, penyimpanan berkas | RFC-002 |
-| Mekanisme kredensial dan identitas | RFC-002 |
-| Tipe kolom, indeks, constraint, pemicu, migrasi | RFC-003 |
-| Kontrak endpoint dan bentuk respons | RFC-004 |
+| Mesin basis data, runtime, penerapan, penyimpanan berkas | `ARCHITECTURE.md` |
+| Mekanisme kredensial dan identitas | `ARCHITECTURE.md` |
+| Tipe kolom, indeks, constraint, pemicu, migrasi | `SCHEMA.md` |
+| Kontrak endpoint dan bentuk respons | `API.md` |
 
 ### 3.3 Kedudukan terhadap dokumen lain
 
-`ARCHITECTURE.md`, `aktor-role.md`, dan `superadmin.md` **tidak dijadikan sumber** pada RFC ini. Ketiganya disusun sebelum PRD v3 dan memuat ketentuan yang bertentangan sebagaimana diuraikan pada §2.3. Penyelarasannya menjadi bagian RFC-002.
+`ARCHITECTURE.md`, `aktor-role.md`, dan `superadmin.md` **tidak dijadikan sumber** pada RFC ini. Ketiganya disusun sebelum PRD v3 dan memuat ketentuan yang bertentangan sebagaimana diuraikan pada §2.3. Penyelarasannya menjadi bagian `ARCHITECTURE.md`.
 
 ---
 
@@ -325,7 +325,7 @@ erDiagram
 
 **Alternatif yang ditolak.** Menyimpan hanya `guru_ref` atau hanya `mapel_ref` menghasilkan bentuk paling ringkas tanpa redundansi. Ditolak karena keduanya memindahkan penegakan AC-24 ke lapisan aplikasi, dan pencabutan aturan satu guru satu mata pelajaran pasca-MVP akan memaksa perubahan bentuk entitas.
 
-**Konsekuensi yang diterima.** Dua atribut bersifat redundan secara logika. Konsistensinya harus dijamin basis data, bukan disiplin kode; cara penjaminannya ditetapkan RFC-003.
+**Konsekuensi yang diterima.** Dua atribut bersifat redundan secara logika. Konsistensinya harus dijamin basis data, bukan disiplin kode; cara penjaminannya ditetapkan `SCHEMA.md`.
 
 `penugasan` **tidak** menyimpan rujukan periode. `kelas` sudah terikat pada satu periode, sehingga atribut tersebut redundan sekaligus berpotensi menyimpang.
 
@@ -385,7 +385,7 @@ Karena `penugasan` sudah berarti guru, mata pelajaran, dan kelas sekaligus, keun
 
 ## 6. Invarian
 
-Setiap baris adalah pernyataan yang harus dijamin sistem. RFC-003 wajib menunjukkan cara penegakan setiap baris, dan menyatakan terang-terangan mana yang tidak dapat ditegakkan basis data sehingga menjadi tanggung jawab lapisan aplikasi.
+Setiap baris adalah pernyataan yang harus dijamin sistem. `SCHEMA.md` wajib menunjukkan cara penegakan setiap baris, dan menyatakan terang-terangan mana yang tidak dapat ditegakkan basis data sehingga menjadi tanggung jawab lapisan aplikasi.
 
 | # | Invarian | Sumber |
 |---|---|---|
@@ -421,7 +421,7 @@ Setiap baris adalah pernyataan yang harus dijamin sistem. RFC-003 wajib menunjuk
 
 **I-18 — penyebut persentase.** Karena I-15 menjamin setiap sesi memuat seluruh siswa kelas, jumlah sesi yang dibuka Guru sama dengan jumlah baris presensi milik satu siswa pada satu penugasan. Persentase dihitung per mata pelajaran, sesuai [PRD.md §8.4](PRD.md).
 
-**I-20 dan I-22.** Keduanya adalah aturan alur kerja lintas entitas dan kemungkinan besar tidak dapat ditegakkan sepenuhnya oleh basis data. RFC-003 harus menyatakan hal ini secara eksplisit, bukan mengasumsikannya aman.
+**I-20 dan I-22.** Keduanya adalah aturan alur kerja lintas entitas dan kemungkinan besar tidak dapat ditegakkan sepenuhnya oleh basis data. `SCHEMA.md` harus menyatakan hal ini secara eksplisit, bukan mengasumsikannya aman.
 
 ---
 
@@ -451,7 +451,7 @@ Konsekuensi yang diterima: NIP dan NIS berbagi satu ruang keunikan. Tabrakan pra
 
 ---
 
-## 8. Kendala bagi RFC-002
+## 8. Kendala bagi `ARCHITECTURE.md`
 
 Model data ini mengunci sejumlah kebutuhan sebelum stack dibahas.
 
@@ -498,20 +498,20 @@ Baris `nilai` mencapai angka di atas hanya pada akhir semester. Sepanjang semest
 
 | # | Keputusan | Diputuskan pada | Dampak bila berubah |
 |---|---|---|---|
-| K-01 | Mekanisme kredensial: layanan identitas terkelola atau kata sandi yang dikelola sendiri | RFC-002 | Menentukan atribut kredensial pada `pengguna`. Seluruh ketentuan §6.1.3 — tanpa syarat kerumitan, tanpa kewajiban penggantian, tanpa pemulihan mandiri — merupakan penonaktifan fitur pada layanan identitas terkelola, bukan pemanfaatannya |
-| K-02 | Mesin basis data, runtime, penerapan, dan penyimpanan berkas | RFC-002 | Menentukan seluruh isi RFC-003 |
+| K-01 | Mekanisme kredensial: layanan identitas terkelola atau kata sandi yang dikelola sendiri | `ARCHITECTURE.md` | Menentukan atribut kredensial pada `pengguna`. Seluruh ketentuan §6.1.3 — tanpa syarat kerumitan, tanpa kewajiban penggantian, tanpa pemulihan mandiri — merupakan penonaktifan fitur pada layanan identitas terkelola, bukan pemanfaatannya |
+| K-02 | Mesin basis data, runtime, penerapan, dan penyimpanan berkas | `ARCHITECTURE.md` | Menentukan seluruh isi `SCHEMA.md` |
 
 ---
 
 ## 10. Temuan terhadap PRD
 
-Celah yang ditemukan saat menurunkan model data. Perlu ditanggapi tim sebelum RFC-003 dikunci.
+Celah yang ditemukan saat menurunkan model data. Perlu ditanggapi tim sebelum `SCHEMA.md` dikunci.
 
 | # | Temuan | Usulan tindakan |
 |---|---|---|
 | T-01 | §8.5 mensyaratkan AI membaca topik, tetapi tidak ada layar mana pun pada [ATURAN-DAN-KRITERIA.md §3](ATURAN-DAN-KRITERIA.md) yang mengisinya | Tambahkan kolom topik pada layar pengisian nilai; sampaikan kepada UI/UX |
 | T-02 | I-08, satu siswa berada pada tepat satu kelas dalam satu semester, tidak dinyatakan eksplisit di PRD | Konfirmasi ke sekolah. Tanpa aturan ini rapor siswa menjadi ambigu |
-| T-03 | §6.1 hanya mengatur pembuatan akun Guru dan Siswa. Tidak ada ketentuan bagaimana akun Administrator dibuat | Tetapkan pada PRD atau RFC-002; berkaitan dengan K-01 |
+| T-03 | §6.1 hanya mengatur pembuatan akun Guru dan Siswa. Tidak ada ketentuan bagaimana akun Administrator dibuat | Tetapkan pada PRD atau `ARCHITECTURE.md`; berkaitan dengan K-01 |
 | T-04 | §9 menyatakan hanya Administrator yang dapat mengubah data final, tetapi rapor sudah berbentuk berkas yang terunduh. Tidak diatur apakah berkas diterbitkan ulang setelah koreksi | Tetapkan pada PRD |
 | T-05 | §8.2 mengunci satu guru satu mata pelajaran, tetapi tidak ada alur pergantian guru pengampu di tengah semester | Tetapkan pada PRD |
 | T-06 | Templat komponen dan bobot masih menunggu validasi sekolah (V1), sedemikian sehingga angka pada §5.1 belum final | Jalankan validasi sebelum data sekolah sungguhan dimuat |
@@ -523,11 +523,22 @@ Celah yang ditemukan saat menurunkan model data. Perlu ditanggapi tim sebelum RF
 | Urutan | Dokumen | Masukan |
 |:--:|---|---|
 | 1 | RFC-001 — Model Data Konseptual | PRD v3.0 |
-| 2 | RFC-002 — Stack dan Arsitektur | RFC-001, terutama §8 |
-| 3 | RFC-003 — Skema Fisik | RFC-001 §6, RFC-002 |
-| 4 | RFC-004 — Kontrak API | RFC-001, RFC-003 |
+| 2 | `ARCHITECTURE.md` — Stack dan Arsitektur | RFC-001, terutama §8 |
+| 3 | `SCHEMA.md` — Skema Fisik | RFC-001 §6, `ARCHITECTURE.md` |
+| 4 | `API.md` — Kontrak API | RFC-001, `SCHEMA.md` |
 
 Penguncian berurutan dilakukan karena biaya perubahan naik pada setiap langkah. Arsitektur masih dapat diubah selama kode belum banyak; skema fisik tidak lagi dapat diubah dengan murah setelah memuat data sekolah sungguhan.
+
+### 11.1 Bentuk dokumen lanjutan
+
+Ketiga dokumen lanjutan **tidak** ditulis sebagai RFC tersendiri. Masing-masing berupa satu berkas dengan dua bagian yang dipisahkan tegas:
+
+- **Badan dokumen** — deskripsi keadaan yang berlaku, disunting langsung ketika berubah.
+- **Lampiran Catatan Keputusan** — bernomor dan bertanggal, memuat opsi yang ditolak beserta alasannya, tidak disunting melainkan ditambah entri baru.
+
+RFC-001 sendiri seluruhnya berupa catatan keputusan, karena model data konseptual tidak memiliki padanan deskriptif yang perlu dimutakhirkan.
+
+Alasan pemisahan ini tercatat pada [README.md](README.md) §Konvensi Dokumen.
 
 ---
 
@@ -536,3 +547,4 @@ Penguncian berurutan dilakukan karena biaya perubahan naik pada setiap langkah. 
 | Tanggal | Perubahan |
 |---|---|
 | 5 Agustus 2026 | Dokumen dibuat. Menggantikan `SCHEMA-STATIS.md` dan `SCHEMA-DINAMIS.md`, keduanya diturunkan menjadi arsip |
+| 5 Agustus 2026 | Rujukan RFC-002, RFC-003, dan RFC-004 diganti menjadi `ARCHITECTURE.md`, `SCHEMA.md`, dan `API.md`. Dokumen lanjutan ditetapkan berbentuk deskripsi beserta lampiran Catatan Keputusan, bukan RFC tersendiri (§11.1) |

@@ -20,7 +20,7 @@ Kumpulan dokumen sumber kebenaran untuk produk **EduTrack** (Project ID: EDU-202
 | [aktor-role.md](./aktor-role.md) | Aktor, peran, dan aturan izin akses |
 | [superadmin.md](./superadmin.md) | Kebutuhan dan alur khusus Super Admin |
 
-Ketiganya disusun 2 Agustus 2026 dan memuat ketentuan yang bertentangan dengan PRD v3.0. Rinciannya tercatat pada [RFC-001 §2.3](./RFC-001-model-data-konseptual.md). Penyelarasan menjadi bagian RFC-002.
+Ketiganya disusun 2 Agustus 2026 dan memuat ketentuan yang bertentangan dengan PRD v3.0. Rinciannya tercatat pada [RFC-001 §2.3](./RFC-001-model-data-konseptual.md).
 
 ### Arsip
 
@@ -34,10 +34,24 @@ Diagram alur tersimpan di direktori [`img/`](./img).
 ## Urutan Penguncian Keputusan
 
 ```
-PRD v3.0  →  RFC-001 model data  →  RFC-002 stack & arsitektur  →  RFC-003 skema fisik  →  RFC-004 kontrak API
+PRD.md  →  RFC-001  →  ARCHITECTURE.md  →  SCHEMA.md  →  API.md
+           model data    stack & arsitektur   skema fisik   kontrak endpoint
 ```
 
 Biaya perubahan naik pada setiap langkah, sehingga yang paling mahal diubah dikunci paling akhir.
+
+## Konvensi Dokumen
+
+Dua jenis isi dipisahkan tegas, karena keduanya berumur berbeda:
+
+| Jenis | Menjawab | Perlakuan |
+|---|---|---|
+| **Deskripsi** | Apa yang berlaku hari ini | Disunting langsung; bagian yang usang diganti, bukan ditumpuk |
+| **Catatan Keputusan** | Kenapa dipilih, apa yang ditolak, kapan, oleh siapa | Bernomor dan bertanggal; tidak disunting, hanya ditambah atau diamandemen entri baru |
+
+`ARCHITECTURE.md`, `SCHEMA.md`, dan `API.md` masing-masing memuat **bagian deskripsi** di badan dokumen dan **lampiran Catatan Keputusan** di akhir. `RFC-001` seluruhnya berupa catatan keputusan, karena model data konseptual tidak memiliki padanan deskriptif.
+
+Alasan pemisahan: ketika PRD berubah, bagian deskripsi cukup dimutakhirkan, sedangkan Catatan Keputusan menunjukkan **keputusan mana yang perlu dibuka ulang**. Tanpa pemisahan ini, keduanya tidak dapat dibedakan — sebagaimana terjadi pada `ARCHITECTURE.md` versi 2 Agustus 2026.
 
 ## Konvensi
 
