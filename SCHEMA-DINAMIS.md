@@ -1,8 +1,19 @@
 # SCHEMA — Opsi DINAMIS
 
-> **Status:** Direkomendasikan. Belum dikunci final.
-> Bandingkan dengan [`SCHEMA-STATIS.md`](./SCHEMA-STATIS.md).
-> Peran & izin: [`aktor-role.md`](./aktor-role.md) · Arsitektur: [`ARCHITECTURE.md`](./ARCHITECTURE.md)
+> ## ⚠️ ARSIP — TIDAK BERLAKU
+>
+> **Status:** Dokumentasi lama. Disusun 2 Agustus 2026 berdasarkan asumsi sebelum PRD v3.0.
+> Digantikan oleh [`RFC-001-model-data-konseptual.md`](./RFC-001-model-data-konseptual.md).
+> Disimpan sebagai rekam jejak pertimbangan, **bukan sebagai acuan pembangunan**.
+>
+> Alasan tidak berlaku: dua argumen yang memenangkan opsi dinamis pada §"Kenapa dinamis
+> dipilih" — rumus jamak dan layar Rumus Nilai — keduanya dicabut PRD v3.0 melalui NG10
+> dan NG11. Bobot kini mengikuti templat bawaan sistem yang seragam untuk seluruh mata
+> pelajaran, sehingga entitas `rumus`, `komponen_rumus`, dan `penugasan_rumus` beserta
+> tata kelola `draft → diajukan → aktif` tidak lagi memiliki dasar. Entitas `ai_insight`
+> gugur oleh NG14, dan `penilaian_sikap` gugur oleh NG11.
+>
+> Bandingkan dengan [`SCHEMA-STATIS.md`](./SCHEMA-STATIS.md), yang juga berstatus arsip.
 
 **Ciri:** komponen nilai disimpan sebagai **baris**, bukan kolom. Rumus berlaku per `mapel × tingkat × periode × jenis`.
 

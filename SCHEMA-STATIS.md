@@ -1,8 +1,17 @@
 # SCHEMA — Opsi STATIS
 
-> **Status:** Alternatif, didokumentasikan untuk perbandingan. Belum dipilih.
-> Bandingkan dengan [`SCHEMA-DINAMIS.md`](./SCHEMA-DINAMIS.md).
-> Peran & izin: [`aktor-role.md`](./aktor-role.md) · Arsitektur: [`ARCHITECTURE.md`](./ARCHITECTURE.md)
+> ## ⚠️ ARSIP — TIDAK BERLAKU
+>
+> **Status:** Dokumentasi lama. Disusun 2 Agustus 2026 berdasarkan asumsi sebelum PRD v3.0.
+> Digantikan oleh [`RFC-001-model-data-konseptual.md`](./RFC-001-model-data-konseptual.md).
+> Disimpan sebagai rekam jejak pertimbangan, **bukan sebagai acuan pembangunan**.
+>
+> Alasan tidak berlaku: NG10 pada PRD v3.0 mencabut pembobotan per mata pelajaran,
+> NG11 mencabut ranah Keterampilan dan Sikap, dan NG14 mencabut penyimpanan keluaran AI.
+> Selain itu dokumen ini tidak memuat KKM, entitas sesi presensi, maupun model mata
+> pelajaran per jenjang yang diwajibkan PRD v3.0 §8.2, §8.3, dan §8.4.
+>
+> Bandingkan dengan [`SCHEMA-DINAMIS.md`](./SCHEMA-DINAMIS.md), yang juga berstatus arsip.
 
 **Ciri:** komponen nilai disimpan sebagai **kolom tetap** (`t1 … uas`). Bobot per `mapel × tingkat × periode`.
 
