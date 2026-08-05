@@ -4,7 +4,7 @@
 |---|---|
 | **Nama produk** | EduTrack |
 | **Project ID** | EDU-2026-001 |
-| **Versi** | v2.6 |
+| **Versi** | v2.7 |
 | **Tanggal** | 5 Agustus 2026 |
 | **Disusun oleh** | Re:Code |
 | **Pengguna MVP** | Administrator, Guru (termasuk Guru yang ditugaskan sebagai Wali Kelas), dan Siswa |
@@ -422,7 +422,7 @@ AI digunakan sebagai alat bantu peringkasan dan rekomendasi belajar, **hanya unt
 Fitur dijalankan melalui tombol **Suggestion** pada halaman siswa. Ketika tombol ditekan:
 
 1. Sistem menghimpun seluruh data akademik siswa tersebut pada semester berjalan — nilai setiap mata pelajaran beserta topiknya, KKM, kelengkapan penilaian, dan **persentase kehadiran per mata pelajaran**
-2. AI berperan sebagai **konsultan pendidikan** dan menyusun rangkuman capaian beserta rekomendasi hal yang perlu ditingkatkan
+2. AI berperan sebagai **konsultan pendidikan** dan menyusun rangkuman capaian beserta rekomendasi hal yang perlu ditingkatkan, lengkap dengan alasan rekomendasi dan **dua pilihan tindakan yang realistis**
 3. Hasil ditampilkan dalam format percakapan yang terstruktur
 4. AI **tidak mengubah data sumber apa pun**
 
@@ -439,11 +439,13 @@ Presensi dipakai AI **sebagai fakta penjelas**, bukan sebagai peringatan. Misaln
 | Pemicu | Tombol **Suggestion**. Tidak berjalan otomatis |
 | Interaksi | **Sekali jalan.** Tidak ada pertanyaan lanjutan dan tidak ada kolom masukan dari siswa |
 | Format | Percakapan yang terstruktur |
-| Susunan jawaban | **Tidak distandarkan.** AI bebas menyusun isi sepanjang relevan dengan data yang diberikan |
+| Susunan jawaban | Urutan dan gaya penulisan bebas, tetapi keluaran **wajib memuat tiga unsur**: rekomendasi belajar, alasan rekomendasi, dan **dua pilihan tindakan yang realistis** |
 | Bahasa | **Profesional**, sebagaimana seorang konsultan pendidikan |
 | Penyimpanan | **Tidak disimpan.** Hasil hilang ketika halaman dimuat ulang; menekan tombol kembali menghasilkan keluaran baru |
 
-Karena susunan jawaban tidak distandarkan, **fakta sumber, periode data, dan penanda Data Sementara ditampilkan oleh halaman** di sekitar keluaran AI, bukan dituntut menjadi bagian dari teks AI.
+Contoh dua pilihan tindakan sebagaimana dimaksud baseline: *"Opsi A: ulangi latihan persamaan linear. Opsi B: tanyakan tugas yang belum lengkap kepada Guru."*
+
+Karena urutan penulisan tetap bebas, **fakta sumber, periode data, dan penanda Data Sementara ditampilkan oleh halaman** di sekitar keluaran AI, bukan dituntut menjadi bagian dari teks AI.
 
 Karena keluaran tidak disimpan, tidak tersedia riwayat rekomendasi yang pernah ditampilkan kepada siswa. Konsekuensi ini diterima secara sadar untuk MVP.
 
@@ -587,6 +589,7 @@ Finalisasi mencegah nilai berubah tanpa sepengetahuan pihak terkait setelah rapo
 | AC-28 | Guru yang belum dihubungkan dengan mata pelajaran tidak memiliki menu mengajar, dan Siswa yang belum masuk kelas tidak memiliki data akademik |
 | AC-29 | Izin dan Sakit terhitung sebagai kehadiran pada persentase presensi, dan hanya Alpa yang menguranginya |
 | AC-30 | Siswa hanya melihat persentase presensi per mata pelajaran, tanpa jalur apa pun untuk membuka rincian per tanggal |
+| AC-31 | Setiap keluaran AI memuat rekomendasi belajar, alasan rekomendasi, dan dua pilihan tindakan yang realistis |
 | AC-23 | **Kriteria penutup.** Minimal 90% skenario uji pengguna berhasil dan tidak terdapat kesalahan kritis yang masih terbuka |
 
 ---
@@ -605,9 +608,9 @@ Finalisasi mencegah nilai berubah tanpa sepengetahuan pihak terkait setelah rapo
 
 ## 15. Pertanyaan Terbuka
 
-| # | Pertanyaan | Menahan |
-|---|---|---|
-| Q7 | **"Dua pilihan tindakan yang realistis"** — baseline mensyaratkannya, sedangkan susunan jawaban AI ditetapkan tidak distandarkan. Dokumen ini memperlakukannya sebagai anjuran pada instruksi ke AI, bukan syarat yang divalidasi sistem | Ketentuan keluaran AI |
+Tidak terdapat pertanyaan terbuka pada versi ini. Seluruh pertanyaan sebelumnya telah diputuskan dan hasilnya tercatat pada bagian yang bersangkutan serta pada [§16](#16-penyesuaian-terhadap-baseline).
+
+Hal yang masih memerlukan konfirmasi pihak sekolah tercantum terpisah pada [§14](#14-hal-yang-harus-divalidasi-dengan-sekolah).
 
 ---
 
