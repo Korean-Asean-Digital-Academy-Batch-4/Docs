@@ -4,7 +4,7 @@
 |---|---|
 | **Nama produk** | EduTrack |
 | **Project ID** | EDU-2026-001 |
-| **Versi** | v2.2 |
+| **Versi** | v2.3 |
 | **Tanggal** | 5 Agustus 2026 |
 | **Disusun oleh** | Re:Code |
 | **Pengguna MVP** | Administrator, Guru (termasuk Guru yang ditugaskan sebagai Wali Kelas), dan Siswa |
@@ -103,6 +103,7 @@ MVP adalah versi awal yang hanya memuat fungsi paling penting agar alur sekolah 
 | NG14 | **Penyimpanan riwayat rekomendasi AI** | Keluaran bersifat sementara dan tidak tersimpan |
 | NG15 | **Jadwal mengajar** | Sistem tidak mengetahui pertemuan yang seharusnya terjadi. Sesi dibuka Guru secara manual, tanpa jumlah minimum |
 | NG16 | **Ambang kehadiran minimum** | Tidak ada batas persentase yang ditetapkan sekolah di dalam sistem |
+| NG17 | **Unggah dokumen pendukung izin** | Status Izin dan Sakit dicatat tanpa surat, berkas, maupun lampiran bukti |
 
 ---
 
@@ -296,6 +297,13 @@ Sistem menolak penghubungan apabila jenjang kelas berbeda dengan jenjang mata pe
 
 Dengan demikian, Guru yang mengampu lebih dari satu jenjang tetap aman: setiap kelas hanya dapat terhubung dengan mata pelajaran yang jenjangnya sama.
 
+**Ketentuan penugasan**
+
+1. Satu Guru mengampu **tepat satu mata pelajaran**. Guru boleh mengampu mata pelajaran yang sama pada lebih dari satu jenjang, misalnya Biologi X dan Biologi XI, tetapi tidak mengampu mata pelajaran yang berbeda.
+2. Satu mata pelajaran-jenjang **boleh diampu lebih dari satu Guru**. Kelas yang menentukan Guru mana yang berlaku, karena setiap kelas dihubungkan dengan tepat satu Guru untuk mata pelajaran tersebut.
+3. Karena Guru hanya mengampu satu mata pelajaran, **mata pelajaran tidak pernah perlu dipilih**. Kelas sudah cukup untuk menentukan lingkup pengisian nilai maupun sesi presensi.
+4. Guru hanya melihat dan mengisi data pada kelas yang dihubungkan kepadanya, sehingga tidak mungkin memasukkan nilai siswa yang tidak diajarnya.
+
 **KKM** ditetapkan Administrator pada lapis pertama, yaitu per mata pelajaran-jenjang. Biologi X dan Biologi XI dapat memiliki KKM yang berbeda.
 
 ### 8.3 Komponen penilaian, bobot, dan KKM
@@ -310,6 +318,18 @@ UAS               ujian akhir semester
 ```
 
 Belum tersedia templat siap pakai; Administrator menyusun daftar komponen secara manual.
+
+**Contoh susunan yang disepakati tim**
+
+| Komponen | Bobot per komponen | Jumlah |
+|---|--:|--:|
+| T1, T2, T3 | 6% | 18% |
+| U1, U2, U3 | 10% | 30% |
+| UTS | 26% | 26% |
+| UAS | 26% | 26% |
+| **Total** | | **100%** |
+
+Susunan ini mengikuti ketentuan bahwa UTS dan UAS berbobot sama dan lebih besar daripada ulangan harian, sedangkan ulangan harian lebih besar daripada tugas. Angka tersebut menjadi acuan kerja dan data demo, **bukan templat sistem** — Administrator tetap menyusun komponen secara manual (M3), dan angkanya masih perlu divalidasi sekolah (V1).
 
 ```
 Nilai akhir mata pelajaran = Σ (nilai komponen × bobot komponen) ÷ 100
@@ -330,7 +350,7 @@ Presensi dicatat melalui **sesi**. Sesi adalah satu pertemuan pada satu kelas, s
 **Alur pembukaan sesi**
 
 1. Guru membuka halaman presensi, lalu memilih **kelas** dan **tanggal**
-2. Mata pelajaran terisi otomatis dari penugasan Guru pada kelas tersebut ([§8.2](#82-struktur-mata-pelajaran-dan-penugasan))
+2. Mata pelajaran tidak perlu dipilih. Karena Guru hanya mengampu satu mata pelajaran, sesi otomatis melekat pada mata pelajaran tersebut ([§8.2](#82-struktur-mata-pelajaran-dan-penugasan))
 3. Sesi terbuka dan seluruh siswa kelas itu langsung memperoleh status **Alpa**
 4. Guru menyesuaikan status yang perlu diubah, atau menekan tombol **Hadir Semua** lalu menandai siswa yang tidak hadir
 5. Perubahan tersimpan otomatis
@@ -346,7 +366,7 @@ Sesi **tidak perlu ditutup**. Tidak terdapat status selesai maupun penguncian se
 
 **Ketentuan presensi:**
 
-1. Satu kelas, satu mata pelajaran, dan satu tanggal hanya boleh memiliki **satu sesi**
+1. Satu Guru, satu kelas, dan satu tanggal hanya boleh memiliki **satu sesi**. Dua Guru mata pelajaran berbeda dapat membuka sesi pada kelas dan tanggal yang sama tanpa saling bertabrakan, karena sesi melekat pada Guru yang membukanya
 2. Setiap siswa memiliki tepat satu status pada satu sesi. **Status kosong tidak mungkin terjadi**, karena sesi selalu terbuka dengan seluruh siswa berstatus Alpa
 3. Koreksi presensi wajib tercatat: nilai lama, nilai baru, pengguna, waktu, dan alasan
 4. Penghapusan sesi wajib tercatat dan menghapus seluruh status di dalamnya. Persentase kehadiran menyesuaikan secara otomatis
@@ -441,7 +461,7 @@ Finalisasi mencegah nilai berubah tanpa sepengetahuan pihak terkait setelah rapo
 | # | Aturan |
 |---|---|
 | P1 | Seluruh Guru merupakan Guru Mata Pelajaran. Kewenangan Wali Kelas hanya tambahan pada Guru tertentu |
-| P2 | Mata pelajaran dibuat per jenjang, dihubungkan dengan Guru, kemudian kelas dihubungkan dengan Guru. Sistem menolak penghubungan apabila jenjang kelas tidak sama dengan jenjang mata pelajaran Guru |
+| P2 | Mata pelajaran dibuat per jenjang, dihubungkan dengan Guru, kemudian kelas dihubungkan dengan Guru. Satu Guru mengampu tepat satu mata pelajaran, boleh lintas jenjang, dan satu mata pelajaran-jenjang boleh diampu lebih dari satu Guru. Sistem menolak penghubungan apabila jenjang kelas tidak sama dengan jenjang mata pelajaran Guru |
 | P3 | Satu kelas hanya memiliki satu Wali Kelas aktif dalam satu semester |
 | P4 | Administrator menetapkan KKM per mata pelajaran-jenjang, serta komponen penilaian dan bobot; jumlah seluruh bobot harus tepat 100% |
 | P5 | Nilai kosong tidak boleh dianggap sebagai nilai nol; sistem menandainya sebagai belum lengkap |
@@ -553,7 +573,6 @@ Finalisasi mencegah nilai berubah tanpa sepengetahuan pihak terkait setelah rapo
 | Q5 | **Apakah unggah berkas Excel termasuk MVP?** Terdapat pada prototipe antarmuka, tetapi baseline hanya menyebut input dan edit manual | Persiapan semester |
 | Q6 | **Apakah pemberitahuan dalam aplikasi termasuk MVP?** Baseline menyebut "notifikasi data belum lengkap" tanpa menjelaskan bentuk maupun cakupannya | Alur nilai dan rapor |
 | Q7 | **"Dua pilihan tindakan yang realistis"** — baseline mensyaratkannya, sedangkan susunan jawaban AI ditetapkan tidak distandarkan. Dokumen ini memperlakukannya sebagai anjuran pada instruksi ke AI, bukan syarat yang divalidasi sistem | Ketentuan keluaran AI |
-| Q8 | **Apakah satu mata pelajaran-jenjang hanya boleh memiliki satu Guru pengampu?** Struktur tiga lapis pada [§8.2](#82-struktur-mata-pelajaran-dan-penugasan) melekatkan satu mata pelajaran-jenjang pada satu Guru. Apabila Biologi X diampu lebih dari satu Guru, lapis kedua harus mengizinkan banyak Guru | Layar penghubungan Guru dan kelas |
 
 ---
 
@@ -568,7 +587,7 @@ Dokumen ini menyimpang dari PRD MVP Final pada beberapa titik berikut. **Perbeda
 | D4 | AI Insight tersedia bagi Guru dan Wali Kelas pada use case §9 dan daftar layar §12 | **Hanya untuk Siswa**. Guru Mata Pelajaran tidak memiliki AI Insight | Bagian baseline yang bertentangan perlu dihapus | Dikonfirmasi tim, 5 Agustus 2026 |
 | D5 | Presensi dicatat dengan memilih tanggal, dan presensi kosong ditampilkan sebagai Alpa | Presensi hanya dicatat melalui **sesi** yang dibuka Guru. Seluruh siswa berstatus awal **Alpa** sejak sesi terbuka, sehingga presensi kosong tidak mungkin terjadi | Ketentuan "Belum Dicatat" dihapus. P6, P7, AC-11, dan AC-25 disesuaikan | Dikonfirmasi tim, 5 Agustus 2026 |
 | D6 | Administrator menetapkan "KKM dan bobot penilaian standar" | Administrator menetapkan **KKM, komponen penilaian, dan bobot**. KKM bersifat per mata pelajaran-jenjang. Templat komponen belum tersedia | Komponen penilaian sebelumnya tidak disebut sebagai hal yang ditetapkan Administrator | Dikonfirmasi tim, 5 Agustus 2026 |
-| D7 | Penugasan Guru terkait dengan "satu kelas, satu mata pelajaran, dan satu semester" | **Struktur tiga lapis**: mata pelajaran per jenjang, dihubungkan ke Guru, lalu kelas dihubungkan ke Guru. Kelas memperoleh mata pelajarannya secara otomatis, dan jenjang yang tidak cocok ditolak | Model penugasan berubah. §8.2, P2, UC-04, AC-02, dan AC-24 mengikuti struktur ini | Baru, 5 Agustus 2026 |
+| D7 | Penugasan Guru terkait dengan "satu kelas, satu mata pelajaran, dan satu semester" | **Struktur tiga lapis**: mata pelajaran per jenjang, dihubungkan ke Guru, lalu kelas dihubungkan ke Guru. Satu Guru mengampu tepat satu mata pelajaran dan boleh lintas jenjang, sehingga mata pelajaran tidak pernah perlu dipilih. Jenjang yang tidak cocok ditolak | Model penugasan berubah. §8.2, P2, UC-04, AC-02, dan AC-24 mengikuti struktur ini | Baru, 5 Agustus 2026 |
 | D8 | Baseline menyebut "sesi kelas" pada daftar cakupan MVP tanpa mendefinisikannya | **Sesi menjadi objek yang dibuka Guru** (kelas + mata pelajaran + tanggal), tidak perlu ditutup, dan dapat dihapus apabila keliru | Presensi memiliki alur yang jelas. Persentase kehadiran dihitung terhadap jumlah sesi yang dibuka Guru | Baru, 5 Agustus 2026 |
 
 **D3 dihapus.** Ketentuan baseline "siswa yang melewati batas perhatian sekolah" berada pada bagian yang ditandai untuk diabaikan oleh penyusun baseline, sehingga tidak lagi menjadi perbedaan. Sekolah juga menegaskan tidak ada ambang kehadiran minimum (NG16).
@@ -582,7 +601,7 @@ Dokumen ini menyimpang dari PRD MVP Final pada beberapa titik berikut. **Perbeda
 | Istilah | Definisi |
 |---|---|
 | **Administrator** | Akun yang menyiapkan periode, kelas, mata pelajaran, akun, penugasan, KKM, komponen penilaian, dan bobot, serta memiliki akses penuh terhadap seluruh data termasuk nilai akademik |
-| **Guru Mapel** | Guru yang dihubungkan dengan satu mata pelajaran-jenjang serta mengelola nilai, sesi presensi, dan presensi pada kelas yang dihubungkan kepadanya |
+| **Guru Mapel** | Guru yang mengampu tepat satu mata pelajaran, boleh pada lebih dari satu jenjang, serta mengelola nilai, sesi presensi, dan presensi pada kelas yang dihubungkan kepadanya |
 | **Wali Kelas** | Kewenangan tambahan pada akun Guru untuk memantau kelas wali, memeriksa kelengkapan, memfinalisasi rapor semester, dan mendistribusikannya |
 | **Siswa** | Pengguna yang hanya dapat melihat nilai, bobot, presensi, rekomendasi, dan rapor miliknya sendiri sesuai status publikasi |
 | **Mata pelajaran-jenjang** | Mata pelajaran yang selalu melekat pada satu jenjang, misalnya Biologi X atau Matematika XI. Menjadi satuan penetapan KKM dan satuan penugasan Guru |
