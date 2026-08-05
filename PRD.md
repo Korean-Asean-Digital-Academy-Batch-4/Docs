@@ -4,7 +4,7 @@
 |---|---|
 | **Nama produk** | EduTrack |
 | **Project ID** | EDU-2026-001 |
-| **Versi** | v2.4 |
+| **Versi** | v2.5 |
 | **Tanggal** | 5 Agustus 2026 |
 | **Disusun oleh** | Re:Code |
 | **Pengguna MVP** | Administrator, Guru (termasuk Guru yang ditugaskan sebagai Wali Kelas), dan Siswa |
@@ -77,7 +77,7 @@ MVP adalah versi awal yang hanya memuat fungsi paling penting agar alur sekolah 
 |---|---|
 | M1 | Pembuatan akun Guru dan Siswa melalui **unggah berkas CSV atau pengisian manual**, dengan **kata sandi awal dibuat sistem**. **Sesi kelas dibuka Guru Mata Pelajaran** pada saat mencatat presensi |
 | M2 | Administrator menugaskan Kelas, Siswa, Guru, Mata Pelajaran, Semester, dan Tahun Ajaran. **Mata pelajaran dibuat per jenjang** — misalnya Matematika X, Biologi XI — dan penugasan berlangsung dalam tiga lapis sebagaimana diuraikan pada [§8.2](#82-struktur-mata-pelajaran-dan-penugasan) |
-| M3 | Administrator menetapkan **KKM, komponen penilaian, dan bobot**. **KKM ditetapkan per mata pelajaran-jenjang.** Komponen dibuat bebas oleh Administrator, misalnya T1, T2, T3, U1, U2, U3, U4, UTS, UAS. **Belum tersedia templat siap pakai** |
+| M3 | Administrator menetapkan **KKM per mata pelajaran-jenjang** pada saat mata pelajaran dibuat. Komponen penilaian dan bobot memakai **templat bawaan sistem** yang berlaku untuk seluruh mata pelajaran ([§8.3](#83-komponen-penilaian-bobot-dan-kkm)) |
 | M4 | **Guru Mata Pelajaran** membuka sesi presensi serta menginput nilai dan presensi siswa |
 | M5 | **Wali Kelas** memfinalisasi rapor, mendistribusikan rapor, serta mengunduh nilai dan rapor |
 | M6 | AI Insight untuk siswa |
@@ -100,8 +100,7 @@ MVP adalah versi awal yang hanya memuat fungsi paling penting agar alur sekolah 
 | NG9 | Riwayat nilai jenjang sebelumnya | Sistem hanya menyajikan periode berjalan |
 | NG10 | Pembobotan dinamis per mata pelajaran | Komponen dan bobot mengikuti ketetapan Administrator |
 | NG11 | **Penilaian Keterampilan, Sikap Sosial, dan Sikap Spiritual** | MVP hanya menangani ranah Pengetahuan |
-| NG12 | **Umpan balik atau tindak lanjut presensi** | Presensi hanya menampilkan persentase, tanpa peringatan maupun anjuran |
-| NG13 | **Templat komponen penilaian siap pakai** | Administrator menyusun komponen secara manual |
+| NG12 | **Umpan balik atau tindak lanjut presensi pada halaman presensi** | Halaman presensi hanya menampilkan persentase, tanpa peringatan maupun anjuran. AI Insight tetap boleh menyebut presensi sebagai konteks penjelas ([§8.5](#85-ai-insight--tombol-suggestion)) |
 | NG14 | **Penyimpanan riwayat rekomendasi AI** | Keluaran bersifat sementara dan tidak tersimpan |
 | NG15 | **Jadwal mengajar** | Sistem tidak mengetahui pertemuan yang seharusnya terjadi. Sesi dibuka Guru secara manual, tanpa jumlah minimum |
 | NG16 | **Ambang kehadiran minimum** | Tidak ada batas persentase yang ditetapkan sekolah di dalam sistem |
@@ -136,8 +135,7 @@ Guru hanya dapat bekerja pada kelas dan mata pelajaran yang diberikan oleh Admin
 
 1. Mengisi dan menyunting nilai
 2. Membuka sesi presensi, menetapkan dan menyunting status kehadiran, serta menghapus sesi yang keliru
-3. Mempublikasikan nilai tertentu agar dapat dilihat siswa
-4. Melihat progres siswa pada penugasannya
+3. Melihat progres siswa pada penugasannya
 5. **Tidak melakukan finalisasi rapor**
 
 ### 5.3 Wali Kelas
@@ -154,7 +152,7 @@ Wali Kelas merupakan kewenangan tambahan pada akun Guru.
 
 ### 5.4 Siswa
 
-1. Melihat nilai dan bobot penilaian yang sudah dipublikasikan Guru
+1. Melihat nilai dan bobot penilaian segera setelah Guru menginputnya
 2. Melihat persentase presensi miliknya sendiri
 3. Memperoleh rangkuman dan rekomendasi belajar melalui tombol Suggestion
 4. Melihat dan mengunduh rapor setelah Wali Kelas mendistribusikannya
@@ -183,28 +181,31 @@ flowchart LR
 
 1. Administrator mengunggah berkas CSV atau mengisi manual. Isi data hanya **Nama** dan **NIP**
 2. Sistem membuat **kata sandi awal secara otomatis** untuk setiap Guru
-3. Guru **belum memiliki peran apa pun** sampai dihubungkan dengan mata pelajaran
+3. Guru masuk aplikasi menggunakan **NIP dan kata sandi**
+4. Guru **belum memiliki peran apa pun** sampai dihubungkan dengan mata pelajaran
 
 #### 6.1.2 Pembuatan akun Siswa
 
 1. Administrator mengunggah berkas CSV atau mengisi manual. Isi data hanya **Nama** dan **NIS**
 2. Sistem membuat **kata sandi awal secara otomatis** untuk setiap Siswa
-3. Siswa **belum berada di kelas mana pun** sampai kelas dibuat
+3. Siswa masuk aplikasi menggunakan **NIS dan kata sandi**
+4. Siswa **belum berada di kelas mana pun** sampai kelas dibuat
 
 #### 6.1.3 Pembuatan mata pelajaran
 
 1. Dibuat manual, memuat **nama mata pelajaran, jenjang, KKM, dan Guru pengampu** yang dipilih dari daftar
-2. Untuk saat ini satu mata pelajaran memiliki **tepat satu jenjang dan satu Guru pengampu**
+2. Satu mata pelajaran memiliki **tepat satu jenjang dan satu Guru pengampu**, dan satu Guru hanya mengampu satu mata pelajaran pada satu jenjang
 3. Setelah dihubungkan, Guru memperoleh peran mengajar, misalnya Matematika X
 
 #### 6.1.4 Pembuatan kelas
 
 1. Administrator menekan tombol buat kelas baru
 2. Menetapkan **periode akademik**: semester dan tahun ajaran dipilih dari daftar. Proses dapat dibatalkan atau dilanjutkan
-3. Apabila dilanjutkan, Administrator **mengunggah daftar siswa** dalam berkas Excel. Templat dapat diunduh apabila belum tersedia; isi templat adalah **Kelas** dan **Nama siswa**
-4. Administrator menetapkan salah satu Guru sebagai **Wali Kelas**
-5. Guru tersebut memperoleh kewenangan tambahan Wali Kelas
-6. **Satu proses menghasilkan satu kelas.** Pembuatan kelas berikutnya mengulang proses dari awal
+3. Apabila dilanjutkan, Administrator **mengunggah daftar siswa** dalam berkas Excel. Templat dapat diunduh apabila belum tersedia; isi templat adalah **Kelas, NIS, dan Nama siswa**. **NIS menjadi kunci pencocokan** dengan akun siswa yang sudah ada; nama hanya dipakai sebagai pemeriksaan
+4. Administrator **menghubungkan Guru mata pelajaran** dengan kelas tersebut. Guru yang jenjang mata pelajarannya tidak sama dengan jenjang kelas akan ditolak
+5. Administrator menetapkan salah satu Guru sebagai **Wali Kelas**
+6. Guru tersebut memperoleh kewenangan tambahan Wali Kelas
+7. **Satu proses menghasilkan satu kelas.** Pembuatan kelas berikutnya mengulang proses dari awal
 
 #### 6.1.5 Umpan balik proses
 
@@ -265,7 +266,7 @@ flowchart TD
 ```mermaid
 flowchart LR
     A["Masuk"] --> B["Dasbor"]
-    B --> C["Nilai dan bobot<br/>yang sudah dipublikasikan"]
+    B --> C["Nilai dan bobot<br/>yang sudah diinput Guru"]
     B --> D["Persentase presensi<br/>miliknya sendiri"]
     B --> E["Tombol Suggestion<br/>rangkuman dan rekomendasi"]
     B --> F["Rapor<br/>(tersedia setelah didistribusikan)"]
@@ -278,7 +279,7 @@ flowchart LR
 | Bagian | Fitur yang wajib tersedia |
 |---|---|
 | **Administrasi** | Pembuatan akun melalui unggah CSV atau manual dengan kata sandi otomatis, mata pelajaran per jenjang beserta KKM dan Guru pengampu, pembuatan kelas beserta periode akademik dan unggah daftar siswa, templat berkas yang dapat diunduh, penetapan Wali Kelas, pemeriksaan kecocokan jenjang, komponen penilaian, bobot, serta pemberitahuan berhasil atau gagal |
-| **Nilai** | Input dan edit manual, komponen dan bobot, perhitungan nilai, publikasi nilai, serta penanda data belum lengkap |
+| **Nilai** | Input dan edit manual, komponen dan bobot, perhitungan nilai, tampilan nilai bagi siswa, serta penanda data belum lengkap |
 | **Presensi** | Pembukaan dan penghapusan sesi, pencatatan status hadir/izin/sakit/alpa per sesi, tombol **Hadir Semua**, penyuntingan, dan **persentase kehadiran** |
 | **Rapor Semester** | Nilai dari seluruh mata pelajaran, catatan Wali Kelas, finalisasi, pembuatan berkas rapor, distribusi, dan unduh |
 | **AI Insight** | Tombol Suggestion berisi rangkuman capaian dan rekomendasi belajar untuk siswa |
@@ -300,7 +301,6 @@ flowchart LR
 | **Mengisi dan mengubah nilai akademik** | ✅ **penuh** | ✅ penugasannya | ❌ | ❌ |
 | **Membuka dan menghapus sesi presensi** | ✅ | ✅ penugasannya | ❌ | ❌ |
 | Mengisi dan menyunting presensi | ✅ | ✅ penugasannya | ❌ | ❌ |
-| Mempublikasikan nilai kepada siswa | ✅ | ✅ penugasannya | ❌ | – |
 | Melihat nilai lintas mata pelajaran | ✅ | ❌ | ✅ kelas walinya | ✅ dirinya |
 | Menulis catatan umum rapor semester | ✅ | ❌ | ✅ | – |
 | **Memfinalisasi rapor semester** | ✅ | ❌ | ✅ | – |
@@ -316,42 +316,30 @@ Penugasan disusun dalam tiga lapis. Setiap lapis menjadi dasar bagi lapis beriku
 | Lapis | Yang dihubungkan | Contoh |
 |:--:|---|---|
 | 1 | Mata pelajaran dibuat **per jenjang** | Biologi X, Matematika XI |
-| 2 | Mata pelajaran-jenjang dihubungkan dengan **Guru** | Pak Cahyo — Biologi X; Bu Fifi — Matematika XI |
-| 3 | **Kelas** dihubungkan dengan Guru | Kelas X IPA 3 — Pak Cahyo; Kelas XI IPS 2 — Bu Fifi |
+| 2 | Mata pelajaran-jenjang dihubungkan dengan **satu Guru** | Pak Cahyo — Biologi X; Bu Fifi — Matematika XI |
+| 3 | **Kelas** dihubungkan dengan Guru pada saat kelas dibuat | Kelas X IPA 3 — Pak Cahyo; Kelas XI IPS 2 — Bu Fifi |
 
-Mata pelajaran **tidak dipilih ulang pada lapis ketiga**. Kelas X IPA 3 yang dihubungkan dengan Pak Cahyo otomatis memperoleh Biologi X, karena mata pelajaran tersebut sudah melekat pada Pak Cahyo sejak lapis kedua.
+Mata pelajaran **tidak dipilih ulang pada lapis ketiga**. Kelas X IPA 3 yang dihubungkan dengan Pak Cahyo otomatis memperoleh Biologi X, karena mata pelajaran tersebut sudah melekat pada Pak Cahyo sejak lapis kedua. Penghubungan ini dilakukan pada langkah pembuatan kelas ([§6.1.4](#614-pembuatan-kelas)).
 
 **Pemeriksaan kecocokan jenjang**
 
-Sistem menolak penghubungan apabila jenjang kelas berbeda dengan jenjang mata pelajaran Guru. Kelas X tidak dapat memperoleh mata pelajaran berjenjang XI, meskipun Guru yang bersangkutan mengampu kedua jenjang tersebut. Penolakan disertai pesan yang menyebutkan jenjang kelas dan jenjang mata pelajaran yang tidak cocok.
-
-Dengan demikian, Guru yang mengampu lebih dari satu jenjang tetap aman: setiap kelas hanya dapat terhubung dengan mata pelajaran yang jenjangnya sama.
+Sistem menolak penghubungan apabila jenjang kelas berbeda dengan jenjang mata pelajaran Guru. Kelas X tidak dapat dihubungkan dengan Guru yang mengampu mata pelajaran berjenjang XI. Penolakan disertai pesan yang menyebutkan jenjang kelas dan jenjang mata pelajaran yang tidak cocok.
 
 **Ketentuan penugasan**
 
 1. Satu mata pelajaran memiliki **tepat satu jenjang dan tepat satu Guru pengampu**. Guru dipilih pada saat mata pelajaran dibuat ([§6.1.3](#613-pembuatan-mata-pelajaran)).
-2. Satu Guru mengampu **tepat satu mata pelajaran**. Guru boleh mengampu mata pelajaran yang sama pada lebih dari satu jenjang, misalnya Biologi X dan Biologi XI, tetapi tidak mengampu mata pelajaran yang berbeda.
-3. Karena Guru hanya mengampu satu mata pelajaran, **mata pelajaran tidak pernah perlu dipilih**. Kelas sudah cukup untuk menentukan lingkup pengisian nilai maupun sesi presensi.
-4. Guru hanya melihat dan mengisi data pada kelas yang dihubungkan kepadanya, sehingga tidak mungkin memasukkan nilai siswa yang tidak diajarnya.
+2. Satu Guru mengampu **tepat satu mata pelajaran pada tepat satu jenjang**. Guru tidak dapat mengampu dua mata pelajaran yang berbeda, dan tidak dapat mengampu jenjang yang berbeda.
+3. Satu Guru **boleh mengajar lebih dari satu kelas**, sepanjang seluruh kelas tersebut berada pada jenjang yang sama.
+4. Karena Guru hanya mengampu satu mata pelajaran pada satu jenjang, **mata pelajaran tidak pernah perlu dipilih**. Kelas sudah cukup untuk menentukan lingkup pengisian nilai maupun sesi presensi.
+5. Guru hanya melihat dan mengisi data pada kelas yang dihubungkan kepadanya, sehingga tidak mungkin memasukkan nilai siswa yang tidak diajarnya.
 
-> **Belum ditetapkan:** layar untuk lapis ketiga — penghubungan kelas dengan Guru — belum diuraikan pada alur Administrator §6.1. Lihat [Q8](#15-pertanyaan-terbuka).
-
-**KKM** ditetapkan Administrator pada lapis pertama, yaitu per mata pelajaran-jenjang. Biologi X dan Biologi XI dapat memiliki KKM yang berbeda.
+**KKM** ditetapkan Administrator pada lapis pertama, yaitu bersamaan dengan pembuatan mata pelajaran. Biologi X dan Biologi XI dapat memiliki KKM yang berbeda.
 
 ### 8.3 Komponen penilaian, bobot, dan KKM
 
-Administrator menetapkan **daftar komponen penilaian** beserta bobotnya. Komponen disusun bebas sesuai kebutuhan sekolah, misalnya:
+Sistem menyediakan **templat komponen penilaian dan bobot bawaan** yang berlaku untuk seluruh mata pelajaran. Administrator tidak perlu menyusunnya dari nol.
 
-```
-T1  T2  T3        tugas
-U1  U2  U3  U4    ulangan harian
-UTS               ujian tengah semester
-UAS               ujian akhir semester
-```
-
-Belum tersedia templat siap pakai; Administrator menyusun daftar komponen secara manual.
-
-**Contoh susunan yang disepakati tim**
+**Templat bawaan**
 
 | Komponen | Bobot per komponen | Jumlah |
 |---|--:|--:|
@@ -361,7 +349,7 @@ Belum tersedia templat siap pakai; Administrator menyusun daftar komponen secara
 | UAS | 26% | 26% |
 | **Total** | | **100%** |
 
-Susunan ini mengikuti ketentuan bahwa UTS dan UAS berbobot sama dan lebih besar daripada ulangan harian, sedangkan ulangan harian lebih besar daripada tugas. Angka tersebut menjadi acuan kerja dan data demo, **bukan templat sistem** — Administrator tetap menyusun komponen secara manual (M3), dan angkanya masih perlu divalidasi sekolah (V1).
+Susunan ini mengikuti ketentuan bahwa UTS dan UAS berbobot sama dan lebih besar daripada ulangan harian, sedangkan ulangan harian lebih besar daripada tugas. Templat berlaku **sama untuk seluruh mata pelajaran**; pembobotan yang berbeda per mata pelajaran berada di luar cakupan MVP (NG10). Angka templat masih perlu divalidasi sekolah (V1).
 
 ```
 Nilai akhir mata pelajaran = Σ (nilai komponen × bobot komponen) ÷ 100
@@ -370,7 +358,7 @@ Nilai akhir mata pelajaran = Σ (nilai komponen × bobot komponen) ÷ 100
 | Ketentuan | |
 |---|---|
 | Ranah penilaian | **Hanya Pengetahuan.** Keterampilan, Sikap Sosial, dan Sikap Spiritual di luar cakupan MVP |
-| Bobot | Ditetapkan Administrator. **Jumlah seluruh bobot harus tepat 100%** |
+| Bobot | Mengikuti templat bawaan dan berlaku untuk seluruh mata pelajaran. **Jumlah seluruh bobot harus tepat 100%** |
 | KKM | Batas acuan ketuntasan, ditetapkan **per mata pelajaran-jenjang**. **Nilai awal 75**, mengikuti ketentuan yang lazim digunakan sekolah di Indonesia, dan **dapat diubah Administrator** |
 | Nilai kosong | **Tidak boleh dianggap sebagai nilai nol.** Sistem menandainya sebagai belum lengkap |
 | Nilai final | Tidak ditampilkan sebagai hasil final selama data belum lengkap |
@@ -423,14 +411,16 @@ AI digunakan sebagai alat bantu peringkasan dan rekomendasi belajar, **hanya unt
 
 Fitur dijalankan melalui tombol **Suggestion** pada halaman siswa. Ketika tombol ditekan:
 
-1. Sistem menghimpun seluruh data akademik siswa tersebut pada semester berjalan — nilai setiap mata pelajaran beserta topiknya, KKM, dan kelengkapan penilaian
+1. Sistem menghimpun seluruh data akademik siswa tersebut pada semester berjalan — nilai setiap mata pelajaran beserta topiknya, KKM, kelengkapan penilaian, dan **persentase kehadiran per mata pelajaran**
 2. AI berperan sebagai **konsultan pendidikan** dan menyusun rangkuman capaian beserta rekomendasi hal yang perlu ditingkatkan
 3. Hasil ditampilkan dalam format percakapan yang terstruktur
 4. AI **tidak mengubah data sumber apa pun**
 
 | Pelaku | Data yang dibaca | Yang ditampilkan |
 |---|---|---|
-| **Siswa** | Seluruh nilai mata pelajaran beserta topiknya pada semester berjalan, KKM, dan kelengkapan penilaian — **hanya milik siswa yang bersangkutan** | Rangkuman capaian dan rekomendasi hal yang perlu ditingkatkan |
+| **Siswa** | Seluruh nilai mata pelajaran beserta topiknya pada semester berjalan, KKM, kelengkapan penilaian, dan persentase kehadiran per mata pelajaran — **hanya milik siswa yang bersangkutan** | Rangkuman capaian dan rekomendasi hal yang perlu ditingkatkan |
+
+Presensi dipakai AI **sebagai fakta penjelas**, bukan sebagai peringatan. Misalnya, nilai Matematika yang rendah dapat dikaitkan dengan kehadiran Matematika yang rendah sebagai kemungkinan penyebab. Halaman presensi itu sendiri tetap tidak menampilkan peringatan maupun anjuran (P16).
 
 **Ketentuan keluaran**
 
@@ -465,8 +455,7 @@ Penyimpanan bersifat otomatis selama data berstatus Draft.
 
 | Status | Arti | Dapat dilihat Siswa? |
 |---|---|---|
-| **Draft** | Masih dikerjakan dan dapat diperbaiki oleh Guru | Tidak, kecuali nilai tertentu sengaja dipublikasikan |
-| **Published** | Nilai perkembangan diizinkan untuk dilihat siswa | Ya, untuk nilai tersebut |
+| **Draft** | Masih dikerjakan dan dapat diperbaiki oleh Guru | **Ya**, setiap nilai terlihat siswa segera setelah diinput |
 | **Finalized** | Seluruh mata pelajaran telah diperiksa dan rapor semester dikunci oleh Wali Kelas | Belum, sampai didistribusikan |
 | **Distributed** | Rapor resmi telah dibagikan oleh Wali Kelas | Ya |
 | **Reopened** | Data final dibuka kembali untuk koreksi yang tercatat | Sesuai kebijakan sekolah |
@@ -475,9 +464,7 @@ Penyimpanan bersifat otomatis selama data berstatus Draft.
 stateDiagram-v2
     direction LR
     [*] --> Draft
-    Draft --> Published: Guru mempublikasikan nilai tertentu
     Draft --> Finalized: Wali Kelas memfinalisasi rapor semester
-    Published --> Finalized
     Finalized --> Distributed: Wali Kelas mendistribusikan
     Distributed --> [*]
     Finalized --> Reopened: Koreksi tercatat
@@ -496,7 +483,7 @@ Finalisasi mencegah nilai berubah tanpa sepengetahuan pihak terkait setelah rapo
 | # | Aturan |
 |---|---|
 | P1 | Seluruh Guru merupakan Guru Mata Pelajaran. Kewenangan Wali Kelas hanya tambahan pada Guru tertentu |
-| P2 | Mata pelajaran dibuat per jenjang dengan tepat satu Guru pengampu. Satu Guru mengampu tepat satu mata pelajaran dan boleh lintas jenjang. Sistem menolak penghubungan kelas apabila jenjang kelas tidak sama dengan jenjang mata pelajaran Guru |
+| P2 | Mata pelajaran dibuat per jenjang dengan tepat satu Guru pengampu. Satu Guru mengampu tepat satu mata pelajaran pada tepat satu jenjang, tetapi boleh mengajar banyak kelas pada jenjang tersebut. Sistem menolak penghubungan kelas apabila jenjang kelas tidak sama dengan jenjang mata pelajaran Guru |
 | P3 | Satu kelas hanya memiliki satu Wali Kelas aktif dalam satu semester |
 | P4 | Administrator menetapkan KKM per mata pelajaran-jenjang, serta komponen penilaian dan bobot; jumlah seluruh bobot harus tepat 100% |
 | P5 | Nilai kosong tidak boleh dianggap sebagai nilai nol; sistem menandainya sebagai belum lengkap |
@@ -507,12 +494,14 @@ Finalisasi mencegah nilai berubah tanpa sepengetahuan pihak terkait setelah rapo
 | P10 | Wali Kelas tidak dapat mengubah nilai Guru lain; Wali Kelas hanya dapat meminta koreksi |
 | P11 | Rapor semester tidak dapat difinalisasi sebelum seluruh mata pelajaran pada kelas tersebut lengkap |
 | P12 | Siswa hanya dapat melihat datanya sendiri dan hanya dapat membuka rapor yang sudah didistribusikan |
-| P13 | Setelah finalisasi, koreksi harus melalui proses buka kembali dengan alasan dan riwayat perubahan |
+| P13 | Setelah finalisasi, koreksi harus melalui proses buka kembali dengan alasan dan riwayat perubahan. **Pembukaan kembali dilakukan Administrator** |
 | P14 | **Administrator memiliki akses penuh terhadap seluruh data, termasuk nilai akademik.** Setiap perubahan oleh Administrator tetap tercatat pada riwayat aktivitas |
 | P15 | AI hanya membaca data milik siswa yang bersangkutan dan tidak menulis ke data akademik |
 | P16 | Presensi hanya disajikan sebagai persentase kehadiran terhadap jumlah sesi yang dibuka Guru, tanpa ambang minimum, peringatan, maupun anjuran. Izin dan Sakit dihitung sebagai kehadiran |
 | P17 | Akun Guru dan Siswa dibuat dengan kata sandi awal yang dihasilkan sistem. Guru tidak memiliki peran apa pun sampai dihubungkan dengan mata pelajaran, dan Siswa tidak berada di kelas mana pun sampai kelas dibuat |
 | P18 | Satu proses pembuatan kelas menghasilkan tepat satu kelas, dan setiap proses administrasi menampilkan pemberitahuan berhasil atau gagal |
+| P19 | Satu tahun ajaran hanya memiliki **satu semester aktif** pada satu waktu |
+| P20 | Guru masuk aplikasi menggunakan NIP, Siswa menggunakan NIS, keduanya dengan kata sandi awal yang dibuat sistem |
 
 ---
 
@@ -528,7 +517,7 @@ Finalisasi mencegah nilai berubah tanpa sepengetahuan pihak terkait setelah rapo
 | UC-06 | Administrator | Mengoreksi nilai akademik | Perubahan tersimpan dan tercatat pada riwayat aktivitas |
 | UC-07 | Guru Mapel | Mengisi nilai | Nilai tersimpan pada kelas dan mata pelajaran tugas Guru |
 | UC-08 | Guru Mapel | Membuka sesi presensi lalu menetapkan status | Seluruh siswa memperoleh tepat satu status sejak sesi terbuka, dan sesi yang keliru dapat dihapus |
-| UC-09 | Guru Mapel | Mempublikasikan nilai tertentu | Nilai tersebut dapat dilihat siswa yang bersangkutan |
+| UC-09 | Guru Mapel | Menginput nilai yang langsung terlihat siswa | Nilai tampil pada halaman siswa yang bersangkutan tanpa langkah publikasi |
 | UC-10 | Wali Kelas | Melihat seluruh nilai mata pelajaran kelas walinya | Semua mata pelajaran terlihat tanpa izin mengubah nilai Guru lain |
 | UC-11 | Wali Kelas | Memeriksa kelengkapan seluruh mata pelajaran | Mata pelajaran yang belum lengkap ditampilkan secara jelas |
 | UC-12 | Wali Kelas | Memfinalisasi rapor semester | Berhasil hanya apabila seluruh mata pelajaran sudah lengkap |
@@ -537,6 +526,8 @@ Finalisasi mencegah nilai berubah tanpa sepengetahuan pihak terkait setelah rapo
 | UC-15 | Siswa | Menekan tombol Suggestion | Keluaran disusun dari seluruh data semester berjalan miliknya, memakai bahasa profesional, dan tidak tersimpan setelah halaman dimuat ulang |
 | UC-16 | Siswa | Melihat dan mengunduh rapor | Rapor hanya tersedia setelah didistribusikan |
 
+> **Penomoran:** identitas UC pada dokumen ini **tidak sama** dengan baseline. UC-06 baseline adalah *Guru mengisi nilai*, sedangkan UC-06 di sini adalah *Administrator mengoreksi nilai*. Dokumen turunan seperti Test Case dan UAT wajib merujuk penomoran dokumen ini, bukan baseline.
+>
 > **Prinsip use case:** setiap kegiatan harus memiliki pelaku yang jelas, batas akses yang jelas, hasil yang dapat diperiksa, dan pesan kesalahan yang dapat dipahami apabila proses tidak dapat dilanjutkan.
 
 ---
@@ -547,7 +538,7 @@ Finalisasi mencegah nilai berubah tanpa sepengetahuan pihak terkait setelah rapo
 |---|---|
 | **Semua** | Masuk, ganti dan atur ulang kata sandi, profil, serta halaman akses ditolak |
 | **Administrator** | Dasbor, pembuatan akun beserta unggah berkas dan unduh templat, mata pelajaran per jenjang beserta KKM dan Guru pengampu, pembuatan kelas beserta periode akademik dan unggah daftar siswa, penetapan Wali Kelas, komponen penilaian, bobot, pengelolaan nilai, dan riwayat aktivitas |
-| **Guru Mapel** | Dasbor tugas, daftar siswa, nilai, daftar dan pembukaan sesi presensi, pengisian status per sesi, ringkasan presensi, dan publikasi nilai |
+| **Guru Mapel** | Dasbor tugas, daftar siswa, nilai, daftar dan pembukaan sesi presensi, pengisian status per sesi, dan ringkasan presensi |
 | **Wali Kelas** | Dasbor kelas wali, ringkasan presensi kelas, kesiapan setiap mata pelajaran, catatan rapor, finalisasi, distribusi, dan unduh |
 | **Siswa** | Dasbor, nilai dan bobot, persentase presensi sendiri per mata pelajaran, tombol Suggestion, serta rapor |
 
@@ -560,7 +551,7 @@ Finalisasi mencegah nilai berubah tanpa sepengetahuan pihak terkait setelah rapo
 | AC-01 | Administrator dapat menyiapkan satu semester lengkap tanpa data ganda maupun penugasan yang keliru |
 | AC-02 | Kelas memperoleh mata pelajaran secara otomatis dari Guru yang dihubungkan kepadanya, dan Guru hanya melihat penugasannya sendiri |
 | AC-03 | Guru tidak dapat membuka kelas atau mata pelajaran yang bukan tugasnya |
-| AC-04 | Administrator dapat menyusun komponen penilaian secara bebas, dan jumlah bobot yang tidak sama dengan 100% ditolak disertai pesan yang menyebutkan total saat ini |
+| AC-04 | Templat komponen penilaian dan bobot tersedia sejak awal, dan perubahan yang membuat jumlah bobot tidak sama dengan 100% ditolak disertai pesan yang menyebutkan total saat ini |
 | AC-05 | Perhitungan nilai sesuai KKM, komponen, dan bobot yang ditetapkan Administrator |
 | AC-06 | Nilai kosong ditampilkan sebagai belum lengkap, bukan sebagai nol |
 | AC-07 | Sistem menolak finalisasi rapor semester apabila masih terdapat mata pelajaran yang belum lengkap |
@@ -573,7 +564,7 @@ Finalisasi mencegah nilai berubah tanpa sepengetahuan pihak terkait setelah rapo
 | AC-14 | Koreksi setelah finalisasi tercatat lengkap: alasan, pengguna, waktu, dan versi rapor baru |
 | AC-15 | Perubahan nilai oleh Administrator tercatat pada riwayat aktivitas |
 | AC-16 | Rekomendasi hanya muncul setelah tombol Suggestion ditekan, dan hilang ketika halaman dimuat ulang |
-| AC-17 | Data yang dibaca AI hanya milik siswa yang bersangkutan pada semester berjalan |
+| AC-17 | Data yang dibaca AI hanya milik siswa yang bersangkutan pada semester berjalan, mencakup nilai, KKM, kelengkapan, dan presensi |
 | AC-18 | Keluaran AI menggunakan bahasa profesional dan tidak memuat prakiraan kelulusan maupun perbandingan antarsiswa |
 | AC-19 | Fakta sumber, periode data, dan penanda Data Sementara tetap terlihat pada halaman meskipun susunan jawaban AI berbeda-beda |
 | AC-20 | AI tidak pernah mengubah nilai, presensi, status final, maupun distribusi |
@@ -596,7 +587,6 @@ Finalisasi mencegah nilai berubah tanpa sepengetahuan pihak terkait setelah rapo
 | V1 | Komponen penilaian dan bobot yang benar-benar digunakan |
 | V2 | Nilai KKM untuk setiap mata pelajaran-jenjang |
 | V3 | Aturan remedial dan cara mengganti nilai setelah remedial |
-| V4 | Pihak yang berwenang membuka kembali rapor yang sudah final |
 | V5 | Format rapor resmi sekolah dan data wajib yang harus tercantum |
 | V6 | Kebijakan privasi, lama penyimpanan data, pencadangan, dan penggunaan data nyata untuk AI |
 
@@ -607,13 +597,10 @@ Finalisasi mencegah nilai berubah tanpa sepengetahuan pihak terkait setelah rapo
 | # | Pertanyaan | Menahan |
 |---|---|---|
 | Q1 | **Berapa lama rentang pengembangan yang berlaku?** Baseline memuat rencana 12 minggu, sedangkan Project Charter menetapkan penyelesaian 14 Agustus 2026 | Perencanaan seluruh tim |
-| Q2 | **Apa kunci pencocokan siswa pada berkas kelas?** Templat kelas hanya memuat Kelas dan Nama siswa, sedangkan akun siswa dibuat dengan Nama dan NIS. Nama yang sama pada dua siswa akan salah dipasangkan; NIS lebih aman dipakai sebagai kunci | Templat unggah kelas |
-| Q3 | **Apakah komponen penilaian dan bobot berlaku sama untuk seluruh mata pelajaran**, atau dapat berbeda per mata pelajaran-jenjang? KKM sudah dipastikan bersifat per mata pelajaran-jenjang ([§8.2](#82-struktur-mata-pelajaran-dan-penugasan)) | Layar komponen penilaian dan bobot |
-| Q4 | **Siapa yang berwenang mempublikasikan nilai (status Published), dan apakah dapat dibatalkan?** | Alur nilai |
 | Q5 | **Bagaimana kata sandi awal disampaikan kepada Guru dan Siswa?** Sistem membuatnya otomatis, tetapi cara penyerahan dan kewajiban penggantian pada masuk pertama belum ditetapkan | Pembuatan akun |
 | Q6 | **Bagaimana bentuk penanda data belum lengkap pada nilai dan rapor?** Pemberitahuan berhasil atau gagal per proses sudah masuk MVP (M9), tetapi penanda kelengkapan data belum ditetapkan bentuknya | Alur nilai dan rapor |
 | Q7 | **"Dua pilihan tindakan yang realistis"** — baseline mensyaratkannya, sedangkan susunan jawaban AI ditetapkan tidak distandarkan. Dokumen ini memperlakukannya sebagai anjuran pada instruksi ke AI, bukan syarat yang divalidasi sistem | Ketentuan keluaran AI |
-| Q8 | **Di mana kelas dihubungkan dengan Guru mata pelajaran?** [§8.2](#82-struktur-mata-pelajaran-dan-penugasan) mensyaratkan lapis ketiga ini, tetapi alur Administrator §6.1 belum memuatnya. Tanpa langkah tersebut, Guru tidak mengetahui kelas mana yang diajarnya | Alur Administrator dan dasbor Guru |
+| Q8 | **Apakah Siswa boleh melihat rincian presensi per tanggal, atau cukup persentase?** Baseline memberi Siswa "daftar dan ringkasan", dokumen ini hanya persentase. Rincian membantu Siswa memeriksa kekeliruan pencatatan | Layar presensi Siswa |
 
 ---
 
@@ -624,12 +611,20 @@ Dokumen ini menyimpang dari PRD MVP Final pada beberapa titik berikut. **Perbeda
 | # | Ketentuan baseline | Ketentuan dokumen ini | Dampak | Status |
 |---|---|---|---|---|
 | D1 | **Dua tingkat finalisasi**: Guru Mapel memfinalisasi rapor mata pelajaran, Wali Kelas memfinalisasi rapor semester | **Satu tingkat finalisasi**, hanya oleh Wali Kelas, dan hanya setelah seluruh nilai terisi | Status *Finalized Mapel* dihapus. Rapor Mapel tidak lagi menjadi dokumen tersendiri. Aturan P9 dan use case terkait disesuaikan | Dikonfirmasi tim, 5 Agustus 2026 |
-| D2 | **Administrator tidak mengisi maupun mengubah nilai akademik**, dan tidak memiliki menu untuk itu | **Administrator memiliki akses penuh terhadap seluruh data**, termasuk mengubah nilai. Satu-satunya yang tidak dapat diaksesnya adalah AI Insight | Menghapus satu pengaman integritas yang dirancang baseline. Diimbangi dengan pencatatan wajib pada riwayat aktivitas (AC-15) | Dikonfirmasi tim, 5 Agustus 2026 |
+| D2 | **Administrator tidak mengisi maupun mengubah nilai akademik**, dan tidak memiliki menu untuk itu | **Administrator memiliki akses penuh terhadap seluruh data**, termasuk mengubah nilai, memfinalisasi, mendistribusikan, dan membuka kembali rapor. Satu-satunya yang tidak dapat diaksesnya adalah AI Insight | Menghapus satu pengaman integritas yang dirancang baseline. Diimbangi dengan pencatatan wajib pada riwayat aktivitas (AC-15) | Dikonfirmasi tim, 5 Agustus 2026 |
 | D4 | AI Insight tersedia bagi Guru dan Wali Kelas pada use case §9 dan daftar layar §12 | **Hanya untuk Siswa**. Guru Mata Pelajaran tidak memiliki AI Insight | Bagian baseline yang bertentangan perlu dihapus | Dikonfirmasi tim, 5 Agustus 2026 |
 | D5 | Presensi dicatat dengan memilih tanggal, dan presensi kosong ditampilkan sebagai Alpa | Presensi hanya dicatat melalui **sesi** yang dibuka Guru. Seluruh siswa berstatus awal **Alpa** sejak sesi terbuka, sehingga presensi kosong tidak mungkin terjadi | Ketentuan "Belum Dicatat" dihapus. P6, P7, AC-11, dan AC-25 disesuaikan | Dikonfirmasi tim, 5 Agustus 2026 |
 | D6 | Administrator menetapkan "KKM dan bobot penilaian standar" | Administrator menetapkan **KKM, komponen penilaian, dan bobot**. KKM bersifat per mata pelajaran-jenjang. Templat komponen belum tersedia | Komponen penilaian sebelumnya tidak disebut sebagai hal yang ditetapkan Administrator | Dikonfirmasi tim, 5 Agustus 2026 |
-| D7 | Penugasan Guru terkait dengan "satu kelas, satu mata pelajaran, dan satu semester" | **Struktur tiga lapis**: mata pelajaran per jenjang dengan satu Guru pengampu, lalu kelas dihubungkan ke Guru. Satu Guru mengampu tepat satu mata pelajaran dan boleh lintas jenjang, sehingga mata pelajaran tidak pernah perlu dipilih. Jenjang yang tidak cocok ditolak | Model penugasan berubah. §8.2, P2, UC-04, AC-02, dan AC-24 mengikuti struktur ini. Lapis ketiga belum memiliki layar (Q8) | Baru, 5 Agustus 2026 |
+| D7 | Penugasan Guru terkait dengan "satu kelas, satu mata pelajaran, dan satu semester" | **Struktur tiga lapis**: mata pelajaran per jenjang dengan satu Guru pengampu, lalu kelas dihubungkan ke Guru. Satu Guru mengampu tepat satu mata pelajaran pada tepat satu jenjang, sehingga mata pelajaran tidak pernah perlu dipilih. Satu Guru boleh mengajar banyak kelas pada jenjang tersebut. Jenjang yang tidak cocok ditolak | Model penugasan berubah. §8.2, P2, UC-04, AC-02, dan AC-24 mengikuti struktur ini. Lapis ketiga dilakukan pada saat pembuatan kelas | Baru, 5 Agustus 2026 |
 | D9 | Baseline hanya menyebut "input dan edit manual" | **Unggah CSV dan Excel masuk MVP** untuk akun dan daftar siswa kelas, beserta kata sandi awal otomatis dan pemberitahuan hasil proses | M1, M8, M9, §6.1, P17, P18, dan AC-26 sampai AC-28 | Baru, 5 Agustus 2026 |
+| D10 | Baseline tidak membatasi ranah penilaian | **Hanya ranah Pengetahuan.** Keterampilan, Sikap Sosial, dan Sikap Spiritual di luar cakupan | M7 dan NG11 | Dikonfirmasi tim, 5 Agustus 2026 |
+| D11 | Siswa melihat nilai "yang sudah diinput Guru"; baseline juga memuat status *Published* | **Nilai langsung terlihat Siswa segera setelah Guru menginputnya.** Status *Published* dan seluruh langkah publikasi dihapus | §9, matriks §8.1, §5.2, §5.4, UC-09, dan §12 disesuaikan. Q4 ditutup | Dikonfirmasi tim, 5 Agustus 2026 |
+| D12 | Presensi menjadi salah satu fakta AI Insight | **Dipertahankan.** AI membaca persentase kehadiran per mata pelajaran sebagai fakta penjelas, bukan sebagai peringatan | §8.5, AC-17, NG12, dan glosarium | Dikonfirmasi tim, 5 Agustus 2026 |
+| D13 | "Pembobotan full template" tercantum sebagai cakupan MVP | **Dipertahankan.** Sistem menyediakan templat komponen dan bobot bawaan yang berlaku untuk seluruh mata pelajaran | M3 diubah, NG13 dihapus, §8.3 memuat templat, Q3 ditutup | Dikonfirmasi tim, 5 Agustus 2026 |
+| D14 | Rapor final dibuka kembali "melalui superadmin" tanpa definisi | **Superadmin adalah Administrator sekolah.** Tidak ada jenis akun keempat | P13, V4 ditutup, dan glosarium | Dikonfirmasi tim, 5 Agustus 2026 |
+| D15 | Aturan "satu semester aktif per tahun ajaran" ada di baseline tetapi hilang dari PRD.md | **Dikembalikan** sebagai aturan produk | P19 | Dikonfirmasi tim, 5 Agustus 2026 |
+| D16 | Fitur AI dipicu tombol bernama "AI insight" | Tombol bernama **Suggestion** | §8.5, §12, dan glosarium | Dikonfirmasi tim, 5 Agustus 2026 |
+| D17 | Penomoran use case baseline UC-01 sampai UC-15 | **Penomoran dokumen ini berbeda dan tidak dapat dipetakan satu lawan satu** | Peringatan penomoran ditambahkan pada §11; dokumen turunan wajib merujuk dokumen ini | Baru, 5 Agustus 2026 |
 | D8 | Baseline menyebut "sesi kelas" pada daftar cakupan MVP tanpa mendefinisikannya | **Sesi menjadi objek yang dibuka Guru** (kelas + mata pelajaran + tanggal), tidak perlu ditutup, dan dapat dihapus apabila keliru | Presensi memiliki alur yang jelas. Persentase kehadiran dihitung terhadap jumlah sesi yang dibuka Guru | Baru, 5 Agustus 2026 |
 
 **D3 dihapus.** Ketentuan baseline "siswa yang melewati batas perhatian sekolah" berada pada bagian yang ditandai untuk diabaikan oleh penyusun baseline, sehingga tidak lagi menjadi perbedaan. Sekolah juga menegaskan tidak ada ambang kehadiran minimum (NG16).
@@ -642,10 +637,10 @@ Dokumen ini menyimpang dari PRD MVP Final pada beberapa titik berikut. **Perbeda
 
 | Istilah | Definisi |
 |---|---|
-| **Administrator** | Akun yang menyiapkan periode, kelas, mata pelajaran, akun, penugasan, KKM, komponen penilaian, dan bobot, serta memiliki akses penuh terhadap seluruh data termasuk nilai akademik |
-| **Guru Mapel** | Guru yang mengampu tepat satu mata pelajaran, boleh pada lebih dari satu jenjang, serta mengelola nilai, sesi presensi, dan presensi pada kelas yang dihubungkan kepadanya |
+| **Administrator** | Akun yang menyiapkan periode, kelas, mata pelajaran, akun, penugasan, dan KKM, serta memiliki akses penuh terhadap seluruh data termasuk nilai akademik. Setara dengan istilah *superadmin* pada baseline |
+| **Guru Mapel** | Guru yang mengampu tepat satu mata pelajaran pada tepat satu jenjang, serta mengelola nilai, sesi presensi, dan presensi pada seluruh kelas yang dihubungkan kepadanya |
 | **Wali Kelas** | Kewenangan tambahan pada akun Guru untuk memantau kelas wali, memeriksa kelengkapan, memfinalisasi rapor semester, dan mendistribusikannya |
-| **Siswa** | Pengguna yang hanya dapat melihat nilai, bobot, presensi, rekomendasi, dan rapor miliknya sendiri sesuai status publikasi |
+| **Siswa** | Pengguna yang hanya dapat melihat nilai, bobot, presensi, rekomendasi, dan rapor miliknya sendiri |
 | **Mata pelajaran-jenjang** | Mata pelajaran yang selalu melekat pada satu jenjang, misalnya Biologi X atau Matematika XI. Menjadi satuan penetapan KKM dan satuan penugasan Guru |
 | **Sesi** | Satu pertemuan pada satu kelas, satu mata pelajaran, dan satu tanggal, yang dibuka Guru sebagai wadah pencatatan presensi. Tidak perlu ditutup dan dapat dihapus apabila keliru |
 | **KKM** | Kriteria Ketuntasan Minimal yang ditetapkan sekolah sebagai batas acuan ketuntasan hasil belajar, ditetapkan per mata pelajaran-jenjang. Nilai awal 75 |
@@ -653,7 +648,7 @@ Dokumen ini menyimpang dari PRD MVP Final pada beberapa titik berikut. **Perbeda
 | **Bobot Penilaian** | Persentase kontribusi setiap komponen terhadap nilai akhir. Jumlah seluruh bobot harus tepat 100% |
 | **Nilai Tracker** | Fungsi untuk mencatat, menghitung, menampilkan kelengkapan, dan memantau perkembangan nilai siswa |
 | **Rapor Semester** | Dokumen hasil belajar semester yang menggabungkan nilai seluruh mata pelajaran dan difinalisasi oleh Wali Kelas |
-| **AI Insight** | Rangkuman dan rekomendasi belajar yang dihasilkan melalui tombol Suggestion, berbasis data akademik siswa yang bersangkutan. Tidak tersimpan dan tidak mengubah data |
+| **AI Insight** | Rangkuman dan rekomendasi belajar yang dihasilkan melalui tombol Suggestion, berbasis nilai, KKM, kelengkapan penilaian, dan presensi siswa yang bersangkutan. Tidak tersimpan dan tidak mengubah data |
 | **Finalisasi** | Proses mengunci rapor semester setelah kelengkapan diperiksa. Koreksi setelah finalisasi harus melalui proses buka kembali dan tercatat |
 | **Distribusi** | Tindakan Wali Kelas membagikan rapor semester yang telah final agar dapat dilihat dan diunduh siswa |
 | **MVP** | Versi minimum produk yang memuat fungsi inti untuk menguji alur sekolah dari persiapan data sampai rapor diterima siswa |
