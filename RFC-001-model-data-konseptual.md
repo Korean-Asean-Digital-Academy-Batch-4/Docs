@@ -34,21 +34,23 @@
 
 ## 2. Latar Belakang
 
-PRD naik ke v3.0 pada 5 Agustus 2026. Dua dokumen skema yang ada — `SCHEMA-STATIS.md` dan `SCHEMA-DINAMIS.md` — disusun pada 2 Agustus 2026 berdasarkan asumsi yang kini tidak lagi berlaku. Perubahannya menyentuh bagian inti, bukan bagian pinggiran.
+PRD naik ke v3.0 pada 5 Agustus 2026. Perubahannya menyentuh inti model penilaian, bukan bagian pinggiran. `SCHEMA-STATIS.md` dan `SCHEMA-DINAMIS.md` gugur seluruhnya karena perubahan tersebut, bukan karena pertimbangan teknis, sehingga model data disusun ulang melalui RFC ini dan keduanya diturunkan menjadi arsip.
 
-### 2.1 Perubahan yang membatalkan dasar skema lama
+### 2.1 Perubahan besar pada PRD v3.0
 
-**Pembobotan menjadi templat bawaan sistem yang seragam.** [PRD.md §8.3](PRD.md) menetapkan komponen dan bobot berlaku sama untuk seluruh mata pelajaran, dan NG10 menempatkan pembobotan per mata pelajaran di luar cakupan MVP. Ini menghapus seluruh dasar `SCHEMA-DINAMIS.md`: entitas `rumus`, `komponen_rumus`, `penugasan_rumus`, tata kelola `draft → diajukan → aktif`, dan layar penyusun rumus. Tabel perbandingan pada dokumen tersebut memenangkan opsi dinamis melalui dua argumen — rumus jamak dan layar Rumus Nilai — yang keduanya kini keluar cakupan.
+**Pembobotan menjadi templat bawaan sistem yang seragam.** [PRD.md §8.3](PRD.md) menetapkan komponen dan bobot berlaku sama untuk seluruh mata pelajaran, dan NG10 menempatkan pembobotan per mata pelajaran di luar cakupan MVP. Rumus penilaian dengan demikian bukan lagi objek yang disusun, disetujui, dan dikunci, sehingga seluruh tata kelola rumus beserta layarnya tidak memiliki dasar.
 
 **Ranah penilaian menyusut ke Pengetahuan saja.** NG11 mencabut Keterampilan, Sikap Sosial, dan Sikap Spiritual.
 
 **Keluaran AI tidak disimpan.** NG14 dan [PRD.md §8.5](PRD.md) menyatakan hasil hilang ketika halaman dimuat ulang.
 
-### 2.2 Kebutuhan yang belum terwakili di skema mana pun
+### 2.2 Kebutuhan baru pada PRD v3.0
 
-- **KKM** tidak memiliki kolom maupun entitas pada kedua skema lama, padahal [PRD.md §8.3](PRD.md) mensyaratkannya per mata pelajaran-jenjang dengan nilai awal 75.
-- **Sesi presensi** tidak memiliki entitas, padahal [PRD.md §8.4](PRD.md) menjadikannya wadah pencatatan sekaligus penyebut perhitungan persentase.
-- **Mata pelajaran per jenjang** dan aturan satu guru satu mata pelajaran ([PRD.md §8.2](PRD.md)) tidak terwakili pada entitas `mapel` yang lama.
+Tiga kebutuhan berikut tidak memiliki wadah pada rancangan mana pun sebelumnya. Keberadaannya menegaskan bahwa model data perlu disusun ulang, bukan ditambal.
+
+- **KKM** disyaratkan per mata pelajaran-jenjang dengan nilai awal 75 ([PRD.md §8.3](PRD.md)).
+- **Sesi presensi** menjadi wadah pencatatan sekaligus penyebut perhitungan persentase kehadiran ([PRD.md §8.4](PRD.md)).
+- **Mata pelajaran per jenjang** beserta aturan satu guru mengampu satu mata pelajaran ([PRD.md §8.2](PRD.md)).
 
 ### 2.3 Ketentuan yang berlaku
 
@@ -431,13 +433,15 @@ Setiap baris adalah pernyataan yang harus dijamin sistem. `SCHEMA.md` wajib menu
 
 ## 7. Entitas dan Atribut yang Gugur
 
-| Entitas atau atribut | Alasan |
+Seluruh baris berikut gugur karena **penyempitan cakupan pada PRD v3.0**, bukan karena pertimbangan teknis. `SCHEMA.md` tidak membangunnya. Apabila cakupan diperluas kemudian, baris yang bersangkutan dibuka kembali melalui amandemen RFC ini, bukan ditambahkan diam-diam pada skema fisik.
+
+| Entitas atau atribut | Dasar penggugurannya |
 |---|---|
 | `rumus`, `komponen_rumus`, `penugasan_rumus` | NG10 — pembobotan per mata pelajaran keluar cakupan |
 | `penilaian_sikap` beserta seluruh atribut `sikap_*` dan `ket_*` | NG11 — hanya ranah Pengetahuan |
 | `ai_insight` | NG14, §8.5 — keluaran AI tidak disimpan |
 | `materi` | Digantikan atribut `topik` pada `penugasan_komponen` |
-| `rapor.versi`, `rapor.diajukan_pada`, `rapor.disetujui_oleh` | §9 — tidak ada tahap review maupun terbit ulang |
+| `rapor.versi`, `rapor.diajukan_pada`, `rapor.disetujui_oleh` | §9 — tidak ada tahap peninjauan maupun terbit ulang |
 | `rapor_mapel.deskripsi_ai` | I-23 — AI tidak menulis ke rapor |
 | `guru.email`, `guru.gelar` | Tidak memiliki jalur input; §6.1.1 hanya meminta Nama dan NIP |
 | `siswa.nisn`, `siswa.jenis_kelamin`, `siswa.tgl_lahir` | Tidak memiliki jalur input; §6.1.2 hanya meminta Nama dan NIS, templat §6.1.5 hanya Kelas, NIS, dan Nama |
@@ -553,3 +557,4 @@ Alasan pemisahan ini tercatat pada [README.md](README.md) §Konvensi Dokumen.
 | 5 Agustus 2026 | Dokumen dibuat. Menggantikan `SCHEMA-STATIS.md` dan `SCHEMA-DINAMIS.md`, keduanya diturunkan menjadi arsip |
 | 5 Agustus 2026 | Rujukan RFC-002, RFC-003, dan RFC-004 diganti menjadi `ARCHITECTURE.md`, `SCHEMA.md`, dan `API.md`. Dokumen lanjutan ditetapkan berbentuk deskripsi beserta lampiran Catatan Keputusan, bukan RFC tersendiri (§11.1) |
 | 6 Agustus 2026 | §2.3 diubah dari perbandingan ketentuan lama terhadap PRD v3 menjadi pernyataan ketentuan PRD v3.0 yang berlaku. Ketentuan dari dokumen 2 Agustus 2026 tidak lagi dibawa pada dokumen ini. §3.3 dan §5.5 disesuaikan mengikuti perubahan tersebut |
+| 6 Agustus 2026 | §2 dan §7 dinyatakan ulang dari sisi PRD v3.0: gugurnya `SCHEMA-STATIS.md` dan `SCHEMA-DINAMIS.md` didasarkan pada perubahan besar PRD, dan gugurnya entitas beserta atribut didasarkan pada penyempitan cakupan PRD |
