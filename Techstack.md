@@ -145,24 +145,33 @@ Alur pemanggilan, penanganan kegagalan, dan susunan prompt berada pada [ARCHITEC
 
 ## 7. Penyimpanan rahasia
 
-Sistem memiliki tiga rahasia infrastruktur. Ketiganya **tidak pernah dibangun ke dalam image** dan tidak pernah masuk ke repositori.
+Sistem memiliki empat rahasia infrastruktur. Keempatnya **tidak pernah dibangun ke dalam image** dan tidak pernah masuk ke repositori.
 
-| Rahasia | Isinya | Di AWS | Di on-prem |
-|---|---|---|---|
-| Kredensial `app_rw` | Nama role dan kata sandi PostgreSQL untuk jalur tulis aplikasi | **Secrets Manager** | `.env`, izin `600` |
-| Kredensial `app_ro` | Nama role dan kata sandi PostgreSQL untuk jalur AI, tanpa hak tulis | **Secrets Manager** | `.env`, izin `600` |
-| Kunci API Elice | Bearer token ke `mlapi.run` | **SSM Parameter Store**, tipe SecureString | `.env`, izin `600` |
+| Rahasia | Isinya | Di AWS | Di on-prem | Dibaca oleh |
+|---|---|---|---|---|
+| Kredensial `edutrack_owner` | Nama role dan kata sandi PostgreSQL pemilik seluruh objek, satu-satunya yang boleh DDL | **Secrets Manager** | `.env`, izin `600` | Fungsi `migrate` saja |
+| Kredensial `app_rw` | Nama role dan kata sandi PostgreSQL untuk jalur tulis aplikasi | **Secrets Manager** | `.env`, izin `600` | Fungsi `api` |
+| Kredensial `app_ro` | Nama role dan kata sandi PostgreSQL untuk jalur AI, tanpa hak tulis | **Secrets Manager** | `.env`, izin `600` | Fungsi `api` |
+| Kunci API Elice | Bearer token ke `mlapi.run` | **SSM Parameter Store**, tipe SecureString | `.env`, izin `600` | Fungsi `api` |
 
-**Kenapa dibedakan.** Akibat kebocorannya tidak setara. Kredensial `app_rw` yang bocor memungkinkan seseorang di dalam VPC menyambung langsung ke basis data dan mengubah nilai seluruh sekolah, melewati seluruh pemeriksaan kewenangan aplikasi — kerusakan yang permanen dan sulit ditelusuri. Kunci Elice yang bocor hanya menghabiskan kredit program, tidak menyentuh data sekolah, dan cukup dibuat ulang. Rotasi terjadwal karenanya hanya dibayar untuk yang pertama.
+**Kenapa dibedakan.** Akibat kebocorannya tidak setara, dan urutannya menaik.
 
-**Ketentuan yang berlaku bagi ketiganya:**
+Kunci Elice yang bocor hanya menghabiskan kredit program, tidak menyentuh data sekolah, dan cukup dibuat ulang. Kredensial `app_rw` yang bocor memungkinkan seseorang di dalam VPC menyambung langsung ke basis data dan mengubah nilai seluruh sekolah, melewati seluruh pemeriksaan kewenangan aplikasi. Kredensial **`edutrack_owner` yang bocor memungkinkan tabelnya dijatuhkan** — kerusakan yang tidak dapat diperbaiki tanpa pemulihan cadangan, beserta hilangnya seluruh penulisan sejak titik pemulihan.
+
+Rotasi terjadwal karenanya dibayar untuk ketiga kredensial basis data, dan tidak untuk kunci Elice.
+
+**Kolom "dibaca oleh" adalah bagian yang menentukan.** Ketiga kredensial basis data disimpan di tempat yang sama, tetapi IAM membatasi siapa yang boleh mengambil masing-masing ([DEPLOYMENT.md §9.5](DEPLOYMENT.md)). Fungsi `api` yang melayani setiap request dari internet **tidak dapat mengambil kredensial `edutrack_owner`**, sehingga kekeliruan kode pada jalur permintaan tidak akan pernah dapat menjatuhkan tabel — sekalipun kodenya mencoba.
+
+**Ketentuan yang berlaku bagi keempatnya:**
 
 1. **Nilai rahasia dibuat di luar Terraform.** Terraform hanya menyimpan ARN-nya, sehingga kata sandi basis data tidak pernah berada di dalam state.
 2. **Tidak pernah dicetak ke log**, baik log aplikasi maupun log CI.
 3. **Dibaca sekali pada saat container menyala**, lalu disimpan di memori selama container hidup — bukan pada setiap request.
 4. Pembacaannya melewati interface `Secrets` di `ports/`, sehingga perbedaan antara AWS dan on-prem tidak menyentuh kode aplikasi.
 
-Di on-prem, ketiganya berada dalam satu berkas `.env` berizin `600` yang dibuat `install.sh` beserta kata sandi acaknya (CK-15). Untuk satu server, tidak ada tempat yang lebih baik — dan penambahan pengelola rahasia tersendiri di sana hanya menambah bagian yang dapat rusak.
+Di on-prem, keempatnya berada dalam satu berkas `.env` berizin `600` yang dibuat `install.sh` beserta kata sandi acaknya (CK-15). Untuk satu server, tidak ada tempat yang lebih baik — dan penambahan pengelola rahasia tersendiri di sana hanya menambah bagian yang dapat rusak.
+
+Pemisahan pembaca yang di AWS ditegakkan IAM **tidak tersedia di on-prem**, karena hanya ada satu berkas dan satu proses. Konsekuensi ini diterima: pada satu server milik sekolah, pemisahannya adalah pemisahan role PostgreSQL saja, tanpa lapis kedua.
 
 **Yang bukan termasuk di sini:** kata sandi akun Guru, Siswa, dan Administrator. Ketiganya tidak pernah menjadi rahasia infrastruktur, melainkan hash Argon2id di dalam tabel `pengguna` (§5), dan tidak dapat dibaca siapa pun termasuk tim.
 
@@ -425,3 +434,4 @@ Bernomor dan bertanggal. Entri tidak disunting; perubahan keputusan ditulis seba
 | 6 Agustus 2026 | Penyimpanan rahasia ditetapkan pada **§7** yang baru: kredensial `app_rw` dan `app_ro` di Secrets Manager, kunci API Elice di SSM Parameter Store, dan ketiganya di berkas `.env` berizin `600` pada on-prem. Nilai rahasia dibuat di luar Terraform. Pasal biaya dan pasal keputusan terbuka bergeser menjadi §8 dan §9; total menjadi $28–36 per bulan |
 | 6 Agustus 2026 | **Versi 2.0 — dokumen dipecah tiga.** Isi yang menjelaskan hubungan antar bagian dipindahkan ke [ARCHITECTURE.md](ARCHITECTURE.md), dan isi yang menjelaskan penerapan serta operasional dipindahkan ke [DEPLOYMENT.md](DEPLOYMENT.md). Dokumen ini menyusut menjadi pilihan teknologi beserta alasannya. Ditambahkan **CK-15** yang menetapkan skrip pemasangan tunggal untuk on-prem, melengkapi CK-12. Butir §16 mengenai sisa kredit KADA dan persetujuan sekolah dihapus atas keputusan tim; butir mengenai bentuk endpoint Elice ditutup dan dipindahkan ke §6 |
 | 6 Agustus 2026 | Waktu render berkas rapor pada §2 disesuaikan mengikuti **CK-A-07** pada [ARCHITECTURE.md](ARCHITECTURE.md), yang mengamandemen **CK-09**. Amandemennya ditulis di sana, bukan di sini, karena isi yang dirujuk CK-09 sudah berpindah ke `ARCHITECTURE.md` pada pemecahan 6 Agustus 2026 |
+| 7 Agustus 2026 | **§7 menjadi empat rahasia.** Ditambahkan kredensial `edutrack_owner` dengan perlakuan sama seperti `app_rw`, beserta kolom **dibaca oleh** yang menyatakan pembatasan IAM per rahasia. Menutup temuan **S-03** pada [SCHEMA.md](SCHEMA.md) §12. Dicatat pula bahwa pemisahan pembaca tidak tersedia di on-prem |

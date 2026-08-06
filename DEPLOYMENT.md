@@ -256,6 +256,77 @@ Aturan 2 sampai 4 adalah penerapan aturan 1 pada tiga bentuk perubahan yang pali
 
 Apabila rilis yang rusak sudah menulis data yang salah, memindahkan alias **tidak memperbaiki datanya**. Perbaikan data adalah pekerjaan tersendiri: perbaiki lewat migrasi baru atau perintah CLI, bukan dengan mengembalikan skema.
 
+### 6.5 Enam lapis penjagaan
+
+Aturan pada §6.3 tidak boleh bergantung pada ingatan orang yang menulis migrasi. Enam lapis berikut menegakkannya, disusun dari yang paling murah (CK-D-03).
+
+| # | Lapis | Biaya | Dipasang sebelum |
+|:--:|---|---|---|
+| 0 | Header klasifikasi pada tiap berkas migrasi | ~0 | Migrasi 0001 |
+| 1 | Nama berkas `expand` dan `contract` | ~0 | Migrasi 0001 |
+| 2 | Linter migrasi di CI | 1 baris | Migrasi 0001 |
+| 3 | Bukti tidak ada yang memakai, sebelum `contract` | 1 perintah | Migrasi 0001 |
+| 4 | Tes rilis sebelumnya dijalankan terhadap skema baru | 1 job CI | Data sekolah dimuat |
+| 5 | Latihan rollback sungguhan | 1 sesi | Data sekolah dimuat |
+
+**Lapis 0 — klasifikasi.** Setiap berkas migrasi dibuka dengan header wajib. Yang dipaksa bukan formatnya, melainkan **keputusannya ditulis alih-alih disimpulkan**.
+
+```sql
+-- migrasi : 0011
+-- jenis   : additive | backward-compatible | breaking | dual-schema
+-- mundur  : ya | tidak — beserta alasannya
+-- dibaca  : api, migrate, app_ro
+-- penutup : nomor migrasi contract yang kelak menutupnya, atau —
+```
+
+Migrasi `contract` mengisi baris `penutup` dengan nomor migrasi `expand` yang ditutupnya. Dengan begitu, `expand` yang belum pernah ditutup **terlihat** — dan tidak menumpuk menjadi kolom mati yang tidak berani disentuh siapa pun.
+
+**Lapis 1 — penamaan.**
+
+```
+0011_expand_tambah_deskripsi.sql
+0012_expand_isi_deskripsi.sql
+0013_contract_hapus_kkm.sql
+```
+
+Berkas `contract` yang muncul tanpa `expand` pendahulunya adalah tanda bahaya yang terlihat sejak daftar berkas, sebelum isinya dibaca.
+
+**Lapis 2 — linter.** `squawk` membaca berkas SQL dan menolak pola berbahaya sebelum sampai ke peninjau manusia.
+
+```yaml
+- run: npx squawk migrations/*.sql
+```
+
+Menangkap `DROP COLUMN`, `DROP TABLE`, `RENAME COLUMN`, dan `NOT NULL` tanpa `DEFAULT` — yaitu aturan 2, 3, dan 4 pada §6.3, seluruhnya secara otomatis.
+
+**Lapis 3 — konfirmasi, bukan harapan.** Sebelum migrasi `contract` dijalankan, keberadaan pemakai dibuktikan, bukan diperkirakan:
+
+```bash
+grep -rn "kkm" backend/src/ && echo "MASIH DIPAKAI — jangan dihapus"
+```
+
+Pemeriksaan ini murah **karena konsumennya hanya tiga dan seluruhnya diketahui**: fungsi `api`, fungsi `migrate`, dan jalur AI lewat `app_ro`. NG2 mencabut konsumen pihak ketiga, sehingga tidak ada pemakai tak terdaftar yang perlu dikhawatirkan.
+
+**Lapis 4 — pembuktian, bukan pelarangan.** Ketiga lapis sebelumnya melarang pola yang **diketahui** berbahaya. Lapis ini membuktikan hal yang sebenarnya dijanjikan §6.3: kode rilis sebelumnya masih berjalan di atas skema baru.
+
+```
+Satu job tambahan pada pr.yml:
+
+1  nyalakan postgres kosong
+2  jalankan seluruh migrasi, termasuk yang baru        → skema baru
+3  ambil suite tes dari commit yang berjalan di produksi
+4  jalankan tes lama itu terhadap skema baru
+5  lulus → kompatibilitas mundur terbukti
+```
+
+Commit yang berjalan di produksi diambil lewat perintah pada §2.7. Lapis ini menangkap yang tidak terpikir masuk daftar larangan — misalnya `CHECK` baru yang menolak nilai yang masih dikirim kode lama.
+
+**Lapis 5 — rollback yang dijalankan, bukan dituliskan.** §6.1 menyatakan rollback cukup memindahkan alias. Pernyataan itu belum pernah diuji.
+
+Sebelum data sekolah sungguhan dimuat, dilakukan **satu latihan**: rilis versi cacat dengan sengaja, mundurkan alias, catat waktunya, dan simpan hasilnya di runbook.
+
+Alasannya sama persis dengan yang sudah dinyatakan dokumen ini tentang pencadangan pada Pasal 8 — *pencadangan yang belum pernah diuji pemulihannya bukanlah pencadangan.* Hal yang sama berlaku bagi rollback.
+
 ---
 
 ## 9. Identitas dan akses
@@ -508,6 +579,24 @@ Sembilan alasan Terraform akan dijalankan kembali sudah tertulis di dokumen proy
 
 **Konsekuensi yang diterima.** Terraform sengaja tidak mengetahui image mana yang berjalan, dan dua nama sumber daya hidup di dua tempat.
 
+### CK-D-03 · 7 Agustus 2026 · Aturan migrasi ditegakkan enam lapis, bukan disiplin
+
+**Diputuskan.** Lima aturan migrasi pada §6.3 ditegakkan enam lapis pada §6.5: header klasifikasi, penamaan `expand`/`contract`, linter `squawk` di CI, konfirmasi pemakai sebelum `contract`, tes rilis sebelumnya terhadap skema baru, dan latihan rollback sungguhan.
+
+**Alasan.** Aturan yang hanya tertulis akan dilanggar orang yang belum membacanya, dan pelanggarannya baru terasa saat rollback — yaitu saat paling buruk. Ini penerapan Prinsip ④ [ARCHITECTURE.md](ARCHITECTURE.md) pada migrasi: yang dapat ditegakkan mesin tidak diserahkan kepada ingatan.
+
+Tiga lapis berasal dari peninjauan `schema-evolution-and-contract-migrations` dan `data-migration-and-platform-cutover` pada kumpulan skill data engineering pihak ketiga. **Lapis 0** menjawab tuntutan bahwa jenis perubahan digolongkan lebih dahulu, bukan disimpulkan. **Lapis 3** menjawab peringatan bahwa penghapusan sering dijadwalkan *"based on hope instead of confirmation"*. **Lapis 5** menjawab prinsip *"rollback should be executable, not a sentence in a plan"*, yang menohok §6.1 sebagaimana ia ditulis semula.
+
+**Alternatif yang ditolak.**
+
+*Compatibility view dan dual write.* Ditawarkan kumpulan skill yang sama sebagai jalan agar penggantian nama kolom tidak memerlukan tiga rilis. Ditolak karena di PostgreSQL menuntut tabel diganti nama, view dibuat memakai nama lama, dan trigger ditulis agar view dapat ditulisi — menukar tiga migrasi sederhana dengan satu mekanisme yang harus diuji tersendiri. Bertentangan dengan Prinsip ② [Techstack.md §1](Techstack.md): kompleksitas hanya dibayar apabila ada kebutuhan produk yang membayarnya, dan rilis EduTrack tidak dikejar waktu.
+
+*Migrasi turun untuk setiap migrasi naik.* Bentuk yang lazim pada banyak alat migrasi. Ditolak karena mengembalikan **bentuk**, bukan **isi**: kebalikan `ADD COLUMN` adalah `DROP COLUMN`, yang menghapus seluruh data yang sudah terisi. Migrasi turun juga merupakan migrasi yang dapat gagal, dijalankan pada basis data yang sudah bermasalah, dan hampir tidak pernah diuji.
+
+*Mengandalkan §6.3 sebagai aturan tertulis saja.* Ditolak dengan alasan utama di atas.
+
+**Konsekuensi yang diterima.** Satu dependensi pengembangan baru (`squawk`), satu job CI tambahan, dan satu sesi latihan rollback. Lapis 4 dan 5 baru wajib sebelum data sekolah sungguhan dimuat — batas yang sama dengan V1 pada [ATURAN-DAN-KRITERIA §5](ATURAN-DAN-KRITERIA.md).
+
 ---
 
 ## Riwayat
@@ -517,3 +606,4 @@ Sembilan alasan Terraform akan dijalankan kembali sudah tertulis di dokumen proy
 | 6 Agustus 2026 | Kerangka dibuat sebagai bagian dari pemecahan `Techstack.md` menjadi tiga dokumen. Isi belum ditulis |
 | 6 Agustus 2026 | **Versi 0.2 — Pasal 9 Identitas dan akses ditulis.** Ditetapkan dua IAM user bernama orang, satu grup `Edutrack-dev` dengan dua customer managed policy, dan tujuh role: dua dipinjam manusia, dua dipinjam GitHub Actions lewat OIDC, dan tiga untuk fungsi Lambda serta NAT instance. Seluruh jalur mesin tanpa access key. Pasal ini ditulis mendahului pasal lain karena Terraform tidak dapat dijalankan tanpanya. Lampiran Catatan Keputusan dibuka dengan **CK-D-01**. Dicatat pula keadaan penerapan per 6 Agustus 2026 pada §9.9 |
 | 7 Agustus 2026 | **Versi 0.3 — Pasal 2, 3, dan 6 ditulis.** Ditetapkan **skema B** (**CK-D-02**): Terraform memiliki cangkang fungsi, CI memiliki isinya, dan `ignore_changes` dipasang di **dua** tempat — `image_uri` pada fungsi dan `function_version` pada alias. Yang kedua ditemukan belakangan dan lebih berbahaya, karena memindahkan alias adalah tindakan rilis itu sendiri. Ditolak: tag `:latest`, skema A, dan pemecahan Terraform menjadi `app/`. Dicatat delapan lubang yang diketahui beserta penutupnya. Pasal 6 menetapkan lima aturan migrasi kompatibel mundur, yang wajib berlaku sebelum migrasi 0001 ditulis. Nama repositori pada §9.4 dikoreksi menjadi `Korean-Asean-Digital-Academy-Batch-4/backend` |
+| 7 Agustus 2026 | Ditambahkan **§6.5 Enam lapis penjagaan** beserta **CK-D-03**: header klasifikasi, penamaan `expand`/`contract`, linter `squawk`, konfirmasi pemakai sebelum `contract`, tes rilis sebelumnya terhadap skema baru, dan latihan rollback sungguhan. Tiga lapis di antaranya lahir dari peninjauan kumpulan skill data engineering pihak ketiga. Ditolak: compatibility view, dual write, dan migrasi turun |

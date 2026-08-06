@@ -2,8 +2,8 @@
 
 | Keterangan | Isi |
 |---|---|
-| **Versi** | v1.0 |
-| **Tanggal** | 6 Agustus 2026 |
+| **Versi** | v1.1 |
+| **Tanggal** | 7 Agustus 2026 |
 | **Disusun oleh** | Re:Code |
 | **Kedudukan** | Menetapkan **bagaimana agen membangun EduTrack** di atas dokumen yang sudah terkunci. Berada di luar rantai penguncian dan tidak menetapkan apa pun tentang produk |
 | **Kerangka kerja** | [ECC](https://github.com/affaan-m/ecc) — aturan, agen, dan perintah yang terpasang pada `~/.claude/` |
@@ -253,9 +253,43 @@ Mengikuti ECC `common/coding-style.md` dan `web/coding-style.md`. Yang paling se
 
 ### 5.3 Migrasi
 
-**Migrasi wajib kompatibel mundur.** Penghapusan kolom dipisahkan ke rilis berikutnya, setelah kode yang memakainya sudah tidak berjalan. Migrasi yang sudah berjalan pada basis data berisi data sekolah tidak dapat dibatalkan begitu saja.
+**Migrasi wajib kompatibel mundur**, karena rollback aplikasi memindahkan alias tanpa memindahkan skema — kode rilis sebelumnya harus tetap berjalan di atas skema baru. Aturan lengkapnya pada [DEPLOYMENT.md §6.3](DEPLOYMENT.md).
 
-Aturan lengkapnya menjadi Pasal 6 [DEPLOYMENT.md](DEPLOYMENT.md), dan **wajib ditetapkan sebelum migrasi pertama ditulis**, bukan sesudahnya.
+Lima aturan yang mengikat:
+
+| # | Aturan |
+|:--:|---|
+| 1 | Kode versi sebelumnya wajib tetap berjalan di atas skema baru |
+| 2 | Penghapusan kolom dipisahkan ke rilis berikutnya |
+| 3 | `NOT NULL` baru wajib bernilai bawaan, atau dipecah tiga rilis |
+| 4 | Penggantian nama kolom dilarang — tambah, salin, hapus |
+| 5 | Satu berkas migrasi, satu transaksi |
+
+**Setiap berkas migrasi dibuka dengan header klasifikasi.** Yang dipaksa bukan formatnya, melainkan keputusannya ditulis alih-alih disimpulkan:
+
+```sql
+-- migrasi : 0011
+-- jenis   : additive | backward-compatible | breaking | dual-schema
+-- mundur  : ya | tidak — beserta alasannya
+-- dibaca  : api, migrate, app_ro
+-- penutup : nomor migrasi contract yang kelak menutupnya, atau —
+```
+
+Penamaan berkas menyatakan fasenya: `0011_expand_*.sql`, `0013_contract_*.sql`.
+
+**Sebelum menulis migrasi `contract`**, buktikan tidak ada yang memakainya — jangan diperkirakan:
+
+```bash
+grep -rn "<nama_kolom>" src/
+```
+
+**Migrasi wajib lolos linter** sebelum di-commit:
+
+```bash
+npx squawk migrations/*.sql
+```
+
+Enam lapis penjagaan beserta alasannya pada [DEPLOYMENT.md §6.5](DEPLOYMENT.md) dan CK-D-03. Lapis 4 dan 5 — tes rilis sebelumnya terhadap skema baru, dan latihan rollback sungguhan — wajib ada **sebelum data sekolah sungguhan dimuat**.
 
 ---
 
@@ -349,3 +383,4 @@ Sebuah tugas selesai apabila seluruh baris berikut terpenuhi dan **terbukti**, b
 | Tanggal | Perubahan |
 |---|---|
 | 6 Agustus 2026 | Dokumen dibuat. Menetapkan alur kerja agen ECC di atas rantai penguncian EduTrack: peta baca per jenis tugas, prosedur ketika kode dan dokumen bertentangan, dua belas larangan mutlak, tiga tingkat pengujian termasuk pembuktian penegakan oleh basis data, konvensi penamaan lintas lapisan, serta delapan tahap implementasi beserta gerbang selesainya |
+| 7 Agustus 2026 | §5.3 diperluas: lima aturan migrasi dinyatakan lengkap, ditambah header klasifikasi wajib, konvensi penamaan `expand`/`contract`, kewajiban `grep` sebelum `contract`, dan kewajiban lolos `squawk`. Mengikuti [DEPLOYMENT.md §6.5](DEPLOYMENT.md) dan CK-D-03 |

@@ -441,7 +441,7 @@ Yang tetap berada di luar jangkauan sistem: berkas yang **sudah terlanjur diundu
 
 ### 12.1 Cara rahasia dibaca
 
-Ketiga rahasia infrastruktur beserta tempat penyimpanannya ditetapkan [Techstack.md §7](Techstack.md) dan tidak diulang di sini. Yang menjadi urusan dokumen ini adalah **jalur pembacaannya**.
+Keempat rahasia infrastruktur beserta tempat penyimpanannya ditetapkan [Techstack.md §7](Techstack.md) dan tidak diulang di sini. Yang menjadi urusan dokumen ini adalah **jalur pembacaannya**.
 
 Pembacaan melewati interface `Secrets` di `ports/`, dengan dua implementasi: `adapters/aws/` membaca dari Secrets Manager dan SSM Parameter Store, sedangkan `adapters/local/` membaca dari variabel lingkungan. Perbedaan antara AWS dan on-prem dengan demikian tidak pernah menyentuh kode aplikasi.
 

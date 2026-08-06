@@ -570,7 +570,7 @@ Konsekuensi yang diterima: penghapusan data uji memerlukan urutan yang benar, at
 
 ## 7. Role dan hak akses
 
-Tiga role, bukan dua. [Techstack.md §7](Techstack.md) menyebut dua kredensial aplikasi; migrasi memerlukan role ketiga yang memiliki objek, dan kredensialnya belum tercatat pada dokumen mana pun — dicatat sebagai temuan **S-03** pada Pasal 12.
+Tiga role, bukan dua. Migrasi memerlukan role tersendiri yang memiliki seluruh objek, dan kredensialnya tercatat pada [Techstack.md §7](Techstack.md) dengan perlakuan sama seperti `app_rw`. Pembacanya dibatasi role IAM `edutrack-lambda-migrate` saja ([DEPLOYMENT.md §9.5](DEPLOYMENT.md)), sehingga fungsi `api` tidak dapat mengambilnya.
 
 | Role | Dipakai oleh | Hak |
 |---|---|---|
@@ -795,7 +795,7 @@ Celah yang ditemukan saat menurunkan skema fisik. Perlu ditanggapi tim.
 |---|---|---|
 | S-01 | [RFC-001 §6](RFC-001-model-data-konseptual.md) tidak memuat invarian "nilai hanya boleh dicatat bagi siswa yang terdaftar pada kelas penugasan", padahal [PRD §8.2](PRD.md) butir 5 menyiratkannya | Tambahkan sebagai invarian baru lewat amandemen RFC-001. Cara penegakannya sudah disiapkan pada Pasal 11 |
 | S-02 | `uq_kelas_wali_per_periode` menegakkan **asumsi** [aktor-role.md §12](aktor-role.md) butir 1, bukan ketentuan PRD. [ARCHITECTURE.md §1.1](ARCHITECTURE.md) juga menyebut partial unique index sebagai penegak I-09, padahal I-09 sudah terjamin bentuk kolom `kelas.wali_kelas_ref` | Konfirmasi ke sekolah apakah satu Guru boleh menjadi wali lebih dari satu kelas. Bila boleh, jatuhkan indeks — satu `DROP INDEX`, tanpa perubahan bentuk tabel |
-| S-03 | [Techstack.md §7](Techstack.md) mendaftar tiga rahasia infrastruktur; kredensial role pemilik yang menjalankan migrasi tidak termasuk di dalamnya | Tetapkan pada `Techstack.md` §7 dan [DEPLOYMENT.md](DEPLOYMENT.md): tempat penyimpanan, cara pembuatan di luar Terraform, dan siapa yang boleh membacanya |
+| S-03 | ~~Kredensial role pemilik tidak tercatat pada `Techstack.md` §7~~ | **Ditutup 7 Agustus 2026.** `Techstack.md` §7 kini memuat empat rahasia; `edutrack_owner` diperlakukan sama seperti `app_rw`, dan hanya dapat dibaca role `edutrack-lambda-migrate` ([DEPLOYMENT.md §9.5](DEPLOYMENT.md)) |
 | S-04 | `tingkat` dibatasi `CHECK (... IN ('X','XI','XII'))`, sehingga skema ini mengikat produk pada jenjang SMA/SMK | Konfirmasi apakah pilot mencakup jenjang SMP. Bila ya, perluas `CHECK` sebelum data sekolah dimuat — satu `ALTER TABLE`, sesuai alasan CK-S-02 |
 | S-05 | [ARCHITECTURE.md §11.2](ARCHITECTURE.md) mewajibkan penghapusan berkas rapor dari S3 pada koreksi Administrator, di dalam transaksi yang sama. Basis data tidak dapat menjamin keberhasilan operasi S3 di dalam transaksinya | Tetapkan urutannya pada `API.md`: hapus objek S3 lebih dahulu, baru `COMMIT`; kegagalan penghapusan membatalkan transaksi. Kosongkan `rapor.kunci_berkas` pada transaksi yang sama |
 
@@ -917,3 +917,4 @@ Bobot dan KKM sengaja tetap bilangan bulat: [PRD §8.3](PRD.md) menyatakan kedua
 | Tanggal | Perubahan |
 |---|---|
 | 6 Agustus 2026 | **Versi 1.0 — dokumen dibuat.** Menurunkan [RFC-001](RFC-001-model-data-konseptual.md) menjadi skema fisik PostgreSQL 17 di atas [Techstack.md](Techstack.md) v2.0 dan [ARCHITECTURE.md](ARCHITECTURE.md) v1.0. Sembilan belas tabel: tujuh belas entitas RFC-001 ditambah `sesi_masuk` dan `pembatas_laju` sebagai wujud fisik CK-A-04 dan CK-A-03. Pasal 5 memenuhi tuntutan [RFC-001 §6](RFC-001-model-data-konseptual.md) dengan memetakan seluruh dua puluh lima invarian beserta cara penegakannya. I-10 dan I-21 dipindahkan ke basis data lewat dua pemicu, memperkuat [ARCHITECTURE.md §1.2](ARCHITECTURE.md) (**CK-S-05**). Ditetapkan role ketiga `edutrack_owner` (**CK-S-07**), dan ditetapkan bahwa `app_ro` tidak memiliki hak baca atas tabel identitas, sehingga "identitas siswa tidak pernah dikirim" menjadi batas yang ditegakkan basis data (§7.1). Lampiran Catatan Keputusan dibuka dengan **CK-S-01** sampai **CK-S-08**. Diajukan lima temuan **S-01** sampai **S-05** |
+| 7 Agustus 2026 | **S-03 ditutup.** Kredensial `edutrack_owner` ditetapkan pada `Techstack.md` §7 dengan perlakuan sama seperti `app_rw`, dan pembacanya dibatasi role `edutrack-lambda-migrate` |
