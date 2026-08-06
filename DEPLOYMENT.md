@@ -2,13 +2,13 @@
 
 | Keterangan | Isi |
 |---|---|
-| **Versi** | v0.2 — **Pasal 9 berisi, pasal lain masih rancangan** |
-| **Tanggal** | 6 Agustus 2026 |
+| **Versi** | v0.3 — **Pasal 2, 3, 6, dan 9 berisi; sisanya masih rancangan** |
+| **Tanggal** | 7 Agustus 2026 |
 | **Disusun oleh** | Re:Code |
 | **Sumber kebenaran** | [Techstack.md](Techstack.md) v2.0 dan [ARCHITECTURE.md](ARCHITECTURE.md) |
 | **Kedudukan** | Menetapkan **bagaimana sistem dikirim dan dioperasikan**, baik di AWS maupun di server sekolah |
 
-> **Status dokumen: sebagian.** **Pasal 9 — Identitas dan akses** sudah ditulis dan berlaku, karena identitas harus ada sebelum Terraform dapat dijalankan sama sekali. Pasal 1 sampai 8 masih berupa rancangan susunan; isinya menyusul ketika Terraform mulai ditulis.
+> **Status dokumen: sebagian.** **Pasal 2, 3, 6, dan 9 sudah ditulis dan berlaku.** Pasal 1, 4, 5, 7, dan 8 masih berupa rancangan susunan; isinya menyusul ketika Terraform mulai ditulis.
 >
 > Pengenal akun AWS ditulis sebagai `<ID-AKUN>` di seluruh dokumen ini. Nilainya tidak dicantumkan di repositori.
 >
@@ -23,11 +23,11 @@
 | Pasal | Judul | Yang akan dimuat | Asal isi |
 |:--:|---|---|---|
 | 1 | Susunan `infra/` | Pohon direktori Terraform beserta tanggung jawab tiap modul: `network`, `data`, `compute`, `frontend`, `observability` | Techstack v1 §12 |
-| 2 | Terraform | Pemisahan `bootstrap/` beserta alasannya, lingkungan `dev` dan `prod`, provider alias `us-east-1` untuk ACM, pengelolaan state dan penguncian, konvensi penamaan sumber daya, serta **pembuatan rahasia di luar Terraform** sehingga hanya ARN yang masuk ke state | Techstack v1 §12 dan Techstack v2 §7, diperluas |
-| 3 | CI/CD | Tahapan pada pull request dan pada merge, pertukaran token OIDC dengan IAM role, pembangunan image, urutan migrasi sebelum fungsi diperbarui, dan pemindahan alias | Techstack v1 §12 |
+| **2** | **Terraform** | **Sudah ditulis.** Pembagian kepemilikan, skema B, pemisahan `bootstrap/` beserta alasannya, lingkungan `dev` dan `prod`, provider alias `us-east-1` untuk ACM, pengelolaan state dan penguncian, konvensi penamaan sumber daya, serta **pembuatan rahasia di luar Terraform** sehingga hanya ARN yang masuk ke state | Techstack v1 §12 dan Techstack v2 §7, diperluas |
+| **3** | **CI/CD** | **Sudah ditulis.** Tahapan pada pull request dan pada merge, pertukaran token OIDC dengan IAM role, pembangunan image, urutan migrasi sebelum fungsi diperbarui, dan pemindahan alias | Techstack v1 §12 |
 | 4 | Lingkungan pengembangan dan pengujian | `docker compose up`, adapter lokal, serta tiga tingkat pengujian — unit, integrasi, dan pembuktian penegakan oleh basis data | Techstack v1 §13 |
 | 5 | **Urutan penaikan pertama** | **Baru.** Infrastruktur dinaikkan lebih dahulu dengan API yang hanya memuat `GET /healthz`, sehingga VPC, RDS, Function URL, CloudFront, dan pipeline terbukti hidup sebelum backend selesai. Termasuk **pembuktian penandatanganan OAC atas request ber-body**, yang wajib dilakukan pada tahap ini | sebagian dari Techstack v1 §12 |
-| 6 | **Rollback** | **Baru — belum pernah ditulis.** Pengembalian aplikasi dengan memindahkan alias Lambda ke versi sebelumnya. Yang lebih penting: **migrasi basis data tidak dapat dikembalikan otomatis**, sehingga perlu aturan tersendiri — migrasi wajib kompatibel mundur, dan penghapusan kolom dipisahkan dari penambahannya ke rilis berikutnya | — |
+| **6** | **Rollback** | **Sudah ditulis.** Pengembalian aplikasi dengan memindahkan alias Lambda ke versi sebelumnya. Yang lebih penting: **migrasi basis data tidak dapat dikembalikan otomatis**, sehingga perlu aturan tersendiri — migrasi wajib kompatibel mundur, dan penghapusan kolom dipisahkan dari penambahannya ke rilis berikutnya | — |
 | 7 | **Pemasangan on-prem** | **Baru.** Skrip `install.sh` tunggal dan idempoten (CK-15) beserta sembilan langkahnya: pemeriksaan prasyarat, pemasangan Docker, penyusunan `.env` dengan kata sandi acak, `docker compose up`, migrasi, pembuatan akun Administrator, pemasangan timer pencadangan, penyalaan pembaruan keamanan otomatis, dan verifikasi akhir. Disertai `docker-compose.yml` untuk on-prem dan runbook satu halaman | — |
 | 8 | **Operasional** | **Baru.** Pencadangan beserta **prosedur pemulihannya yang sudah pernah diuji**, rotasi kredensial basis data di Secrets Manager dan penggantian kunci Elice di Parameter Store, alarm CloudWatch, AWS Budgets, pemantauan sisa kredit layanan AI, dan verifikasi biaya lewat AWS Pricing Calculator | — |
 | **9** | **Identitas dan akses** | **Sudah ditulis — lihat di bawah.** Dua IAM user, satu grup, tujuh role, dan nol access key pada jalur mesin. Ditulis lebih dahulu karena Terraform tidak dapat dijalankan tanpanya | — |
@@ -47,7 +47,214 @@
 
 **Kapan dokumen ini mulai diisi.** Ketika Terraform mulai ditulis. Menuliskannya lebih awal berarti mengarang nama modul, prosedur, dan angka yang belum diketahui.
 
-**Kecuali Pasal 9.** Identitas dan akses tidak dapat menunggu Terraform, karena Terraform sendiri harus dijalankan sebagai sesuatu — dan sesuatu itu tidak boleh berupa pengguna root. Pasal 9 karenanya ditulis lebih dahulu, dan sudah diterapkan di akun AWS pada 6 Agustus 2026.
+**Kecuali Pasal 2, 3, 6, dan 9.** Keempatnya memuat keputusan yang sudah diambil dan tidak boleh menunggu, karena masing-masing menjadi prasyarat pekerjaan yang segera dimulai: identitas mendahului Terraform, pembagian kepemilikan mendahului modul Terraform pertama, dan aturan rollback mendahului migrasi pertama.
+
+---
+
+## 2. Terraform
+
+### 2.1 Pembagian kepemilikan
+
+Terraform dan CI memiliki daur hidup yang jauh berbeda. Terraform dijalankan sesekali; CI dijalankan tiap merge. Keduanya menyentuh fungsi Lambda yang sama, sehingga pembagian kepemilikannya **wajib dinyatakan, bukan disepakati lisan**.
+
+| Terraform memiliki **cangkang** | CI memiliki **isi** |
+|---|---|
+| Memori, batas waktu, arsitektur | `image_uri` |
+| Execution role | Version yang diterbitkan |
+| Pengaturan VPC dan security group | Ke mana alias `live` menunjuk |
+| Variabel lingkungan | — |
+| Reserved concurrency | — |
+| Function URL, keberadaan alias | — |
+| ECR, RDS, S3, CloudFront, IAM | — |
+
+**Cangkang** berarti seluruh bagian fungsi yang bukan kode. **Isi** berarti kode yang dijalankan, yaitu image-nya.
+
+### 2.2 Skema B — `ignore_changes` di dua tempat
+
+```hcl
+resource "aws_lambda_function" "api" {
+  image_uri = "${aws_ecr_repository.app.repository_url}:bootstrap"
+  publish   = false                      # version diterbitkan CI, bukan Terraform
+
+  lifecycle {
+    # image_uri dimiliki CI. Lihat Pasal 3 dan CK-D-02.
+    ignore_changes = [image_uri]
+  }
+}
+
+resource "aws_lambda_alias" "live" {
+  name             = "live"
+  function_name    = aws_lambda_function.api.function_name
+  function_version = "1"                 # hanya dipakai saat pembuatan pertama
+
+  lifecycle {
+    # ke mana alias menunjuk dimiliki CI. Ini tindakan rilis itu sendiri.
+    ignore_changes = [function_version]
+  }
+}
+```
+
+**Dua `ignore_changes`, bukan satu.** Melupakan yang kedua menghasilkan kegagalan yang lebih buruk daripada melupakan yang pertama: `terraform apply` untuk urusan yang tidak berhubungan akan mengembalikan alias ke version 1, yaitu image bootstrap yang hanya memuat `GET /healthz`. Seluruh aplikasi lenyap, dan penyebabnya adalah perintah yang tampaknya tidak menyentuh aplikasi sama sekali.
+
+`publish = false` juga wajib. Dengan `publish = true`, Terraform menerbitkan version sendiri pada setiap apply, sehingga penomoran version menjadi rebutan dua sistem.
+
+**`ignore_changes` bukan mengabaikan masalah.** Ia menuliskan batas kepemilikan di tempat yang dibaca orang berikutnya, sehingga tidak ada yang "memperbaiki" atribut yang memang bukan urusannya. Bentuknya sama dengan Prinsip ④ pada [ARCHITECTURE.md](ARCHITECTURE.md): yang dapat dijamin secara struktural tidak diserahkan kepada ingatan orang.
+
+### 2.3 Pemisahan `bootstrap/`
+
+Fungsi Lambda tidak dapat dibuat tanpa image, sedangkan image tidak dapat didorong sebelum ECR ada. Terraform karenanya dipecah dua.
+
+| Konfigurasi | Isi | Dijalankan |
+|---|---|---|
+| `bootstrap/` | Bucket state, tabel penguncian, repositori ECR | Sekali, di awal |
+| `infra/` | Seluruh sisanya | Setiap kali infrastruktur berubah |
+
+```
+1  terraform apply pada bootstrap/     → ECR dan penyimpanan state
+2  build & push image :bootstrap       → aplikasi minimal, hanya GET /healthz
+3  terraform apply pada infra/         → fungsi dibuat memakai image itu
+4  CI mengambil alih sejak sini
+```
+
+Tag `:bootstrap` sengaja dipilih agar tampak sementara. Tag seperti `:v1` mengundang orang mengira angkanya berarti sesuatu dan perlu dinaikkan.
+
+### 2.4 Penamaan yang disepakati dua sistem
+
+Empat nama ditulis di dua tempat — modul Terraform dan berkas workflow. Salah ketik di salah satunya menghasilkan rilis yang gagal tanpa petunjuk jelas.
+
+| Nama | Nilai |
+|---|---|
+| Repositori ECR | `edutrack` |
+| Fungsi aplikasi | `edutrack-api` |
+| Fungsi migrasi | `edutrack-migrate` |
+| Alias | `live` |
+
+Keempatnya diterbitkan sebagai `output` Terraform, dan workflow membacanya dari sana bila memungkinkan.
+
+### 2.5 Perlindungan terhadap penghapusan
+
+```hcl
+lifecycle { prevent_destroy = true }
+```
+
+Dipasang pada **repositori ECR**, **RDS**, dan **bucket rapor**.
+
+ECR memerlukannya karena Lambda version mengunci digest image: menghapus image yang masih dirujuk sebuah version membuat rollback ke version itu tidak dapat menyala. Aturan daur hidup ECR karenanya juga **tidak boleh menghapus image bertag** — hanya image tanpa tag hasil percobaan yang boleh dibersihkan.
+
+### 2.6 Deteksi drift
+
+Terraform berhenti mengawasi `image_uri` dan `function_version` — **bukan berhenti mengawasi sisanya**. Perubahan memori, security group, atau aturan bucket yang dilakukan lewat konsol tetap merupakan drift sungguhan.
+
+`terraform plan` dijalankan pada setiap pull request infrastruktur, dan terjadwal seminggu sekali. Selisih yang muncul di situ wajib ditindak, bukan diabaikan.
+
+### 2.7 Menjawab "yang jalan sekarang commit mana?"
+
+Karena Terraform tidak lagi mengetahuinya, jawabannya diambil dari AWS:
+
+```bash
+aws lambda get-function --function-name edutrack-api --qualifier live \
+  --query 'Code.ImageUri' --output text
+```
+
+Karena tag image berupa git SHA, keluarannya langsung menunjuk satu commit persis. **Inilah alasan sesungguhnya tag git SHA diwajibkan** — bukan kerapian, melainkan penutup bagi lubang yang ditinggalkan `ignore_changes`.
+
+---
+
+## 3. CI/CD
+
+### 3.1 Dua workflow
+
+| Berkas | Pemicu | Menyentuh AWS? |
+|---|---|---|
+| `.github/workflows/pr.yml` | Pull request | **Tidak sama sekali** |
+| `.github/workflows/deploy.yml` | Merge ke `main` | Ya, lewat OIDC |
+
+### 3.2 Pemeriksaan pada pull request
+
+```
+npm ci → prettier --check → eslint → tsc --noEmit
+       → vitest unit          domain/, tanpa I/O
+       → vitest integration   service container postgres:17
+             ├─ jalankan migrasi 0001–0010
+             └─ jalankan bukti penegakan basis data (AGENTS.md §4.2)
+       → docker build         tanpa push, membuktikan image jadi
+```
+
+Tidak ada kredensial AWS pada jalur ini. Pull request dari mana pun karenanya tidak dapat menyentuh infrastruktur.
+
+### 3.3 Urutan rilis
+
+```yaml
+permissions:
+  id-token: write        # tanpa ini, GitHub tidak menerbitkan token OIDC
+  contents: read
+```
+
+| # | Langkah | Catatan |
+|:--:|---|---|
+| 1 | `aws-actions/configure-aws-credentials@v4` dengan `role-to-assume` | Tanpa access key, tanpa secret |
+| 2 | Bangun image, tag = **git SHA** | Bukan `:latest` |
+| 3 | Dorong ke ECR | Tag bersifat immutable |
+| 4 | `update-function-code` pada `edutrack-migrate` | — |
+| 5 | `aws lambda wait function-updated` | **Wajib.** Langkah 4 asinkron |
+| 6 | `invoke` `edutrack-migrate`, sinkron | Gagal → pipeline berhenti, aplikasi tidak disentuh |
+| 7 | `update-function-code` pada `edutrack-api` | — |
+| 8 | `aws lambda wait function-updated` | **Wajib** |
+| 9 | `publish-version` | Menghasilkan version bernomor |
+| 10 | `update-alias live` → version baru | **Momen rilis sesungguhnya** |
+| 11 | `GET /healthz` lewat CloudFront | Menguji jalur nyata, bukan hanya fungsinya |
+| 12 | Gagal → `update-alias live` → version sebelumnya | Rollback dalam hitungan detik |
+
+**Langkah 5 dan 8 paling mudah terlupa.** `update-function-code` mengembalikan jawaban sebelum AWS selesai memasang image. Menerbitkan version terlalu cepat menghasilkan version yang membeku pada image **lama**, dan gejalanya berupa rilis yang tampak berhasil tetapi tidak mengubah apa pun.
+
+**Langkah 6 mendahului langkah 7 dengan sengaja**, sehingga terdapat jeda ketika kode lama berjalan di atas skema baru. Inilah alasan sesungguhnya aturan migrasi kompatibel mundur pada Pasal 6.
+
+### 3.4 Yang tidak ada pada pipeline backend
+
+`s3 sync` frontend, invalidasi CloudFront, dan `terraform apply`. Ketiganya bukan bagian backend; dua yang pertama milik pipeline frontend, dan yang ketiga dijalankan manusia.
+
+### 3.5 Rilis yang memerlukan Terraform lebih dahulu
+
+Karena variabel lingkungan dimiliki Terraform (§2.1), rilis yang memperkenalkan variabel baru menjadi **dua langkah**: Terraform lebih dahulu, CI menyusul. Melupakan urutan ini menghasilkan kode yang membaca variabel bernilai `undefined` di produksi.
+
+Konsekuensinya: variabel lingkungan dijaga tetap sedikit — hanya ARN rahasia, `PORT`, dan pengaturan Lambda Web Adapter. Konfigurasi aplikasi yang berubah bersama kode ditempatkan **di dalam image**, bukan di variabel lingkungan.
+
+---
+
+## 6. Rollback
+
+### 6.1 Aplikasi — mudah
+
+Pindahkan alias `live` ke version sebelumnya. Selesai dalam hitungan detik, tanpa membangun ulang, tanpa menyentuh ECR.
+
+```bash
+aws lambda update-alias --function-name edutrack-api \
+  --name live --function-version <nomor-sebelumnya>
+```
+
+Inilah manfaat utama version dan alias. Tanpa keduanya, rollback berarti mencari commit lama, membangun ulang image, lalu mendorongnya — sepuluh menit atau lebih, tepat ketika sistem sedang bermasalah.
+
+### 6.2 Basis data — tidak bisa
+
+**Migrasi yang sudah berjalan tidak dapat dikembalikan otomatis.** Tidak ada `terraform destroy` maupun pemindahan alias yang menolong. Pada basis data berisi nilai sekolah sungguhan, migrasi turun yang ditulis terburu-buru lebih berbahaya daripada tidak ada sama sekali.
+
+Asimetri inilah yang membentuk seluruh aturan berikutnya.
+
+### 6.3 Aturan migrasi
+
+| # | Aturan |
+|:--:|---|
+| 1 | **Migrasi wajib kompatibel mundur.** Kode versi sebelumnya harus tetap berjalan di atas skema baru, karena Pasal 3 langkah 6 memang menciptakan jeda itu |
+| 2 | **Penghapusan kolom dipisahkan ke rilis berikutnya**, setelah kode yang memakainya tidak lagi berjalan |
+| 3 | **Penambahan kolom `NOT NULL` wajib disertai nilai bawaan**, atau dipecah menjadi tiga rilis: tambah nullable, isi, baru ketatkan |
+| 4 | **Penggantian nama kolom dilarang.** Tambah kolom baru, salin, hapus pada rilis berikutnya |
+| 5 | Setiap berkas migrasi dijalankan di dalam satu transaksi ([SCHEMA.md §9.1](SCHEMA.md)) |
+
+Aturan 2 sampai 4 adalah penerapan aturan 1 pada tiga bentuk perubahan yang paling sering muncul.
+
+### 6.4 Ketika rollback aplikasi tidak cukup
+
+Apabila rilis yang rusak sudah menulis data yang salah, memindahkan alias **tidak memperbaiki datanya**. Perbaikan data adalah pekerjaan tersendiri: perbaiki lewat migrasi baru atau perintah CLI, bukan dengan mengembalikan skema.
 
 ---
 
@@ -149,7 +356,7 @@ Dipinjam GitHub Actions lewat OIDC. **Tidak ada access key, dan tidak ada IAM us
 
 | Role | Dipinjam oleh | Izin | Yang justru penting: tidak boleh |
 |---|---|---|---|
-| `edutrack-gha-backend` | Repositori backend, ref `main` | Push ke satu repositori ECR · `lambda:UpdateFunctionCode`, `PublishVersion`, `UpdateAlias`, `GetFunction`, `InvokeFunction` pada dua fungsi | `CreateFunction`, `UpdateFunctionConfiguration`, `DeleteFunction`, `iam:PassRole`, apa pun pada bucket frontend |
+| `edutrack-gha-backend` | Repositori `Korean-Asean-Digital-Academy-Batch-4/backend`, ref `main` | Push ke satu repositori ECR · `lambda:UpdateFunctionCode`, `PublishVersion`, `UpdateAlias`, `GetFunction`, `InvokeFunction` pada dua fungsi | `CreateFunction`, `UpdateFunctionConfiguration`, `DeleteFunction`, `iam:PassRole`, apa pun pada bucket frontend |
 | `edutrack-gha-frontend` | Repositori frontend, ref `main` | `s3:PutObject/DeleteObject/ListBucket` pada bucket frontend · `cloudfront:CreateInvalidation` pada satu distribusi | Lambda, ECR, RDS, bucket rapor |
 
 **Ketiadaan `iam:PassRole` adalah akibat langsung dari pembagian kepemilikan pada Pasal 2 dan 3**: Terraform memiliki cangkang fungsi, CI hanya menukar isinya. Karena CI tidak pernah membuat maupun mengonfigurasi ulang fungsi, izin paling berbahaya itu dapat dihilangkan sepenuhnya.
@@ -163,7 +370,7 @@ Dipinjam GitHub Actions lewat OIDC. **Tidak ada access key, dan tidak ada IAM us
   "Action": "sts:AssumeRoleWithWebIdentity",
   "Condition": { "StringEquals": {
     "token.actions.githubusercontent.com:aud": "sts.amazonaws.com",
-    "token.actions.githubusercontent.com:sub": "repo:<ORG>/edutrack-backend:ref:refs/heads/main"
+    "token.actions.githubusercontent.com:sub": "repo:Korean-Asean-Digital-Academy-Batch-4/backend:ref:refs/heads/main"
   }}
 }
 ```
@@ -268,6 +475,39 @@ Peminjaman role membalik keadaan itu. Kredensial yang tersimpan di laptop nyaris
 2. **Kode MFA diminta setiap kali sesi baru dibuat.** Umur empat jam pada `edutrack-terraform` membuatnya paling banyak sekali per sesi kerja.
 3. **`AdministratorAccess` pada role Terraform.** Diterima karena sifatnya kini sementara dan tercatat, bukan karena kuasanya kecil.
 
+### CK-D-02 · 7 Agustus 2026 · Terraform memiliki cangkang, CI memiliki isi
+
+**Diputuskan.** Terraform membuat dan memiliki seluruh bagian fungsi Lambda **kecuali** image dan penunjuk alias. Kedua atribut itu dinyatakan `ignore_changes`, dan dimiliki CI. Disebut **skema B** sepanjang penyusunannya.
+
+**Alasan.** Terraform dan CI memiliki daur hidup yang jauh berbeda — sesekali berbanding beberapa kali sehari — tetapi menyentuh sumber daya yang sama. Tanpa pembagian yang dinyatakan, keduanya sama-sama merasa memiliki `image_uri`, dan `terraform apply` yang dijalankan untuk urusan **yang sama sekali tidak berhubungan** akan mengembalikan aplikasi ke versi lama tanpa satu pun pesan kesalahan.
+
+Sembilan alasan Terraform akan dijalankan kembali sudah tertulis di dokumen proyek sebelum satu baris kode pun ada: aturan daur hidup S3 untuk arsip ZIP, `Deny` bucket rapor pada `edutrack-readonly`, penyesuaian memori setelah lama render diukur, nama domain dan ACM, penggantian NAT dengan Egress-only IGW, provisioned concurrency, jalur naik ke ECS Fargate, alarm dan anggaran, serta sumber daya frontend. Anggapan bahwa Terraform "hanya sekali jalan" karenanya tidak bertahan.
+
+**Justru jarangnya yang berbahaya.** Bila Terraform dijalankan tiap rilis, kemunduran diam-diam akan ketahuan dalam sehari. Karena ia dijalankan berminggu-minggu sekali untuk urusan lain, tidak akan ada yang menghubungkan "aplikasi mundur tiga rilis" dengan "kemarin saya memasang alarm biaya".
+
+**Alternatif yang ditolak.**
+
+*Tag tetap `:latest` di Terraform.* Menghapus drift tanpa `ignore_changes`, sehingga terlihat lebih sederhana. Ditolak karena **tidak merilis apa pun**: Lambda menerjemahkan tag menjadi digest pada saat pemasangan lalu menguncinya, sehingga mendorong `:latest` baru tidak mengubah fungsi yang berjalan. `update-function-code` tetap diperlukan, sementara penelusuran hilang — setiap version berbunyi `:latest` — immutable tag harus dimatikan, dan aturan daur hidup yang menghapus image tanpa tag dapat membuat rollback gagal karena image-nya sudah lenyap.
+
+*Skema A — CI menjalankan `terraform apply -var image_tag=…`.* Satu sumber kebenaran dan mustahil drift. Ditolak karena setiap rilis aplikasi kemudian memerlukan kewenangan penuh Terraform di dalam CI, mengunci state, berjalan lebih lambat, dan membuat modul infrastruktur yang rusak ikut memblokir rilis aplikasi yang sehat.
+
+*Terraform dipecah dua, `app/` khusus fungsi dan dijalankan CI.* Bentuk yang sah dan dipakai sebagian tim. Ditolak karena mengembalikan `iam:PassRole` ke role CI — izin menyerahkan role kepada sumber daya lain, yang justru berhasil dihilangkan skema ini (§9.4) — sekaligus tetap mengunci state pada tiap rilis.
+
+**Lubang yang diketahui beserta penutupnya.**
+
+| Lubang | Penutup |
+|---|---|
+| Alias dikembalikan Terraform ke version bootstrap | `ignore_changes = [function_version]` pada `aws_lambda_alias` (§2.2) |
+| Terraform menerbitkan version sendiri | `publish = false` |
+| Fungsi dibuat ulang setelah `destroy` dan kembali ke image bootstrap | `prevent_destroy` pada sumber daya berdata; rilis diulang untuk memulihkan |
+| Image yang masih dirujuk version terhapus, sehingga rollback tidak menyala | `prevent_destroy` pada ECR; aturan daur hidup tidak menghapus image bertag (§2.5) |
+| Drift pada atribut lain tidak lagi diperhatikan | `terraform plan` pada tiap PR infrastruktur dan terjadwal mingguan (§2.6) |
+| Nama tidak cocok antara Terraform dan workflow | Diterbitkan sebagai `output` Terraform (§2.4) |
+| Rilis yang memerlukan variabel lingkungan baru | Dua langkah, Terraform lebih dahulu (§3.5) |
+| Terraform tidak lagi tahu versi yang berjalan | Perintah `get-function --qualifier live` (§2.7) |
+
+**Konsekuensi yang diterima.** Terraform sengaja tidak mengetahui image mana yang berjalan, dan dua nama sumber daya hidup di dua tempat.
+
 ---
 
 ## Riwayat
@@ -276,3 +516,4 @@ Peminjaman role membalik keadaan itu. Kredensial yang tersimpan di laptop nyaris
 |---|---|
 | 6 Agustus 2026 | Kerangka dibuat sebagai bagian dari pemecahan `Techstack.md` menjadi tiga dokumen. Isi belum ditulis |
 | 6 Agustus 2026 | **Versi 0.2 — Pasal 9 Identitas dan akses ditulis.** Ditetapkan dua IAM user bernama orang, satu grup `Edutrack-dev` dengan dua customer managed policy, dan tujuh role: dua dipinjam manusia, dua dipinjam GitHub Actions lewat OIDC, dan tiga untuk fungsi Lambda serta NAT instance. Seluruh jalur mesin tanpa access key. Pasal ini ditulis mendahului pasal lain karena Terraform tidak dapat dijalankan tanpanya. Lampiran Catatan Keputusan dibuka dengan **CK-D-01**. Dicatat pula keadaan penerapan per 6 Agustus 2026 pada §9.9 |
+| 7 Agustus 2026 | **Versi 0.3 — Pasal 2, 3, dan 6 ditulis.** Ditetapkan **skema B** (**CK-D-02**): Terraform memiliki cangkang fungsi, CI memiliki isinya, dan `ignore_changes` dipasang di **dua** tempat — `image_uri` pada fungsi dan `function_version` pada alias. Yang kedua ditemukan belakangan dan lebih berbahaya, karena memindahkan alias adalah tindakan rilis itu sendiri. Ditolak: tag `:latest`, skema A, dan pemecahan Terraform menjadi `app/`. Dicatat delapan lubang yang diketahui beserta penutupnya. Pasal 6 menetapkan lima aturan migrasi kompatibel mundur, yang wajib berlaku sebelum migrasi 0001 ditulis. Nama repositori pada §9.4 dikoreksi menjadi `Korean-Asean-Digital-Academy-Batch-4/backend` |
