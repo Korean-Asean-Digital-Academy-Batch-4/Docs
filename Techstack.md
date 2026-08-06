@@ -45,7 +45,7 @@ SDK AWS hanya boleh muncul di `adapters/aws/`. Lapisan domain, rute, dan basis d
 | **ORM** | Drizzle | — |
 | **Basis data** | PostgreSQL di Amazon RDS | PostgreSQL 17, `db.t4g.micro` |
 | **Autentikasi** | Dikelola sendiri: Argon2id + sesi lewat cookie `HttpOnly` | — |
-| **AI** | OpenRouter, dipanggil lewat port adapter | — |
+| **AI** | Elice AI Cloud (KADA), antarmuka setara OpenAI, dipanggil lewat port adapter | `/v1/chat/completions` |
 | **Penyajian frontend** | S3 (privat, OAC) + CloudFront | — |
 | **Penyajian backend** | AWS Lambda dari container image, memakai **Lambda Web Adapter**, diakses lewat **Function URL** dengan CloudFront OAC | LWA 1.0.x, arm64 |
 | **Penyimpanan berkas** | S3, diakses lewat presigned URL | — |
@@ -92,7 +92,7 @@ SDK AWS hanya boleh muncul di `adapters/aws/`. Lapisan domain, rute, dan basis d
    │  subnet publik:  NAT instance t4g.nano                 │
    └────────────────────────────────────────────────────────┘
                        │                    │
-                  OpenRouter            S3 rapor
+              Elice AI Cloud          S3 rapor
                 (tombol Suggestion)   (presigned URL)
 ```
 
@@ -223,7 +223,7 @@ Karena setiap instance Lambda memiliki memorinya sendiri, penghitung pembatas la
 | Jalur | Batas | Alasan |
 |---|---|---|
 | `POST /api/auth/login` | Per akun dan per alamat IP | Menahan percobaan kata sandi beruntun. Relevan karena §6.1.3 meniadakan syarat kerumitan kata sandi |
-| Tombol Suggestion | Per siswa | Setiap penekanan memanggil OpenRouter dan berbiaya token (§9) |
+| Tombol Suggestion | Per siswa | Setiap penekanan memanggil layanan AI dan menggerus kredit (§9, §15.3) |
 | Unggah berkas | Per pengguna, disertai batas ukuran | Menahan pemakaian memori yang tidak wajar |
 
 Pembatasan ini berada di dalam aplikasi, sehingga **ikut berpindah ke on-prem** — berbeda dari pembatasan laju di tepi jaringan yang akan tertinggal di AWS.
@@ -303,7 +303,7 @@ Tombol Suggestion (PRD §8.5) dilayani melalui satu endpoint sinkron yang hanya 
 POST /api/me/suggestion
   → baca data siswa penekan tombol lewat koneksi app_ro
   → susun prompt
-  → panggil OpenRouter
+  → panggil Elice AI Cloud (POST /v1/chat/completions)
   → kembalikan teks ke frontend
   → tidak menulis apa pun
 ```
@@ -317,9 +317,27 @@ POST /api/me/suggestion
 | Batas waktu | 20 detik, lalu dibatalkan | Menahan permintaan menggantung |
 | Fakta sumber dan penanda Data Sementara | Ditampilkan **oleh halaman** di sekitar keluaran AI, tidak dituntut menjadi bagian teks AI | §8.5, AC-19 |
 
-Pemanggilan melewati interface `AiAdvisor` di `ports/`, dan OpenRouter hanya salah satu implementasinya. Penggantian penyedia — termasuk ke model yang dipasang sendiri di lingkungan on-prem — berarti menukar satu adapter tanpa menyentuh lapisan domain maupun rute.
+### 9.1 Penyedia
 
-Kunci API OpenRouter disimpan di Secrets Manager dan tidak pernah masuk ke repositori maupun ke image.
+Layanan AI disediakan **Elice AI Cloud** melalui program KADA, yang antarmukanya **setara OpenAI**: `POST /v1/chat/completions` dengan otorisasi `Bearer`, ditambah `GET /v1/models` dan `POST /v1/responses`.
+
+```
+POST https://mlapi.run/{endpoint-id}
+Authorization: Bearer {API_KEY}
+Content-Type: application/json
+```
+
+Kesetaraan dengan antarmuka OpenAI inilah yang membuat pilihan ini tidak mengikat. Adapter yang ditulis adalah klien OpenAI-compatible biasa, sehingga berpindah penyedia — ke layanan lain, atau ke model yang dipasang sendiri di server sekolah lewat vLLM, Ollama, maupun LiteLLM — berarti **mengganti base URL dan kunci API**, bukan menulis ulang adapter.
+
+Pemanggilan tetap melewati interface `AiAdvisor` di `ports/`, sehingga lapisan domain dan rute tidak mengetahui penyedia mana yang dipakai.
+
+Kunci API disimpan di Secrets Manager dan tidak pernah masuk ke repositori maupun ke image.
+
+### 9.2 Minimalisasi data yang dikirim
+
+Prompt disusun **tanpa identitas siswa**. Nama, NIS, dan pengenal apa pun tidak dikirim; yang dikirim hanya nama mata pelajaran, nilai per komponen, KKM, kelengkapan, topik, dan persentase kehadiran.
+
+Ini bukan sekadar kehati-hatian: data akademik dikirim ke layanan pihak ketiga, dan **V6** pada [ATURAN-DAN-KRITERIA §5](ATURAN-DAN-KRITERIA.md) mensyaratkan kebijakan privasi serta penggunaan data nyata untuk AI **divalidasi dengan sekolah** sebelum sistem memuat data sungguhan. Dengan identitas tidak pernah dikirim, yang perlu divalidasi menjadi jauh lebih sempit.
 
 ---
 
@@ -350,7 +368,7 @@ Konsekuensi yang diterima: unduhan pertama satu rapor memerlukan waktu render, d
 | **RDS** | Subnet privat-data, security group hanya mengizinkan security group fungsi Lambda |
 | **S3 frontend** | Bucket privat, hanya dapat dibaca CloudFront lewat Origin Access Control |
 | **S3 rapor** | Bucket privat, akses hanya lewat presigned URL berumur pendek |
-| **Jalur keluar** | NAT instance `t4g.nano` untuk OpenRouter. S3 lewat gateway endpoint yang tidak berbiaya, sehingga unggah dan unduh rapor tidak melewati NAT |
+| **Jalur keluar** | NAT instance `t4g.nano` untuk menghubungi Elice AI Cloud. S3 lewat gateway endpoint yang tidak berbiaya, sehingga unggah dan unduh rapor tidak melewati NAT |
 | **Header keamanan** | HSTS, `X-Content-Type-Options`, `Referrer-Policy`, dan Content Security Policy diatur di CloudFront Response Headers Policy |
 | **Rahasia** | Secrets Manager. Tidak ada kredensial di dalam image maupun repositori |
 
@@ -432,7 +450,7 @@ Tidak diperlukan akun AWS untuk mengembangkan maupun menguji. Adapter yang dipak
 | Frontend | ✅ | Berkas statis yang sama disajikan Nginx, atau langsung oleh Express |
 | Penyimpanan berkas | ⚠️ | Tetap S3, atau ditukar ke MinIO maupun disk lokal lewat `adapters/local` |
 | Rahasia | ⚠️ | Secrets Manager ditukar variabel lingkungan |
-| Penyedia AI | ⚠️ | OpenRouter tetap dipakai, atau ditukar adapter lain |
+| Penyedia AI | ⚠️ | Elice AI Cloud tetap dipakai, atau diarahkan ke penyedia lain maupun model yang dipasang sendiri. Karena antarmukanya setara OpenAI, yang berubah hanya base URL dan kunci API (§9.1) |
 | Connection pool | ⚠️ | `max: 1` menjadi `max: 10`. **Satu baris konfigurasi**, dibaca dari variabel lingkungan |
 | CloudFront, Function URL, dan NAT | ❌ | Digantikan reverse proxy tunggal, misalnya Nginx atau Caddy |
 
@@ -465,7 +483,7 @@ Diturunkan dari volume RFC-001 §8.1 — 360 siswa, 18 guru, 1 administrator.
 | NAT instance `t4g.nano` + alamat IPv4 publik + EBS | ~$8 |
 | CloudFront dan S3 | $0–2 |
 | ECR | < $1 |
-| OpenRouter — sekitar 1.400 panggilan tombol Suggestion | $2–5 |
+| Elice AI Cloud — sekitar 1.400 panggilan tombol Suggestion | **$0** — memakai kredit program KADA, di luar tagihan AWS |
 | **Total** | **$27–35**, atau **$12–20** dengan free tier |
 
 > ⚠️ Seluruh angka berasal dari daftar harga terbitan AWS untuk `ap-southeast-1` dan **belum diverifikasi lewat AWS Pricing Calculator**. Wajib diperiksa sebelum masuk `DEPLOYMENT.md`.
@@ -479,7 +497,7 @@ Dua tuas yang tersisa, keduanya perlu diperiksa lebih dahulu, bukan diasumsikan 
 | Tuas | Hemat | Syarat |
 |---|--:|---|
 | Free tier RDS | −$15 | Status kelayakan akun AWS tim perlu diperiksa. Berlaku 12 bulan |
-| Egress-only Internet Gateway lewat IPv6, menggantikan NAT instance | −$8 | Hanya berlaku apabila OpenRouter dapat dihubungi lewat IPv6. **Wajib diuji** |
+| Egress-only Internet Gateway lewat IPv6, menggantikan NAT instance | −$8 | Hanya berlaku apabila `mlapi.run` dapat dihubungi lewat IPv6. **Wajib diuji** |
 
 Apabila keduanya berhasil, tagihan turun ke sekitar **$5–10 per bulan**.
 
@@ -487,13 +505,15 @@ Apabila keduanya berhasil, tagihan turun ke sekitar **$5–10 per bulan**.
 
 **Sebagai pembanding**, rancangan ECS Fargate dengan dua task di belakang Application Load Balancer berbiaya **$60–71 per bulan** — selisihnya berasal dari Fargate (~$20) dan ALB (~$16). Perbandingan ini dicatat karena Fargate tetap menjadi jalur naik apabila cold start atau plafon koneksi terbukti mengganggu (CK-13).
 
+**Biaya AI berada di luar tagihan AWS.** Layanan AI memakai kredit program KADA, bukan kartu tagihan tim. Konsekuensinya kredit bersifat **terbatas dan menipis**, bukan biaya berulang: pembatasan laju per siswa (§6.4) adalah pengendali pemakaiannya, dan habisnya kredit tidak menghentikan aplikasi karena kegagalan layanan AI ditangani sebagai kegagalan lunak (AC-21, §9). Besaran kredit dan tanggal berakhirnya dicatat sebagai butir 9 pada §16.
+
 ---
 
 ## 16. Yang belum diputuskan
 
 | # | Item | Menunggu | Dampak apabila berubah |
 |---|---|---|---|
-| 1 | Model OpenRouter yang dipakai beserta prompt sistemnya | Uji keluaran terhadap AC-18 dan AC-31 | Hanya isi adapter. Tidak menyentuh arsitektur |
+| 1 | Model yang dipilih dari Model Library Elice beserta prompt sistemnya | Uji keluaran terhadap AC-18 dan AC-31 | Hanya isi adapter. Tidak menyentuh arsitektur |
 | 2 | Format rapor resmi sekolah | V5 pada ATURAN-DAN-KRITERIA §5 | Menentukan templat pdfmake. Apabila tata letaknya rumit, perlu ditinjau ulang terhadap CK-09 |
 | 3 | Kebijakan penyimpanan dan pencadangan data | V6 | Menentukan lama retensi cadangan RDS dan aturan daur hidup bucket rapor |
 | 4 | Nama domain dan penerbitan sertifikat | Pihak sekolah | Menentukan modul `frontend` pada Terraform |
@@ -501,6 +521,9 @@ Apabila keduanya berhasil, tagihan turun ke sekitar **$5–10 per bulan**.
 | 6 | Apakah OpenRouter dapat dihubungi lewat IPv6, sehingga NAT instance dapat digantikan Egress-only Internet Gateway | Uji jaringan saat infrastruktur naik | Menghemat ~$8 per bulan, yaitu 28% tagihan (§15.3) |
 | 7 | Status kelayakan free tier akun AWS tim | Pemeriksaan akun | Menentukan apakah tagihan ~$27 atau ~$12 per bulan |
 | 8 | Apakah cold start ~0,8–1,5 detik dapat diterima pengguna | UAT | Apabila tidak, jalur naiknya provisioned concurrency atau ECS Fargate memakai image yang sama (CK-13) |
+| 9 | Besaran sisa kredit Elice dan **tanggal berakhirnya program KADA** | Ketentuan program | Menentukan kapan penyedia AI harus diganti. Karena antarmukanya setara OpenAI, penggantian berarti mengubah base URL dan kunci API (§9.1) |
+| 10 | Memakai **Dedicated Endpoint** (`mlapi.run/{id}`) atau endpoint bersama `/v1/chat/completions` | Uji ketersediaan dan latensi | Menentukan nilai base URL pada adapter. Tidak menyentuh arsitektur |
+| 11 | Persetujuan sekolah atas pengiriman data akademik ke layanan AI pihak ketiga | V5 dan **V6** pada ATURAN-DAN-KRITERIA §5 | Apabila ditolak, tombol Suggestion memerlukan model yang dipasang sendiri. Dimitigasi sejak awal dengan tidak pernah mengirim identitas siswa (§9.2) |
 
 Temuan RFC-001 §10 yang masih terbuka — T-01, T-02, T-04, T-05, dan T-06 — bersifat produk dan tidak dipengaruhi pilihan teknologi mana pun pada dokumen ini. T-03 ditutup oleh §8.
 
@@ -650,6 +673,23 @@ Bernomor dan bertanggal. Entri tidak disunting; perubahan keputusan ditulis seba
 
 **Yang membuat keputusan ini dapat dibalik.** Ketiga konsekuensi pertama diselesaikan dengan berpindah ke ECS Fargate memakai **image yang sama persis**: yang berubah hanya modul Terraform, ditambah `max: 1` menjadi `max: 10` yang dibaca dari variabel lingkungan. Nol perubahan kode aplikasi. Inilah yang membedakannya dari rancangan Lambda 2 Agustus 2026, yang mengikat kode ke Lambda lewat `serverless-http` dan entry point terpisah.
 
+### CK-14 · 6 Agustus 2026 · Elice AI Cloud, bukan OpenRouter — mengamandemen CK-06
+
+**Diputuskan.** Tombol Suggestion dilayani **Elice AI Cloud** melalui program KADA, dengan antarmuka setara OpenAI (`POST /v1/chat/completions`, otorisasi `Bearer`).
+
+**Alasan.**
+
+1. **Kredit sudah tersedia** melalui program KADA, sehingga biaya AI keluar dari tagihan berulang dan menjadi kredit terbatas yang perlu dijaga pemakaiannya.
+2. **Antarmukanya setara OpenAI.** Ini yang menentukan, bukan penyedianya. Adapter yang ditulis adalah klien OpenAI-compatible biasa, sehingga tuntutan portabilitas pada CK-06 justru terpenuhi lebih baik daripada dengan OpenRouter: berpindah ke penyedia lain maupun ke model yang dipasang sendiri di server sekolah cukup dengan mengubah base URL dan kunci API.
+
+**Yang tidak berubah dari CK-06.** Penolakan terhadap **Amazon Bedrock** tetap berlaku, dengan alasan yang sama: Bedrock mengikat jalur AI ke AWS sehingga pemasangan on-prem memerlukan penyedia lain yang keluarannya belum tentu setara. Interface `AiAdvisor` di `ports/` juga tetap, sehingga lapisan domain dan rute tidak mengetahui penyedia mana yang dipakai.
+
+**Konsekuensi yang diterima.**
+
+1. **Kredit terbatas dan terikat program.** Sisa kredit dan tanggal berakhirnya dicatat sebagai butir 9 pada §16. Habisnya kredit tidak menghentikan aplikasi, karena kegagalan layanan AI ditangani sebagai kegagalan lunak (AC-21).
+2. **Data akademik dikirim ke layanan pihak ketiga.** Dimitigasi dengan tidak pernah mengirim identitas siswa (§9.2), dan tetap memerlukan persetujuan sekolah sesuai V6 — dicatat sebagai butir 11 pada §16.
+3. **Jalur keluar internet tetap dibutuhkan**, sehingga NAT instance tidak dapat dihapus kecuali IPv6 terbukti bekerja (§16 butir 6).
+
 ---
 
 ## Riwayat
@@ -657,4 +697,5 @@ Bernomor dan bertanggal. Entri tidak disunting; perubahan keputusan ditulis seba
 | Tanggal | Perubahan |
 |---|---|
 | 6 Agustus 2026 | Dokumen dibuat. Menetapkan stack di atas PRD v3.0 dan RFC-001. Menggantikan bagian stack pada `ARCHITECTURE.md` versi 2 Agustus 2026. Menutup K-01 dan K-02 pada RFC-001 §9 melalui CK-05, CK-01, dan CK-04, serta menutup temuan T-03 melalui §8 |
+| 6 Agustus 2026 | Penyedia AI berpindah dari OpenRouter ke Elice AI Cloud melalui program KADA (**CK-14**, mengamandemen CK-06). §2, §3, §6.4, §9, §11, §14, §15, dan §16 disesuaikan. Ditambahkan §9.1 penyedia beserta antarmuka setara OpenAI, dan §9.2 minimalisasi data yang menetapkan identitas siswa tidak pernah dikirim |
 | 6 Agustus 2026 | Compute berpindah dari ECS Fargate dengan ALB ke Lambda Web Adapter dengan Function URL (**CK-13**, mengamandemen CK-01 dan CK-02). §2, §3, §6.3, §6.4, §11, §12, §14, §15, dan §16 disesuaikan. Perkiraan biaya diperbaiki: NAT menjadi ~$8 karena alamat IPv4 publik kini ditagih, dan total turun menjadi $27–35 per bulan. Pembuatan akun Administrator ditetapkan melalui perintah CLI (§8) |
