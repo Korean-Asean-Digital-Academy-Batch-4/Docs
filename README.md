@@ -13,15 +13,15 @@ Kumpulan dokumen sumber kebenaran untuk produk **EduTrack** (Project ID: EDU-202
 | [aktor-role.md](./aktor-role.md) | Aktor, peran, dan aturan izin akses |
 | [RFC-001-model-data-konseptual.md](./RFC-001-model-data-konseptual.md) | Entitas, relasi, dan invarian basis data; netral teknologi |
 | [Techstack.md](./Techstack.md) | Teknologi apa yang dipilih dan mengapa, beserta perkiraan biaya |
+| [ARCHITECTURE.md](./ARCHITECTURE.md) | Bagaimana bagian-bagian sistem terhubung: peta besar, batas modul, jaringan, alur request |
 
 ### Kerangka — isi belum ditulis
 
 | Dokumen | Isi |
 |---|---|
-| [ARCHITECTURE.md](./ARCHITECTURE.md) | Bagaimana bagian-bagian sistem terhubung: peta besar, batas modul, jaringan, alur request |
 | [DEPLOYMENT.md](./DEPLOYMENT.md) | Bagaimana sistem dikirim dan dioperasikan: Terraform, CI/CD, rollback, pemasangan on-prem, pencadangan |
 
-Keduanya lahir dari pemecahan `Techstack.md` pada 6 Agustus 2026. Susunan pasalnya sudah ditetapkan; isinya menyusul.
+Lahir dari pemecahan `Techstack.md` pada 6 Agustus 2026 bersama `ARCHITECTURE.md`. Susunan pasalnya sudah ditetapkan; isinya menyusul.
 
 ### Menunggu penyelarasan dengan PRD v3.0
 
@@ -69,7 +69,7 @@ Dua jenis isi dipisahkan tegas, karena keduanya berumur berbeda:
 | Dokumen | Awalan |
 |---|---|
 | `Techstack.md` | `CK-01` sampai `CK-15`, tanpa awalan — penomoran asli sebelum pemecahan, tidak dinomori ulang |
-| `ARCHITECTURE.md` | `CK-A-01` dan seterusnya |
+| `ARCHITECTURE.md` | `CK-A-01` sampai `CK-A-06` |
 | `DEPLOYMENT.md` | `CK-D-01` dan seterusnya |
 
 Rujukan pasal di dalam `CK-01` sampai `CK-15` mengacu pada penomoran `Techstack.md` **sebelum** pemecahan 6 Agustus 2026. Entri tidak disunting, sesuai konvensi di atas; isi yang dirujuk kini berada pada `ARCHITECTURE.md` atau `DEPLOYMENT.md`.
