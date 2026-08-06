@@ -518,7 +518,7 @@ Apabila keduanya berhasil, tagihan turun ke sekitar **$5–10 per bulan**.
 | 3 | Kebijakan penyimpanan dan pencadangan data | V6 | Menentukan lama retensi cadangan RDS dan aturan daur hidup bucket rapor |
 | 4 | Nama domain dan penerbitan sertifikat | Pihak sekolah | Menentukan modul `frontend` pada Terraform |
 | 5 | Apakah `dev` memerlukan RDS tersendiri atau cukup PostgreSQL lokal | Keputusan tim | Menentukan biaya lingkungan `dev` |
-| 6 | Apakah OpenRouter dapat dihubungi lewat IPv6, sehingga NAT instance dapat digantikan Egress-only Internet Gateway | Uji jaringan saat infrastruktur naik | Menghemat ~$8 per bulan, yaitu 28% tagihan (§15.3) |
+| 6 | Apakah `mlapi.run` dapat dihubungi lewat IPv6, sehingga NAT instance dapat digantikan Egress-only Internet Gateway | Uji jaringan saat infrastruktur naik | Menghemat ~$8 per bulan, yaitu 28% tagihan (§15.3) |
 | 7 | Status kelayakan free tier akun AWS tim | Pemeriksaan akun | Menentukan apakah tagihan ~$27 atau ~$12 per bulan |
 | 8 | Apakah cold start ~0,8–1,5 detik dapat diterima pengguna | UAT | Apabila tidak, jalur naiknya provisioned concurrency atau ECS Fargate memakai image yang sama (CK-13) |
 | 9 | Besaran sisa kredit Elice dan **tanggal berakhirnya program KADA** | Ketentuan program | Menentukan kapan penyedia AI harus diganti. Karena antarmukanya setara OpenAI, penggantian berarti mengubah base URL dan kunci API (§9.1) |
