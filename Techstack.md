@@ -41,13 +41,13 @@ SDK AWS hanya boleh muncul di `adapters/aws/`. Lapisan domain, rute, dan basis d
 |---|---|---|
 | **Frontend** | React SPA, dibangun dengan Vite | React 19, Vite 7 |
 | **Bahasa** | TypeScript, `strict` di frontend maupun backend | TypeScript 5.x |
-| **Backend** | Express | Express 5, Node.js 24 LTS |
+| **Backend** | Express, dikemas sebagai container image | Express 5, Node.js 24 LTS |
 | **ORM** | Drizzle | — |
 | **Basis data** | PostgreSQL di Amazon RDS | PostgreSQL 17, `db.t4g.micro` |
 | **Autentikasi** | Dikelola sendiri: Argon2id + sesi lewat cookie `HttpOnly` | — |
 | **AI** | OpenRouter, dipanggil lewat port adapter | — |
 | **Penyajian frontend** | S3 (privat, OAC) + CloudFront | — |
-| **Penyajian backend** | ECS Fargate di belakang ALB privat (CloudFront VPC Origin) | — |
+| **Penyajian backend** | AWS Lambda dari container image, memakai **Lambda Web Adapter**, diakses lewat **Function URL** dengan CloudFront OAC | LWA 1.0.x, arm64 |
 | **Penyimpanan berkas** | S3, diakses lewat presigned URL | — |
 | **Validasi** | Zod, di batas HTTP maupun batas berkas unggahan | — |
 | **Berkas rapor** | pdfmake, dirender saat diunduh | — |
@@ -55,7 +55,9 @@ SDK AWS hanya boleh muncul di `adapters/aws/`. Lapisan domain, rute, dan basis d
 | **CI/CD** | GitHub Actions + OIDC | — |
 | **Region** | ap-southeast-1 (Singapura) | — |
 
-**Yang sengaja tidak dipakai:** API Gateway, SQS, Lambda, Cognito, Bedrock, dan Ansible. Alasan masing-masing tercatat pada Lampiran Catatan Keputusan.
+**Yang sengaja tidak dipakai:** API Gateway, Application Load Balancer, ECS, SQS, Cognito, Bedrock, dan Ansible. Alasan masing-masing tercatat pada Lampiran Catatan Keputusan.
+
+**Catatan bentuk artefak.** Backend berjalan di Lambda, tetapi yang di-deploy tetap **image Docker berisi Express yang mendengarkan di sebuah port** — bukan fungsi bergaya Lambda. Aplikasi tidak mengetahui keberadaan Lambda, dan image yang sama dijalankan di laptop, di ECS Fargate, maupun di server sekolah tanpa perubahan (§6.3 dan §14).
 
 ---
 
@@ -70,18 +72,17 @@ SDK AWS hanya boleh muncul di `adapters/aws/`. Lapisan domain, rute, dan basis d
                       └───┬──────────────┬───┘   → cookie HttpOnly dapat dipakai
                     /*    │              │   /api/*
               ┌───────────▼──┐           │
-              │ S3  build    │           │  VPC Origin
-              │ React        │           │  (private link AWS)
-              │ privat, OAC  │           │
-              └──────────────┘           │
-   ┌─────────────────────────────────────▼──────────────────┐
-   │  VPC · 2 AZ · ap-southeast-1                           │
-   │                                                        │
+              │ S3  build    │           │  OAC · SigV4
+              │ React        │           │
+              │ privat, OAC  │           ▼
+              └──────────────┘   Lambda Function URL
+                                 (auth type AWS_IAM)
+   ┌─────────────────────────────────────┼──────────────────┐
+   │  VPC · 2 AZ · ap-southeast-1        │                  │
+   │                                     ▼                  │
    │  subnet privat-app                                     │
-   │      ALB internal                                      │
-   │          │                                             │
-   │          ▼                                             │
-   │      ECS Fargate · service "api" · Express             │
+   │      λ api · container image                           │
+   │          [ Lambda Web Adapter ] → Express :8080        │
    │          │                    │                        │
    │          │ app_rw             │ app_ro                 │
    │  subnet privat-data           │                        │
@@ -95,7 +96,7 @@ SDK AWS hanya boleh muncul di `adapters/aws/`. Lapisan domain, rute, dan basis d
                 (tombol Suggestion)   (presigned URL)
 ```
 
-Tidak ada sumber daya yang dapat dihubungi langsung dari internet. ALB berada di subnet privat dan hanya menerima trafik dari CloudFront melalui private link AWS; bucket S3 frontend tidak pernah publik dan hanya dapat dibaca CloudFront lewat Origin Access Control.
+Tidak ada sumber daya yang dapat dihubungi langsung dari internet. Function URL disetel dengan auth type `AWS_IAM` sehingga hanya menerima request bertanda tangan SigV4 dari distribusi CloudFront yang ditunjuk — URL yang bocor tidak dapat dipakai siapa pun. Bucket S3 frontend tidak pernah publik dan hanya dapat dibaca CloudFront lewat Origin Access Control. Fungsi Lambda berada di dalam VPC agar RDS tidak pernah dapat dihubungi dari luar.
 
 ---
 
@@ -124,7 +125,7 @@ React SPA yang dibangun Vite menjadi berkas statis, lalu disalin ke bucket S3 pr
 | Path | Origin |
 |---|---|
 | `/*` | S3 — hasil `vite build`, bucket privat, Origin Access Control |
-| `/api/*` | ALB privat — ECS Fargate |
+| `/api/*` | Lambda Function URL, dilindungi Origin Access Control |
 
 Karena frontend dan backend berada pada **satu domain**, tiga hal didapat sekaligus: CORS hilang seluruhnya, cookie sesi dapat memakai `HttpOnly` sehingga token tidak pernah tersentuh JavaScript, dan frontend cukup memanggil `/api/...` tanpa base URL berbeda antar lingkungan.
 
@@ -147,7 +148,7 @@ Menempatkan frontend di container tidak dilakukan: hasil build adalah berkas sta
 
 ```
 src/
-├── app.ts              Express app. Tidak mengetahui ECS maupun AWS
+├── app.ts              Express app. Tidak mengetahui Lambda maupun AWS
 ├── routes/             HTTP: parsing, kode status, bentuk respons
 ├── domain/             Aturan bisnis murni — TANPA I/O
 │   ├── nilai.ts          rata-rata berbobot, kelengkapan komponen
@@ -176,20 +177,48 @@ src/
 
 Berbeda dari rancangan 2 Agustus 2026, **`entry/` hanya memuat satu berkas**. Tidak ada entry point terpisah untuk AWS, karena AWS menjalankan container yang sama dengan on-prem.
 
-### 6.3 Penerapan di ECS Fargate
+### 6.3 Penerapan: Lambda Web Adapter
+
+Backend dikemas sebagai container image berisi Express biasa. **Lambda Web Adapter** ditambahkan sebagai satu binary di dalam image, dan bertugas menerjemahkan event Lambda menjadi request HTTP ke aplikasi.
+
+```dockerfile
+FROM node:24-slim
+COPY --from=public.ecr.aws/awsguru/aws-lambda-adapter:1.0.1 /lambda-adapter /opt/extensions/lambda-adapter
+
+WORKDIR /app
+COPY package*.json ./
+RUN npm ci --omit=dev
+COPY dist ./dist
+
+ENV PORT=8080
+ENV AWS_LWA_READINESS_CHECK_PATH=/healthz
+CMD ["node", "dist/server.js"]
+```
+
+**Cara kerjanya.** Lambda menyetel `AWS_LAMBDA_EXEC_WRAPPER`, sehingga adapter dijalankan lebih dahulu, menyalakan `CMD`, lalu menunggu readiness check pada `/healthz` sebelum trafik dialirkan. Setiap invocation diterjemahkan menjadi request HTTP/1.1 ke `127.0.0.1:8080`, dan responsnya diterjemahkan kembali menjadi payload Lambda.
+
+**Aplikasi tidak mengetahui keberadaan Lambda.** Tidak ada handler, tidak ada `event`, tidak ada `context`, dan tidak ada `serverless-http`. Di luar Lambda, `AWS_LAMBDA_EXEC_WRAPPER` tidak ada, sehingga container langsung menjalankan `CMD` dan binary adapter menganggur di dalam image. Inilah sebabnya `entry/` cukup memuat satu berkas.
 
 | Parameter | Nilai | Alasan |
 |---|---|---|
-| Ukuran task | 0,25 vCPU · 0,5 GB | Volume C-06 kecil; dapat dinaikkan tanpa mengubah kode |
-| Jumlah task | 2, tersebar di 2 AZ | Ketersediaan saat penggantian versi dan saat satu AZ terganggu |
-| Connection pool | `max: 10` per task | Server long-running dengan pool biasa. Dua task berarti paling banyak 20 koneksi dari plafon ~106 pada `db.t4g.micro` |
-| Health check | `GET /healthz` — memeriksa proses dan koneksi basis data | ALB menarik task yang tidak sehat |
-| Penggantian versi | Rolling update, `minimumHealthyPercent = 100` | Tidak ada waktu mati saat deploy |
-| Batas waktu request | ALB idle timeout 60 detik | Tidak ada batas keras 29 detik sebagaimana API Gateway |
+| Arsitektur | arm64 | ~20% lebih murah dari x86 pada harga Lambda |
+| Memori | 1024 MB | Cukup untuk Express, Drizzle, dan render pdfmake. Memori juga menentukan porsi CPU |
+| Batas waktu fungsi | 30 detik | Request terpanjang adalah render satu PDF, di bawah 2 detik. Batas keras Function URL sendiri 15 menit |
+| Connection pool | `max: 1` | Satu instance Lambda melayani satu request pada satu waktu. Pool lebih besar hanya meminta koneksi yang tidak akan terpakai |
+| Reserved concurrency | 40 | Rem terakhir. Plafon `db.t4g.micro` sekitar 106 koneksi, sehingga 40 instance serentak tetap aman. Request ke-41 memperoleh `429` yang dapat diulang |
+| Readiness check | `GET /healthz` — memeriksa proses dan koneksi basis data | Trafik tidak masuk sebelum pool siap |
+| Mode invocation | `buffered` | Respons besar tidak pernah terjadi: berkas rapor dikembalikan sebagai presigned URL, bukan sebagai isi respons (§10) |
+| Penggantian versi | Perbarui image, lalu pindahkan alias | Tidak ada waktu mati |
+
+**Cold start.** Request pertama setelah masa senggang memerlukan sekitar 0,8–1,5 detik karena image container dan penempatan di dalam VPC. Ini paling terasa pada pengguna pertama di pagi hari. Konsekuensi ini diterima untuk MVP; apabila terbukti mengganggu saat UAT, jalur naiknya ada dua — provisioned concurrency, atau berpindah ke ECS Fargate memakai **image yang sama persis** tanpa perubahan kode aplikasi (CK-13).
+
+> Menolak request itu dapat dipulihkan. Basis data yang mati saat enam puluh orang sedang bekerja tidak.
 
 ### 6.4 Pembatasan laju
 
-Tidak ada API Gateway, sehingga pembatasan laju berada di dalam Express (`express-rate-limit`) dan disandarkan pada **identitas pengguna**, bukan alamat IP — satu sekolah kerap berbagi satu alamat IP publik.
+Tidak ada API Gateway maupun ALB, sehingga pembatasan laju berada di dalam Express (`express-rate-limit`) dan disandarkan pada **identitas pengguna**, bukan alamat IP — satu sekolah kerap berbagi satu alamat IP publik.
+
+Karena setiap instance Lambda memiliki memorinya sendiri, penghitung pembatas laju disimpan di PostgreSQL, bukan di memori proses. Tanpa itu, batas hanya berlaku per instance dan mudah dilampaui.
 
 | Jalur | Batas | Alasan |
 |---|---|---|
@@ -254,7 +283,15 @@ Kredensial dikelola sendiri di dalam PostgreSQL. Tidak ada layanan identitas ter
 
 Seluruh ketentuan §6.1.3 di atas merupakan **perilaku bawaan** dari pendekatan ini, bukan hasil mematikan fitur pada layanan pihak lain. Inilah alasan utama pemilihannya (CK-05).
 
-**Akun Administrator pertama** dibuat lewat perintah seed yang dijalankan sekali setelah migrasi, dengan kata sandi awal diambil dari Secrets Manager. Hal ini menutup temuan **T-03** pada RFC-001 §10, yang mencatat bahwa PRD tidak mengatur cara akun Administrator dibuat.
+**Akun Administrator dibuat langsung ke basis data melalui perintah CLI**, bukan melalui antarmuka aplikasi. Aplikasi tidak memiliki layar maupun endpoint pembuatan akun Administrator dalam bentuk apa pun.
+
+```bash
+npm run admin:create -- --nama-pengguna <pengenal> --nama "<nama lengkap>"
+```
+
+Perintah mencetak kata sandi awal yang dihasilkan sistem ke keluaran terminal, sekali dan tidak dapat ditampilkan ulang. Di lingkungan AWS, perintah dijalankan dengan memanggil fungsi Lambda `migrate` yang memakai image yang sama dengan argumen berbeda (§12); di lingkungan on-prem maupun pengembangan, dijalankan langsung di dalam container. Penggantian kata sandi Administrator memakai perintah yang sama dengan sub-perintah berbeda.
+
+Hal ini menutup temuan **T-03** pada RFC-001 §10, yang mencatat bahwa PRD tidak mengatur cara akun Administrator dibuat — asumsi selama ini adalah Administrator sudah ada sejak awal.
 
 ---
 
@@ -308,9 +345,9 @@ Konsekuensi yang diterima: unduhan pertama satu rapor memerlukan waktu render, d
 | Lapisan | Ketentuan |
 |---|---|
 | **Pintu masuk** | CloudFront adalah satu-satunya alamat yang dapat dihubungi publik |
-| **ALB** | Subnet privat, hanya menerima trafik CloudFront lewat VPC Origin |
-| **ECS task** | Subnet privat, tanpa alamat IP publik |
-| **RDS** | Subnet privat-data, security group hanya mengizinkan ECS task |
+| **Function URL** | Auth type `AWS_IAM`. Hanya menerima request bertanda tangan SigV4 dari distribusi CloudFront yang ditunjuk lewat Origin Access Control |
+| **Fungsi Lambda** | Di dalam VPC, subnet privat, tanpa alamat IP publik |
+| **RDS** | Subnet privat-data, security group hanya mengizinkan security group fungsi Lambda |
 | **S3 frontend** | Bucket privat, hanya dapat dibaca CloudFront lewat Origin Access Control |
 | **S3 rapor** | Bucket privat, akses hanya lewat presigned URL berumur pendek |
 | **Jalur keluar** | NAT instance `t4g.nano` untuk OpenRouter. S3 lewat gateway endpoint yang tidak berbiaya, sehingga unggah dan unduh rapor tidak melewati NAT |
@@ -318,6 +355,8 @@ Konsekuensi yang diterima: unduhan pertama satu rapor memerlukan waktu render, d
 | **Rahasia** | Secrets Manager. Tidak ada kredensial di dalam image maupun repositori |
 
 > ⚠️ Sertifikat ACM untuk CloudFront **wajib diterbitkan di `us-east-1`**, sedangkan seluruh sumber daya lain berada di `ap-southeast-1`. Ditangani dengan provider alias kedua pada Terraform. Kelalaian pada butir ini menggagalkan `terraform apply`.
+>
+> ⚠️ **Wajib dibuktikan pada hari pertama infrastruktur naik:** perilaku penandatanganan Origin Access Control terhadap request **ber-body** — `POST` dan `PATCH` seperti Simpan Nilai. Kombinasi OAC dengan Function URL memiliki ketentuan tersendiri mengenai penyertaan body dalam tanda tangan SigV4. Diuji lewat request sungguhan sejak API masih berupa stub, bukan ditemukan ketika frontend mulai menyimpan nilai.
 
 ---
 
@@ -329,8 +368,8 @@ infra/
 ├── modules/
 │   ├── network/        VPC, subnet, NAT instance, security group, S3 gateway endpoint
 │   ├── data/           RDS, subnet group, Secrets Manager
-│   ├── compute/        ECR, ECS cluster, task definition, service, ALB, IAM
-│   ├── frontend/       S3 + CloudFront + OAC + VPC Origin + ACM (provider alias us-east-1)
+│   ├── compute/        ECR, fungsi Lambda api + migrate, Function URL, IAM
+│   ├── frontend/       S3 + CloudFront + OAC (S3 dan Function URL) + ACM (provider alias us-east-1)
 │   └── observability/  log group, alarm, AWS Budgets
 └── envs/
     ├── dev/
@@ -346,14 +385,17 @@ pull request  → terraform plan → hasilnya dikomentari ke pull request
                 lint, typecheck, uji unit dan integrasi
 
 merge ke main → terraform apply
-              → build image → push ke ECR → ECS rolling update
-              → migrasi basis data dijalankan sebagai ECS task tersendiri sebelum service diperbarui
+              → build image → push ke ECR
+              → invoke fungsi migrate, tunggu selesai
+              → perbarui image fungsi api, pindahkan alias
               → s3 sync frontend → invalidasi CloudFront
 ```
 
-Migrasi dijalankan sebagai task terpisah, bukan pada saat proses aplikasi menyala, agar dua task yang naik bersamaan tidak menjalankan migrasi yang sama secara serentak.
+Migrasi dijalankan oleh **fungsi Lambda tersendiri yang memakai image yang sama** dengan perintah berbeda, dipanggil sekali oleh pipeline sebelum fungsi `api` diperbarui. Menjalankannya pada saat proses aplikasi menyala tidak dapat diterima di Lambda, karena banyak instance dapat menyala bersamaan dan menjalankan migrasi yang sama secara serentak.
 
-**Urutan yang mengurangi risiko:** infrastruktur dinaikkan lebih dahulu dengan API yang hanya memuat `GET /healthz`. VPC, RDS, ALB, CloudFront, dan pipeline terbukti hidup **sebelum** backend sesungguhnya selesai. Setelah itu yang berubah hanya isi image, bukan infrastruktur.
+Perintah pembuatan akun Administrator (§8) memakai fungsi yang sama dengan argumen berbeda, sehingga tidak diperlukan jalur akses tambahan ke basis data.
+
+**Urutan yang mengurangi risiko:** infrastruktur dinaikkan lebih dahulu dengan API yang hanya memuat `GET /healthz`. VPC, RDS, Function URL, CloudFront, dan pipeline terbukti hidup **sebelum** backend sesungguhnya selesai — termasuk pembuktian penandatanganan OAC atas request ber-body (§11). Setelah itu yang berubah hanya isi image, bukan infrastruktur.
 
 ---
 
@@ -381,7 +423,7 @@ Tidak diperlukan akun AWS untuk mengembangkan maupun menguji. Adapter yang dipak
 
 | Lapisan | Portabel? | Yang berubah ketika dipasang di server sekolah |
 |---|---|---|
-| Image aplikasi | ✅ | **Tidak ada.** Image yang sama dijalankan `docker run` |
+| Image aplikasi | ✅ | **Tidak ada.** Image yang sama dijalankan `docker run`. Binary Lambda Web Adapter di dalamnya menganggur karena `AWS_LAMBDA_EXEC_WRAPPER` tidak ada (§6.3) |
 | Rute, validasi, middleware, autentikasi | ✅ | Tidak disentuh |
 | Logika domain | ✅ | Tidak disentuh |
 | Drizzle, skema, dan migrasi | ✅ | Tidak disentuh |
@@ -391,7 +433,8 @@ Tidak diperlukan akun AWS untuk mengembangkan maupun menguji. Adapter yang dipak
 | Penyimpanan berkas | ⚠️ | Tetap S3, atau ditukar ke MinIO maupun disk lokal lewat `adapters/local` |
 | Rahasia | ⚠️ | Secrets Manager ditukar variabel lingkungan |
 | Penyedia AI | ⚠️ | OpenRouter tetap dipakai, atau ditukar adapter lain |
-| CloudFront, ALB, dan NAT | ❌ | Digantikan reverse proxy tunggal, misalnya Nginx atau Caddy |
+| Connection pool | ⚠️ | `max: 1` menjadi `max: 10`. **Satu baris konfigurasi**, dibaca dari variabel lingkungan |
+| CloudFront, Function URL, dan NAT | ❌ | Digantikan reverse proxy tunggal, misalnya Nginx atau Caddy |
 
 Yang berpindah bersama sistem adalah tanggung jawab operasional: pencadangan, pembaruan keamanan, enkripsi at-rest, dan risiko perangkat keras menjadi urusan pemilik server.
 
@@ -401,20 +444,48 @@ Tidak ada lapisan abstraksi yang dibangun khusus demi portabilitas. Portabilitas
 
 ## 15. Perkiraan biaya
 
+### 15.1 Asumsi beban
+
+Diturunkan dari volume RFC-001 §8.1 — 360 siswa, 18 guru, 1 administrator.
+
+| Sumber | Perkiraan request per bulan |
+|---|--:|
+| Guru — 18 orang × 20 hari × ~150 request | 54.000 |
+| Siswa — 360 orang × ~12 hari × ~30 request | 130.000 |
+| Administrator dan lain-lain | ~15.000 |
+| **Dipakai untuk perhitungan** (dibulatkan naik sebagai margin) | **300.000** |
+
+### 15.2 Rincian
+
 | Komponen | Per bulan |
 |---|---|
-| ECS Fargate — 2 task, 0,25 vCPU dan 0,5 GB | ~$14 |
-| Application Load Balancer | ~$16 |
-| RDS `db.t4g.micro` Single-AZ | $12–15, atau **$0** apabila free tier akun masih berlaku |
-| NAT instance `t4g.nano` | ~$3 |
-| S3 dan CloudFront | < $1 |
+| Lambda — arm64, 1024 MB, rata-rata ~120 ms, 300 ribu request | **~$1** |
+| Function URL | $0 |
+| RDS `db.t4g.micro` Single-AZ + 20 GB gp3 | $15–18, atau **$0** apabila free tier akun masih berlaku |
+| NAT instance `t4g.nano` + alamat IPv4 publik + EBS | ~$8 |
+| CloudFront dan S3 | $0–2 |
 | ECR | < $1 |
-| OpenRouter | < $5, bergantung pemakaian tombol Suggestion |
-| **Total** | **~$50–55**, atau ~$38 dengan free tier |
+| OpenRouter — sekitar 1.400 panggilan tombol Suggestion | $2–5 |
+| **Total** | **$27–35**, atau **$12–20** dengan free tier |
 
-> ⚠️ Seluruh angka merupakan kisaran dan **belum diverifikasi** terhadap daftar harga `ap-southeast-1`. Wajib diperiksa sebelum masuk `DEPLOYMENT.md`.
+> ⚠️ Seluruh angka berasal dari daftar harga terbitan AWS untuk `ap-southeast-1` dan **belum diverifikasi lewat AWS Pricing Calculator**. Wajib diperiksa sebelum masuk `DEPLOYMENT.md`.
 
-Selisih dengan rancangan berbasis Lambda (~$18–22) sebagian besar berasal dari ALB dan Fargate. Ini adalah harga yang dibayar untuk menghapus batas 29 detik, cold start, disiplin `max: 1`, seluruh jalur antrean, dan lapisan abstraksi portabilitas. Apabila biaya ALB kemudian terasa memberatkan, **ECS Express Mode** menyatukan beberapa layanan di balik satu ALB dan dapat ditinjau tanpa mengubah kode aplikasi.
+### 15.3 Yang perlu diperhatikan
+
+**Compute bukan lagi pos yang perlu dioptimalkan.** Lambda menyumbang sekitar 3% dari tagihan; sepuluh kali lipat trafik pun tetap di bawah $6. Tagihan didominasi RDS (~55%) dan NAT (~28%).
+
+Dua tuas yang tersisa, keduanya perlu diperiksa lebih dahulu, bukan diasumsikan berhasil:
+
+| Tuas | Hemat | Syarat |
+|---|--:|---|
+| Free tier RDS | −$15 | Status kelayakan akun AWS tim perlu diperiksa. Berlaku 12 bulan |
+| Egress-only Internet Gateway lewat IPv6, menggantikan NAT instance | −$8 | Hanya berlaku apabila OpenRouter dapat dihubungi lewat IPv6. **Wajib diuji** |
+
+Apabila keduanya berhasil, tagihan turun ke sekitar **$5–10 per bulan**.
+
+**Alamat IPv4 publik kini ditagih** sekitar $3,65 per bulan per alamat, sejak Februari 2024. Inilah sebabnya NAT instance berbiaya ~$8, bukan ~$3 sebagaimana perkiraan pada rancangan 2 Agustus 2026.
+
+**Sebagai pembanding**, rancangan ECS Fargate dengan dua task di belakang Application Load Balancer berbiaya **$60–71 per bulan** — selisihnya berasal dari Fargate (~$20) dan ALB (~$16). Perbandingan ini dicatat karena Fargate tetap menjadi jalur naik apabila cold start atau plafon koneksi terbukti mengganggu (CK-13).
 
 ---
 
@@ -427,6 +498,9 @@ Selisih dengan rancangan berbasis Lambda (~$18–22) sebagian besar berasal dari
 | 3 | Kebijakan penyimpanan dan pencadangan data | V6 | Menentukan lama retensi cadangan RDS dan aturan daur hidup bucket rapor |
 | 4 | Nama domain dan penerbitan sertifikat | Pihak sekolah | Menentukan modul `frontend` pada Terraform |
 | 5 | Apakah `dev` memerlukan RDS tersendiri atau cukup PostgreSQL lokal | Keputusan tim | Menentukan biaya lingkungan `dev` |
+| 6 | Apakah OpenRouter dapat dihubungi lewat IPv6, sehingga NAT instance dapat digantikan Egress-only Internet Gateway | Uji jaringan saat infrastruktur naik | Menghemat ~$8 per bulan, yaitu 28% tagihan (§15.3) |
+| 7 | Status kelayakan free tier akun AWS tim | Pemeriksaan akun | Menentukan apakah tagihan ~$27 atau ~$12 per bulan |
+| 8 | Apakah cold start ~0,8–1,5 detik dapat diterima pengguna | UAT | Apabila tidak, jalur naiknya provisioned concurrency atau ECS Fargate memakai image yang sama (CK-13) |
 
 Temuan RFC-001 §10 yang masih terbuka — T-01, T-02, T-04, T-05, dan T-06 — bersifat produk dan tidak dipengaruhi pilihan teknologi mana pun pada dokumen ini. T-03 ditutup oleh §8.
 
@@ -496,7 +570,7 @@ Bernomor dan bertanggal. Entri tidak disunting; perubahan keputusan ditulis seba
 
 **Alternatif yang ditolak.** *Amazon Bedrock.* Autentikasi lewat IAM role sehingga tidak ada kunci API untuk dirotasi. Ditolak karena mengikat jalur AI ke AWS, sehingga pemasangan on-prem memerlukan penyedia lain dan keluarannya belum tentu setara.
 
-**Konsekuensi yang diterima.** Kunci API perlu disimpan di Secrets Manager dan dirotasi. Jalur keluar internet menjadi kebutuhan tetap, sehingga NAT instance tidak dapat dihapus.
+**Konsekuensi yang diterima.** Kunci API perlu disimpan di Secrets Manager dan dirotasi. Jalur keluar internet menjadi kebutuhan tetap, sehingga NAT instance tidak dapat dihapus — dan sejak alamat IPv4 publik ditagih, pos ini menjadi 28% tagihan (§15.3). Kemungkinan penggantiannya dengan Egress-only Internet Gateway lewat IPv6 dicatat sebagai butir 6 pada §16.
 
 ### CK-07 · 6 Agustus 2026 · Tanpa antrean dan tanpa worker
 
@@ -536,13 +610,45 @@ Bernomor dan bertanggal. Entri tidak disunting; perubahan keputusan ditulis seba
 
 **Alasan.** Skema, migrasi, dan query ditulis dekat dengan SQL, sehingga partial index, composite foreign key, dan `ON DELETE CASCADE` yang menegakkan invarian RFC-001 dapat dinyatakan langsung. Migrasi berupa berkas SQL yang dapat dibaca dan ditinjau.
 
-**Catatan.** Alasan pemilihan Drizzle pada rancangan 2 Agustus 2026 adalah ukuran bundel dan cold start di Lambda. Alasan tersebut **gugur** bersama CK-01; keputusannya tetap, tetapi dasarnya berganti.
+**Catatan.** Pada rancangan 2 Agustus 2026, Drizzle dipilih karena ukuran bundel dan cold start di Lambda. Alasan itu **berlaku kembali** setelah CK-13, tetapi tidak lagi menjadi alasan utamanya: yang menentukan adalah kedekatannya dengan SQL sebagaimana diuraikan di atas.
 
 ### CK-12 · 6 Agustus 2026 · Tanpa Ansible
 
 **Diputuskan.** Seluruh infrastruktur dikelola Terraform.
 
 **Alasan.** NAT instance adalah satu-satunya host di dalam sistem, dan konfigurasinya cukup ditangani user data. Tidak ada armada server untuk dikelola. Apabila kelak sistem dipasang di server sekolah, pengelolaan konfigurasi host di sana adalah pekerjaan yang berbeda dan ditetapkan tersendiri.
+
+### CK-13 · 6 Agustus 2026 · Lambda Web Adapter dan Function URL — mengamandemen CK-01 dan CK-02
+
+**Diputuskan.** Backend berjalan di AWS Lambda dari **container image** memakai **Lambda Web Adapter**, diakses lewat **Function URL** dengan CloudFront Origin Access Control. ECS Fargate dan Application Load Balancer **tidak dipakai**, dan tetap tercatat sebagai jalur naik.
+
+**Yang berubah dari CK-01 dan CK-02.** Keduanya menolak Lambda dengan tiga alasan. Ketiganya ditinjau ulang, dan hanya satu yang bertahan:
+
+| Alasan penolakan pada CK-01 dan CK-02 | Status setelah ditinjau |
+|---|---|
+| Express memerlukan `serverless-http`, sehingga tidak berjalan apa adanya | **Gugur.** Lambda Web Adapter menerjemahkan event menjadi request HTTP ke aplikasi yang mendengarkan di port 8080. Tidak ada adapter di dalam kode aplikasi, dan `entry/` tetap satu berkas |
+| Batas 29 detik API Gateway tidak dapat dinaikkan | **Gugur dua kali.** Pertama, sejak Juni 2024 batas tersebut dapat dinaikkan untuk REST API regional dan privat, dengan konsekuensi penurunan account-level throttle quota. Kedua, Function URL tidak memakai API Gateway sama sekali dan berbatas 15 menit. Ditambah lagi, CK-09 sudah menghapus satu-satunya pekerjaan panjang yang ada |
+| Portabilitas menuntut entry point terpisah dan penukaran adapter antrean | **Gugur.** Artefaknya adalah image Docker yang sama, yang oleh AWS dinyatakan dapat dijalankan di Lambda, EC2, Fargate, dan komputer lokal. Di luar Lambda, `AWS_LAMBDA_EXEC_WRAPPER` tidak ada sehingga adapter tidak pernah dipanggil |
+| Satu instance melayani satu request, sehingga pool wajib `max: 1` | **Bertahan.** Ini konsekuensi yang diterima, ditangani dengan reserved concurrency 40 terhadap plafon ~106 koneksi (§6.3) |
+
+**Alasan.** Setelah tiga dari empat keberatan gugur, yang tersisa adalah selisih biaya yang besar untuk manfaat yang tidak lagi ada: Fargate dengan dua task di belakang ALB berbiaya **$60–71 per bulan**, sedangkan susunan ini **$27–35** — dan compute di dalamnya hanya ~$1. Membayar ~$36 per bulan untuk penyeimbang beban terhadap dua container yang melayani 379 pengguna tidak sepadan.
+
+**Alternatif yang ditolak.**
+
+*ECS Fargate satu task tanpa redundansi AZ.* Menekan biaya menjadi $45–55. Ditolak karena masih membayar ALB penuh sambil mengorbankan ketersediaan — kombinasi terburuk dari kedua pilihan.
+
+*EC2 dengan Docker, tanpa ALB.* Sekitar $33–40. Ditolak karena mengembalikan sistem operasi yang harus dipatch, tanpa rolling deploy dan tanpa penskalaan, demi penghematan yang lebih kecil daripada susunan ini.
+
+*API Gateway di depan Lambda.* Ditolak karena TLS, domain kustom, dan titik pemasangan WAF sudah disediakan CloudFront, sedangkan pembatasan laju dan validasi request sengaja ditempatkan di dalam Express agar ikut berpindah ke on-prem (§6.4). HTTP API juga justru lebih ketat, terkunci di 30 detik. Akan ditinjau ulang apabila kelak ada konsumen API di luar frontend sendiri — hal yang saat ini dicoret NG2.
+
+**Konsekuensi yang diterima.**
+
+1. **Cold start ~0,8–1,5 detik** pada request pertama setelah masa senggang. Dicatat sebagai butir 8 pada §16 untuk dibuktikan saat UAT.
+2. **Pool `max: 1`** beserta disiplin reserved concurrency.
+3. **Ketergantungan pada proyek `awslabs/aws-lambda-web-adapter`**, yang merupakan open source milik AWS dan bukan layanan berdukungan formal. Versi image adapter **wajib dipatok** — variabel lingkungan tanpa prefiks `AWS_LWA_` sudah usang dan akan dihapus pada versi 2.0.
+4. **Perilaku penandatanganan OAC atas request ber-body wajib dibuktikan** sejak hari pertama infrastruktur naik (§11).
+
+**Yang membuat keputusan ini dapat dibalik.** Ketiga konsekuensi pertama diselesaikan dengan berpindah ke ECS Fargate memakai **image yang sama persis**: yang berubah hanya modul Terraform, ditambah `max: 1` menjadi `max: 10` yang dibaca dari variabel lingkungan. Nol perubahan kode aplikasi. Inilah yang membedakannya dari rancangan Lambda 2 Agustus 2026, yang mengikat kode ke Lambda lewat `serverless-http` dan entry point terpisah.
 
 ---
 
@@ -551,3 +657,4 @@ Bernomor dan bertanggal. Entri tidak disunting; perubahan keputusan ditulis seba
 | Tanggal | Perubahan |
 |---|---|
 | 6 Agustus 2026 | Dokumen dibuat. Menetapkan stack di atas PRD v3.0 dan RFC-001. Menggantikan bagian stack pada `ARCHITECTURE.md` versi 2 Agustus 2026. Menutup K-01 dan K-02 pada RFC-001 §9 melalui CK-05, CK-01, dan CK-04, serta menutup temuan T-03 melalui §8 |
+| 6 Agustus 2026 | Compute berpindah dari ECS Fargate dengan ALB ke Lambda Web Adapter dengan Function URL (**CK-13**, mengamandemen CK-01 dan CK-02). §2, §3, §6.3, §6.4, §11, §12, §14, §15, dan §16 disesuaikan. Perkiraan biaya diperbaiki: NAT menjadi ~$8 karena alamat IPv4 publik kini ditagih, dan total turun menjadi $27–35 per bulan. Pembuatan akun Administrator ditetapkan melalui perintah CLI (§8) |
