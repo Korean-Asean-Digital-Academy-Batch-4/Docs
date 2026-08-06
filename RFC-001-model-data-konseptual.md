@@ -25,7 +25,7 @@
 | D-02 | Mata pelajaran melekat pada **satu jenjang dan satu guru pengampu**; KKM menjadi atributnya |
 | D-03 | Penugasan menyimpan guru, mata pelajaran, dan jenjang secara bersamaan agar ketidakcocokan jenjang **mustahil tersimpan** |
 | D-04 | Presensi dicatat melalui entitas **sesi**, yang sekaligus menjadi penyebut persentase kehadiran |
-| D-05 | Rapor memiliki **tiga status berurutan** dan satu pihak yang berwenang, tanpa tahap review dan tanpa terbit ulang |
+| D-05 | Rapor memiliki **tiga status berurutan** dan satu pihak yang berwenang, tanpa tahap peninjauan dan tanpa terbit ulang |
 | D-06 | Topik pembelajaran melekat pada **pasangan penugasan-komponen**, bukan pada tabel materi tersendiri |
 | D-07 | Jejak audit dipertahankan dalam bentuk ringkas |
 | D-08 | Keluaran AI **tidak disimpan** dalam bentuk apa pun |
@@ -50,17 +50,21 @@ PRD naik ke v3.0 pada 5 Agustus 2026. Dua dokumen skema yang ada — `SCHEMA-STA
 - **Sesi presensi** tidak memiliki entitas, padahal [PRD.md §8.4](PRD.md) menjadikannya wadah pencatatan sekaligus penyebut perhitungan persentase.
 - **Mata pelajaran per jenjang** dan aturan satu guru satu mata pelajaran ([PRD.md §8.2](PRD.md)) tidak terwakili pada entitas `mapel` yang lama.
 
-### 2.3 Ketentuan lama yang bertentangan dengan PRD v3
+### 2.3 Ketentuan yang berlaku
 
-| Ketentuan lama | Ketentuan PRD v3 |
-|---|---|
-| Rapor melalui tahap `review` dan disetujui Superadmin | Wali Kelas memfinalisasi dan mendistribusikan; tidak ada tahap review ([PRD.md §9](PRD.md)) |
-| Rapor dapat diterbitkan ulang dengan versi baru | Tidak ada mekanisme buka kembali ([PRD.md §9](PRD.md)) |
-| Rapor mata pelajaran difinalisasi Guru Mata Pelajaran | Guru Mata Pelajaran tidak melakukan finalisasi (P9, AC-08) |
-| Superadmin tidak berwenang menulis nilai | Administrator memiliki akses penuh termasuk mengubah nilai (P14) |
-| Presensi memiliki riwayat koreksi | Koreksi berlaku langsung tanpa pencatatan riwayat (P7) |
-| AI menulis deskripsi naratif ke rapor | AI tidak menulis ke data akademik mana pun (P15, AC-20) |
-| Kata sandi sementara wajib diganti pada masuk pertama | Tidak ada kewajiban penggantian ([PRD.md §6.1.3](PRD.md)) |
+PRD v3.0 adalah satu-satunya sumber ketentuan pada RFC ini. Ketentuan yang berasal dari dokumen 2 Agustus 2026 tidak berlaku dan tidak lagi dibawa pada dokumen ini.
+
+Tujuh ketentuan berikut menjadi dasar langsung bagi model data. Seluruhnya dikutip dari PRD v3.0 beserta lampiran operasionalnya.
+
+| # | Ketentuan | Sumber |
+|---|---|---|
+| 1 | Wali Kelas memfinalisasi dan mendistribusikan rapor. Tidak terdapat tahap peninjauan maupun persetujuan oleh pihak lain | [PRD.md §9](PRD.md) |
+| 2 | Tidak tersedia mekanisme buka kembali. Rapor tidak diterbitkan ulang dan tidak memiliki penomoran versi | [PRD.md §9](PRD.md) |
+| 3 | Guru Mata Pelajaran tidak melakukan finalisasi dalam bentuk apa pun | P9, AC-08 |
+| 4 | Administrator memiliki akses penuh terhadap seluruh data, termasuk mengubah nilai yang sudah final | P14 |
+| 5 | Koreksi presensi dan penghapusan sesi berlaku langsung, tanpa pencatatan riwayat | P7 |
+| 6 | AI tidak menulis ke data akademik mana pun | P15, [PRD.md §8.6](PRD.md), AC-20 |
+| 7 | Kata sandi awal tidak memiliki syarat kerumitan dan tidak wajib diganti pada masuk pertama | [PRD.md §6.1.3](PRD.md) |
 
 ---
 
@@ -81,7 +85,7 @@ Entitas, atribut, relasi, kardinalitas, dan invarian yang harus dijamin sistem.
 
 ### 3.3 Kedudukan terhadap dokumen lain
 
-`ARCHITECTURE.md`, `aktor-role.md`, dan `superadmin.md` **tidak dijadikan sumber** pada RFC ini. Ketiganya disusun sebelum PRD v3 dan memuat ketentuan yang bertentangan sebagaimana diuraikan pada §2.3. Penyelarasannya menjadi bagian `ARCHITECTURE.md`.
+`ARCHITECTURE.md`, `aktor-role.md`, dan `superadmin.md` **tidak dijadikan sumber** pada RFC ini. Satu-satunya sumber adalah PRD v3.0 beserta lampiran operasionalnya, sebagaimana ditetapkan pada §2.3. Ketiga dokumen tersebut menyesuaikan diri terhadap RFC ini, bukan sebaliknya.
 
 ---
 
@@ -345,7 +349,7 @@ Karena `penugasan` sudah berarti guru, mata pelajaran, dan kelas sekaligus, keun
 
 **Dasar.** [PRD.md §9](PRD.md) beserta P9 dan P13. Tidak tersedia mekanisme buka kembali; perubahan pada data yang sudah final hanya dilakukan Administrator.
 
-**Yang dihapus dari rancangan lama.** Tahap `review`, penyetujuan oleh Superadmin, penomoran versi, dan penerbitan ulang. Ketiganya berasal dari keputusan 2 Agustus yang digantikan PRD v3.
+**Yang tidak diadopsi.** Tahap peninjauan, persetujuan oleh pihak selain Wali Kelas, penomoran versi rapor, dan penerbitan ulang. Keempatnya tidak memiliki dasar pada PRD v3.0 (§2.3 butir 1 dan 2).
 
 **Rapor mata pelajaran bukan entitas alur kerja.** `rapor_mapel` adalah **salinan beku** hasil perhitungan per mata pelajaran di dalam satu rapor semester, tanpa status dan tanpa finalisasi tersendiri. Ini konsekuensi langsung P9 dan AC-08 yang mencabut kewenangan finalisasi dari Guru Mata Pelajaran.
 
@@ -548,3 +552,4 @@ Alasan pemisahan ini tercatat pada [README.md](README.md) §Konvensi Dokumen.
 |---|---|
 | 5 Agustus 2026 | Dokumen dibuat. Menggantikan `SCHEMA-STATIS.md` dan `SCHEMA-DINAMIS.md`, keduanya diturunkan menjadi arsip |
 | 5 Agustus 2026 | Rujukan RFC-002, RFC-003, dan RFC-004 diganti menjadi `ARCHITECTURE.md`, `SCHEMA.md`, dan `API.md`. Dokumen lanjutan ditetapkan berbentuk deskripsi beserta lampiran Catatan Keputusan, bukan RFC tersendiri (§11.1) |
+| 6 Agustus 2026 | §2.3 diubah dari perbandingan ketentuan lama terhadap PRD v3 menjadi pernyataan ketentuan PRD v3.0 yang berlaku. Ketentuan dari dokumen 2 Agustus 2026 tidak lagi dibawa pada dokumen ini. §3.3 dan §5.5 disesuaikan mengikuti perubahan tersebut |
