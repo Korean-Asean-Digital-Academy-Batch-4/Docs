@@ -210,7 +210,7 @@ Versi image adapter **wajib dipatok**. Variabel lingkungan tanpa prefiks `AWS_LW
 |---|---|---|
 | Arsitektur | arm64 | ~20% lebih murah dari x86 pada harga Lambda |
 | Memori | 1024 MB | Cukup untuk Express, Drizzle, dan render pdfmake. Memori juga menentukan porsi CPU |
-| Batas waktu fungsi | 30 detik | Request terpanjang adalah render satu PDF, di bawah 2 detik. Batas keras Function URL sendiri 15 menit |
+| Batas waktu fungsi | 30 detik | Request terpanjang adalah finalisasi sekelas, yang merender berkas rapor dengan anggaran lunak 20 detik (Pasal 11). Batas keras Function URL sendiri 15 menit |
 | Connection pool | `max: 1` | Satu instance Lambda melayani satu request pada satu waktu. Pool lebih besar hanya meminta koneksi yang tidak akan terpakai |
 | Reserved concurrency | 40 | Rem terakhir. Plafon `db.t4g.micro` sekitar 106 koneksi, sehingga 40 instance serentak tetap aman. Request ke-41 memperoleh `429` yang dapat diulang |
 | Readiness check | `GET /healthz` — memeriksa proses dan koneksi basis data | Trafik tidak masuk sebelum pool siap |
@@ -395,14 +395,19 @@ Implementasinya berada di `adapters/openai-compatible/` — dinamai menurut **pr
 
 ## 11. Berkas rapor
 
-Berkas rapor **dirender saat diunduh**, bukan dibuat massal pada saat finalisasi (CK-09).
+Berkas rapor **dirender pada saat finalisasi**, dengan render-saat-unduh sebagai jalur cadangan yang tidak dapat dihapus (CK-A-07, mengamandemen CK-09).
 
 | Tahap | Yang terjadi |
 |---|---|
-| **Finalisasi** oleh Wali Kelas | Satu transaksi: memeriksa kelengkapan seluruh mata pelajaran (I-20, AC-07), menulis baris `rapor_mapel` beserta `snapshot_komponen` sebagai salinan beku, lalu mengubah status menjadi `finalized`. **Tidak ada berkas yang dibuat pada tahap ini** |
-| **Unduh** oleh Administrator, Wali Kelas, atau Siswa | PDF dirender dari salinan beku tersebut dengan pdfmake, diunggah ke S3, lalu dikembalikan sebagai presigned URL. Berkas yang sudah ada dipakai ulang |
+| **Finalisasi** oleh Wali Kelas | Satu transaksi: memeriksa kelengkapan seluruh mata pelajaran (I-20, AC-07), menulis baris `rapor_mapel` beserta `snapshot_komponen` sebagai salinan beku, lalu mengubah status menjadi `finalized`. **Sesudah `COMMIT`**, seluruh berkas rapor kelas dirender dan diunggah ke S3 di dalam request yang sama, dengan **anggaran lunak 20 detik** |
+| **Unduh per siswa** oleh Administrator, Wali Kelas, atau Siswa | Berkas yang sudah ada dipakai apa adanya. Yang belum ada dirender saat itu juga dari salinan beku, lalu disimpan. Dikembalikan sebagai presigned URL |
+| **Unduh sekelas** oleh Administrator atau Wali Kelas | Berkas yang sudah ada disusun menjadi satu arsip ZIP — **murni pekerjaan I/O, tanpa render**. Arsip tidak pernah dipakai ulang dan dihapus aturan daur hidup S3 |
 
-Karena PDF dirender dari salinan beku, keluarannya selalu sama dengan data yang difinalisasi, sehingga AC-13 terpenuhi meskipun templat bobot berubah kemudian. Pendekatan ini juga menghapus seluruh kebutuhan pekerjaan latar: finalisasi satu kelas menjadi satu transaksi basis data yang selesai dalam hitungan ratusan milidetik, bukan tiga puluh pekerjaan render yang perlu dipantau, diulang, dan dilaporkan progresnya.
+Karena PDF selalu dirender dari salinan beku, keluarannya selalu sama dengan data yang difinalisasi, sehingga AC-13 terpenuhi meskipun templat bobot berubah kemudian.
+
+**Render tidak pernah berada di dalam transaksi**, dan kegagalannya tidak pernah membatalkan finalisasi. Finalisasi yang sudah `COMMIT` bersifat sah dengan sendirinya; berkas hanyalah turunannya. Berkas yang tidak sempat dirender dalam anggaran 20 detik dilaporkan apa adanya lewat `berkas_terender` dan diselesaikan jalur unduh ([API.md §8.3](API.md)).
+
+**Tidak ada pekerjaan latar yang ditambahkan.** Seluruh render berjalan di dalam request yang memicunya, sehingga CK-07 tetap berlaku penuh: tidak ada antrean, tidak ada worker, dan tidak ada progres yang perlu dipantau. Yang membuat ini mungkin adalah anggaran lunak — bukan keyakinan bahwa tiga puluh render pasti selesai tepat waktu.
 
 ### 11.1 Penyajian lewat presigned URL
 
@@ -605,6 +610,20 @@ Penomoran memakai awalan `CK-A-` sehingga tidak bertabrakan dengan `CK-xx` pada 
 
 `audit_log` sendiri masih dipertahankan pada [RFC-001 D-07](RFC-001-model-data-konseptual.md). Keputusan ini **tidak menggugurkan entitas tersebut dari model data** — pencabutannya, apabila kelak dikehendaki, dilakukan melalui amandemen RFC-001, bukan melalui dokumen ini.
 
+### CK-A-07 · 6 Agustus 2026 · Berkas rapor dirender pada saat finalisasi — mengamandemen CK-09
+
+**Diputuskan.** Finalisasi merender seluruh berkas rapor kelas sesudah `COMMIT`, di dalam request yang sama, dengan anggaran lunak 20 detik. Jalur render-saat-unduh tetap ada. Ditambahkan unduh sekelas berbentuk arsip ZIP yang tidak merender apa pun.
+
+**Yang berubah dari CK-09.** Entri tersebut menolak pembuatan berkas sekelas pada saat finalisasi karena "menuntut pemrosesan latar dan tampilan progres". Keberatan itu mengandaikan tiga puluh render tidak muat di dalam satu request. Dengan batas waktu fungsi 30 detik (Pasal 6) dan anggaran lunak 20 detik, render yang tidak selesai **dihentikan alih-alih dipindahkan ke latar**, sehingga pemrosesan latar tidak pernah diperlukan. CK-07 tetap berlaku penuh.
+
+Keberatan kedua CK-09 — tidak ada manfaat produk karena rapor tidak selalu diunduh seluruhnya — juga gugur, tetapi bukan karena kecepatan unduhan. Manfaatnya adalah **terbukanya unduh sekelas**: dengan berkas sudah tersedia, penyusunan arsip menjadi pekerjaan I/O yang muat di dalam anggaran request. Tanpa pra-render, endpoint yang sama berarti tiga puluh render dalam satu permintaan, yaitu persis keadaan yang ditolak CK-09.
+
+**Yang tidak berubah.** CK-A-05 tetap berlaku dan justru menjadi lebih penting: koreksi Administrator atas data final menghapus berkas terkait, dan unduhan berikutnya merender ulang. Karena itu jalur render-saat-unduh **tidak pernah dapat dihapus**, dan pra-render selalu bersifat tambahan.
+
+**Alternatif yang ditolak.** *Mempertahankan CK-09 apa adanya.* Menghindari perubahan pada keputusan yang sudah terkunci. Ditolak karena konsekuensi yang diterimanya — Wali Kelas menekan unduh tiga puluh kali — dapat dinilai sekarang tanpa perlu menunggu UAT. *Merender di dalam transaksi finalisasi.* Menjamin berkas selalu lengkap, tetapi menahan transaksi selama belasan detik pada basis data yang sedang melayani seluruh sekolah.
+
+**Konsekuensi yang diterima.** Request finalisasi menjadi belasan detik, sekali per kelas per semester. Perkiraan lama render **belum diukur**, dan kewajiban pengukurannya tercatat pada [API.md §13.3](API.md). Kegagalan perkiraan itu tidak berakibat apa pun selain berkas yang dirender belakangan.
+
 ---
 
 ## Riwayat
@@ -613,3 +632,4 @@ Penomoran memakai awalan `CK-A-` sehingga tidak bertabrakan dengan `CK-xx` pada 
 |---|---|
 | 6 Agustus 2026 | Kerangka dibuat sebagai bagian dari pemecahan `Techstack.md` menjadi tiga dokumen. Isi belum ditulis. Menggantikan `ARCHITECTURE.md` versi 2 Agustus 2026, yang diturunkan menjadi arsip dengan nama `ARCHITECTURE-2026-08-02.md` |
 | 6 Agustus 2026 | **Versi 1.0 — isi ditulis.** Pasal 1 sampai 13 memindahkan isi yang sudah tervalidasi pada `Techstack.md` versi 1, dengan empat penyesuaian terhadap keadaan terbaru: adapter AI mengikuti CK-14, penyimpanan rahasia mengikuti `Techstack.md` §7, alamat endpoint Elice mengikuti `Techstack.md` §6, dan susunan jaringan mengikuti CK-13. Pasal 9 diperkaya dengan penerjemahan matriks kewenangan `aktor-role.md` menjadi dua lapis pemeriksaan. **Pasal 14 Alur request ditulis baru.** Ditetapkan pula lima angka yang sebelumnya belum pernah ditentukan: umur sesi 12 jam, umur presigned URL 5 menit, tiga batas laju, dan batas ukuran unggahan 2 MB. Lampiran Catatan Keputusan dibuka dengan **CK-A-01** sampai **CK-A-06** |
+| 6 Agustus 2026 | Pasal 11 ditulis ulang: berkas rapor dirender pada saat finalisasi dengan anggaran lunak 20 detik, render-saat-unduh menjadi jalur cadangan yang tidak dapat dihapus, dan ditambahkan unduh sekelas berbentuk arsip ZIP yang tidak merender apa pun (**CK-A-07**, mengamandemen CK-09). Batas waktu fungsi pada Pasal 6 disesuaikan: request terpanjang kini finalisasi sekelas, bukan render satu PDF |

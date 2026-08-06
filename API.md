@@ -38,7 +38,7 @@ Enam hal berikut belum ditetapkan dokumen mana pun sebelum ini, dan masing-masin
 
 | # | Keputusan | Catatan |
 |---|---|---|
-| 1 | Sesi presensi ditulis pada saat dibuka, bukan pada saat Simpan Presensi | CK-API-05 |
+| 1 | Sesi presensi beserta seluruh statusnya ditulis oleh **satu** request Simpan Presensi | CK-API-11, mengamandemen CK-API-05 |
 | 2 | Unggah berkas bersifat **tolak seluruhnya**; tidak ada penerimaan sebagian | CK-API-02 |
 | 3 | Pembuatan kelas berupa **satu endpoint atomik**, didahului pratinjau yang tidak menulis | CK-API-03 |
 | 4 | Kata sandi awal diserahkan sebagai **berkas CSV sekali unduh** | CK-API-04 |
@@ -175,12 +175,12 @@ Dibatasi **5 percobaan gagal per 15 menit**, dihitung per akun **dan** per alama
 | **Komponen** | `GET /api/komponen-penilaian` · `PUT /api/komponen-penilaian` | Baca: semua · Tulis: Administrator |
 | **Kelas** | `POST /api/kelas/pratinjau` · `POST /api/kelas` · `GET /api/kelas` · `GET /api/kelas/:id` | Administrator |
 | **Nilai** | `GET /api/penugasan/:id/nilai` · `POST /api/penugasan/:id/nilai` | Guru pengampu · Administrator |
-| **Presensi** | `POST /api/penugasan/:id/sesi` · `GET /api/penugasan/:id/sesi` · `GET /api/sesi/:id` · `PUT /api/sesi/:id/presensi` · `DELETE /api/sesi/:id` | Guru pengampu · Administrator |
+| **Presensi** | `GET /api/penugasan/:id/siswa` · `POST /api/penugasan/:id/sesi` · `GET /api/penugasan/:id/sesi` · `GET /api/sesi/:id` · `PUT /api/sesi/:id/presensi` · `DELETE /api/sesi/:id` | Guru pengampu · Administrator |
 | **Pantauan kelas** | `GET /api/kelas/:id/nilai` · `GET /api/kelas/:id/presensi` | Wali Kelas · Administrator |
-| **Rapor** | `GET /api/kelas/:id/rapor` · `PATCH /api/rapor/:id` · `POST /api/kelas/:id/rapor/finalisasi` · `POST /api/kelas/:id/rapor/distribusi` · `GET /api/rapor/:id/berkas` | Wali Kelas · Administrator · Siswa (unduh saja) |
+| **Rapor** | `GET /api/kelas/:id/rapor` · `PATCH /api/rapor/:id` · `POST /api/kelas/:id/rapor/finalisasi` · `POST /api/kelas/:id/rapor/distribusi` · `GET /api/rapor/:id/berkas` · `GET /api/kelas/:id/rapor/berkas` | Wali Kelas · Administrator · Siswa (unduh per siswa saja) |
 | **Siswa** | `GET /api/saya/nilai` · `GET /api/saya/presensi` · `GET /api/saya/rapor` · `POST /api/saya/suggestion` | Siswa |
 
-Tiga puluh endpoint. Lapis peran dan lapis baris untuk masing-masing mengikuti [ARCHITECTURE.md §9.2](ARCHITECTURE.md) tanpa pengecualian.
+Empat puluh tiga endpoint. Lapis peran dan lapis baris untuk masing-masing mengikuti [ARCHITECTURE.md §9.2](ARCHITECTURE.md) tanpa pengecualian.
 
 ---
 
@@ -427,32 +427,59 @@ Kegagalan penghapusan objek S3 membatalkan seluruh transaksi. Urutan ini menutup
 
 ## 7. Presensi
 
-### 7.1 Membuka sesi
+### 7.1 Menyiapkan layar
+
+**Membuka sesi adalah keadaan layar, bukan tindakan yang tersimpan** (CK-API-11). Guru memilih kelas dan tanggal; frontend memuat daftar siswa dan menampilkannya serba-Alpa. Belum ada satu baris pun yang tertulis.
+
+```http
+GET /api/penugasan/:id/siswa
+```
+
+```jsonc
+// 200
+{ "data": { "siswa": [ { "siswa_ref": "…", "nama": "Andi Pratama" }, … ] } }
+```
+
+Frontend juga memanggil `GET /api/penugasan/:id/sesi` untuk mengetahui tanggal mana yang sudah memiliki sesi. Tanggal yang sudah ada sesinya **dimuat untuk disunting** (§7.3), bukan dibuat ulang.
+
+### 7.2 Simpan Presensi — membuat sesi
 
 ```http
 POST /api/penugasan/:id/sesi
-{ "tanggal": "2026-08-06" }
+{
+  "tanggal": "2026-08-06",
+  "presensi": [ { "siswa_ref": "…", "status": "hadir", "catatan": null }, … ]
+}
 ```
 
 ```jsonc
 // 201
 { "data": {
     "sesi": { "id": "…", "tanggal": "2026-08-06" },
-    "presensi": [ { "siswa_ref": "…", "nama": "Andi Pratama", "status": "alpa", "catatan": null }, … ]
+    "tersimpan": 30
 } }
 ```
 
-**Endpoint ini menulis.** Satu transaksi membuat baris `sesi` beserta satu baris `presensi` berstatus `alpa` untuk **setiap** siswa kelas tersebut (CK-API-05). Inilah cara I-15 dijamin: "status kosong tidak mungkin terjadi" ([PRD §8.4](PRD.md) butir 2, AC-11) hanya benar apabila seluruh baris sudah ada sejak sesi terbuka.
+**Satu request, satu transaksi, dan tidak ada yang tertulis sebelumnya.** Baris `sesi` beserta seluruh baris `presensi` terbentuk bersamaan ketika Guru menekan Simpan Presensi — pemenuhan P22 dan AC-15 secara harfiah: meninggalkan layar tanpa menekan tombol tidak mengubah data apa pun, termasuk tidak meninggalkan sesi kosong.
 
-Sesi kedua pada penugasan dan tanggal yang sama ditolak `409 SESI_SUDAH_ADA`, penegakan I-14 dan P6. Dua Guru mata pelajaran berbeda tetap dapat membuka sesi pada kelas dan tanggal yang sama tanpa bertabrakan, karena keunikannya melekat pada penugasan.
+| Ketentuan | Dasar |
+|---|---|
+| Server menurunkan daftar siswa dari `kelas_siswa`, **bukan dari payload**. Siswa yang tidak disebut permintaan tetap disisipkan berstatus `alpa` | I-15, AC-11 |
+| `siswa_ref` yang bukan anggota kelas ditolak `400`, bukan diabaikan | [SCHEMA.md §11](SCHEMA.md) |
+| Sesi kedua pada penugasan dan tanggal yang sama ditolak `409 SESI_SUDAH_ADA` | I-14, P6 |
+| Guru ditolak `409 RAPOR_TERKUNCI` apabila rapor kelas sudah final; Administrator dilanjutkan | I-22, P13 |
 
-> **Konsekuensi yang perlu diketahui.** Sesi yang terlanjur dibuka lalu ditinggalkan **tetap masuk ke penyebut persentase kehadiran** (I-18), dan seluruh siswanya berstatus Alpa. Penyelesaiannya adalah menghapus sesi tersebut — jalur yang memang tersedia bagi Guru yang membukanya ([PRD §8.4](PRD.md)). Penafsiran P22 yang mendasari keputusan ini tercatat sebagai temuan **A-01**.
+Kelengkapan I-15 dengan demikian **tidak pernah bergantung pada klien**: apa pun yang dikirim frontend, jumlah baris presensi yang terbentuk selalu sama dengan jumlah anggota kelas. Status `alpa` sebagai bawaan kolom ([SCHEMA.md §4.4](SCHEMA.md)) yang membuatnya cukup dinyatakan sekali.
 
-### 7.2 Menyimpan status
+Dua Guru mata pelajaran berbeda tetap dapat mencatat presensi pada kelas dan tanggal yang sama tanpa bertabrakan, karena keunikan melekat pada penugasan (P6).
+
+**Tombol Hadir Semua adalah tindakan frontend** yang mengubah seluruh baris pada layar menjadi `hadir` sebelum tombol simpan ditekan; tidak ada endpoint tersendiri untuknya (AC-11).
+
+### 7.3 Menyunting sesi yang sudah ada
 
 ```http
 PUT /api/sesi/:id/presensi
-{ "presensi": [ { "siswa_ref": "…", "status": "hadir", "catatan": null }, … ] }
+{ "presensi": [ { "siswa_ref": "…", "status": "izin", "catatan": "Surat dokter" }, … ] }
 ```
 
 ```jsonc
@@ -460,11 +487,11 @@ PUT /api/sesi/:id/presensi
 { "data": { "diperbarui": 30 } }
 ```
 
-Bentuk `PUT` atas seluruh daftar, dalam satu transaksi. **Tombol Hadir Semua adalah tindakan frontend** yang menghasilkan payload berisi 30 baris berstatus `hadir`; tidak ada endpoint tersendiri untuknya (AC-11).
+Bentuk `PUT` atas seluruh daftar, dalam satu transaksi. Endpoint ini **hanya memperbarui status**; jumlah baris presensi tidak pernah berubah karena keanggotaannya sudah ditetapkan pada §7.2.
 
 Perubahan berlaku langsung **tanpa pencatatan riwayat** (P7). Tidak ada endpoint riwayat presensi dalam bentuk apa pun.
 
-### 7.3 Menghapus sesi dan melihat ringkasan
+### 7.4 Menghapus sesi dan melihat ringkasan
 
 | Metode | Alamat | Isi |
 |---|---|---|
@@ -524,7 +551,8 @@ Berhasil:
 
 ```jsonc
 // 200
-{ "data": { "difinalisasi": 30, "difinalisasi_pada": "2026-12-18T10:15:00+07:00" } }
+{ "data": { "difinalisasi": 30, "difinalisasi_pada": "2026-12-18T10:15:00+07:00",
+            "berkas_terender": 30 } }
 ```
 
 Ditolak — teks pesan mengikuti AC-07 **kata demi kata**, satu entri per mata pelajaran yang belum lengkap:
@@ -541,7 +569,16 @@ Ditolak — teks pesan mengikuti AC-07 **kata demi kata**, satu entri per mata p
 } }
 ```
 
-**Finalisasi bersifat sekelas, satu transaksi** ([ARCHITECTURE.md §11](ARCHITECTURE.md)). Yang terjadi di dalamnya: pemeriksaan kelengkapan, penulisan `rapor_mapel` beserta `snapshot_komponen` sebagai salinan beku, lalu perubahan status seluruh rapor kelas menjadi `finalized`. **Tidak ada berkas yang dibuat pada tahap ini** (CK-09).
+**Finalisasi bersifat sekelas, satu transaksi** ([ARCHITECTURE.md §11](ARCHITECTURE.md)). Yang terjadi di dalamnya: pemeriksaan kelengkapan, penulisan `rapor_mapel` beserta `snapshot_komponen` sebagai salinan beku, lalu perubahan status seluruh rapor kelas menjadi `finalized`.
+
+**Setelah `COMMIT`, berkas PDF dirender di dalam request yang sama** (CK-API-12, mengamandemen CK-API-10). Sifatnya *best effort*:
+
+| Ketentuan | Alasan |
+|---|---|
+| Render berjalan **sesudah** `COMMIT`, tidak di dalam transaksi | Transaksi tidak boleh menggantung selama pekerjaan render |
+| Anggaran lunak **20 detik**. Berkas yang belum sempat dirender dilewati | Batas waktu fungsi 30 detik ([ARCHITECTURE.md §6](ARCHITECTURE.md)) tidak boleh terlampaui |
+| `berkas_terender` menyebutkan berapa yang jadi. Angka di bawah `difinalisasi` **bukan kegagalan** | Sisanya dirender pada saat diunduh, lewat jalur yang tetap ada (§8.4) |
+| Kegagalan render tidak pernah membatalkan finalisasi | Finalisasi sudah `COMMIT` dan sah; berkas hanyalah turunannya |
 
 Dilakukan **satu kali** dan tidak dapat dibatalkan. Tidak ada endpoint buka kembali; upaya menurunkan status juga ditolak `trg_rapor_status_maju` di tingkat basis data ([SCHEMA.md §5.2](SCHEMA.md)).
 
@@ -562,11 +599,29 @@ GET /api/rapor/:id/berkas
 { "data": { "url": "https://…", "kedaluwarsa_pada": "2026-12-18T10:20:00+07:00" } }
 ```
 
-PDF dirender pada panggilan pertama, diunggah ke S3, lalu dipakai ulang (CK-09). Yang dikembalikan adalah **presigned URL berumur 5 menit**, bukan isi berkasnya ([ARCHITECTURE.md §11.1](ARCHITECTURE.md)).
+Berkas biasanya **sudah ada** karena dirender pada saat finalisasi (§8.3). Apabila belum ada — karena anggaran render terlampaui, atau karena Administrator mengoreksi data final sehingga berkasnya dihapus (CK-A-05) — PDF dirender saat itu juga lalu disimpan. Yang dikembalikan selalu **presigned URL berumur 5 menit**, bukan isi berkasnya ([ARCHITECTURE.md §11.1](ARCHITECTURE.md)).
 
 Lapis baris: Administrator tanpa batas; Wali Kelas hanya kelas walinya; Siswa hanya rapor miliknya **dan** berstatus `distributed`. Guru Mata Pelajaran ditolak lapis baris pada setiap rapor — tanpa aturan terpisah, sesuai [ARCHITECTURE.md §9.2](ARCHITECTURE.md) dan AC-32.
 
-**Unduhan hanya per siswa.** Tidak ada endpoint unduh sekelas. Satu tindakan yang menghasilkan tiga puluh pekerjaan render adalah persis yang ditolak CK-09, beserta pemantauan progres, pengulangan, dan pelaporan kegagalannya (CK-API-10).
+### 8.5 Unduh sekelas
+
+```http
+GET /api/kelas/:id/rapor/berkas
+```
+
+```jsonc
+// 200
+{ "data": { "url": "https://…", "kedaluwarsa_pada": "2026-12-18T10:20:00+07:00",
+            "jumlah_rapor": 30 } }
+```
+
+Mengembalikan satu arsip ZIP berisi seluruh rapor kelas. **Wali Kelas dan Administrator saja**; Siswa dan Guru Mata Pelajaran ditolak lapis baris.
+
+**Endpoint ini tidak merender apa pun.** Ia mengambil berkas yang sudah ada di S3, menyusunnya menjadi ZIP, mengunggahnya, lalu mengembalikan presigned URL — murni pekerjaan I/O. Inilah yang dimungkinkan oleh pra-render pada §8.3, dan yang membuat CK-API-10 tidak lagi berlaku.
+
+Rapor yang berkasnya belum ada dirender lebih dahulu, dengan anggaran lunak yang sama seperti §8.3. Apabila anggaran terlampaui, permintaan dijawab `409 BERKAS_BELUM_SIAP` beserta jumlah yang sudah siap, dan permintaan berikutnya melanjutkan dari sana — bukan mengulang dari awal, karena berkas yang sudah jadi tetap tersimpan.
+
+**Arsip ZIP tidak pernah dipakai ulang.** Ia dibangun ulang setiap permintaan dan disimpan di bawah awalan `sementara/` yang dihapus aturan daur hidup S3. Dengan begitu arsip tidak dapat menjadi usang setelah Administrator mengoreksi data final — persoalan yang pada berkas per siswa harus diselesaikan CK-A-05.
 
 ---
 
@@ -650,6 +705,7 @@ Kegagalan ini tidak menghambat apa pun. Nilai, presensi, finalisasi, dan distrib
 | `SESI_SUDAH_ADA` | 409 | Penugasan dan tanggal yang sama sudah memiliki sesi | — |
 | `RAPOR_TERKUNCI` | 409 | Guru atau Wali Kelas mengubah data yang sudah final | AC-14 |
 | `MAPEL_BELUM_LENGKAP` | 409 | Finalisasi sebelum seluruh mata pelajaran lengkap | **AC-07** |
+| `BERKAS_BELUM_SIAP` | 409 | Unduh sekelas ketika sebagian berkas belum selesai dirender | — |
 | `BATAS_LAJU_TERLAMPAUI` | 429 | Salah satu dari tiga jalur terbatas | — |
 | `LAYANAN_AI_GAGAL` | 503 | Batas waktu, `5xx`, atau kredit habis | — |
 | `KESALAHAN_SERVER` | 500 | Kegagalan tak terduga | — |
@@ -677,7 +733,6 @@ Daftar ini sama mengikatnya dengan daftar endpoint. Ketiadaannya adalah keputusa
 | Pembuatan dan penggantian kata sandi akun **Administrator** | Perintah CLI, [ARCHITECTURE.md §9.3](ARCHITECTURE.md) |
 | Pemulihan kata sandi mandiri, termasuk endpoint yang hanya menjawab pesan | §6.1.3, AC-33 |
 | Unduh nilai maupun rapor bagi Guru Mata Pelajaran | P23, AC-32 |
-| Unduh rapor sekelas sekaligus | CK-09, CK-API-10 |
 | Finalisasi oleh Guru Mata Pelajaran dalam bentuk apa pun | P9, AC-08 |
 | Buka kembali atau terbitkan ulang rapor | [PRD §9](PRD.md), I-21 |
 | Riwayat rekomendasi AI | NG14, I-24 |
@@ -686,7 +741,7 @@ Daftar ini sama mengikatnya dengan daftar endpoint. Ketiadaannya adalah keputusa
 | Penulisan apa pun oleh jalur AI | I-23, AC-20 |
 | Pergantian guru pengampu di tengah semester | T-05, belum ada alurnya di PRD |
 | Penonaktifan akun | Kolom `pengguna.aktif` ada, alurnya belum ditetapkan — temuan **A-04** |
-| Penambahan atau pemindahan siswa setelah kelas terbentuk | Temuan **A-05** |
+| Penambahan atau pemindahan siswa setelah kelas terbentuk | Ditetapkan di luar cakupan MVP — §13.2 **A-05** |
 | Kenaikan kelas dan perpindahan tahun ajaran | NG8 |
 
 ---
@@ -704,12 +759,12 @@ Pertanggungjawaban langsung terhadap [ATURAN-DAN-KRITERIA §2](ATURAN-DAN-KRITER
 | UC-05 | `POST /api/mapel` · `PATCH /api/mapel/:id` |
 | UC-06 | `POST /api/penugasan/:id/nilai` sebagai Administrator |
 | UC-07 | `POST /api/penugasan/:id/nilai` |
-| UC-08 | `POST /api/penugasan/:id/sesi` · `PUT /api/sesi/:id/presensi` · `DELETE /api/sesi/:id` |
+| UC-08 | `GET /api/penugasan/:id/siswa` · `POST /api/penugasan/:id/sesi` · `PUT /api/sesi/:id/presensi` · `DELETE /api/sesi/:id` |
 | UC-09 | `GET /api/saya/nilai` — tanpa langkah publikasi di antaranya |
 | UC-10 | `GET /api/kelas/:id/nilai` |
 | UC-11 | `GET /api/kelas/:id/rapor` |
 | UC-12 | `POST /api/kelas/:id/rapor/finalisasi` |
-| UC-13 | `POST /api/kelas/:id/rapor/distribusi` · `GET /api/rapor/:id/berkas` |
+| UC-13 | `POST /api/kelas/:id/rapor/distribusi` · `GET /api/rapor/:id/berkas` · `GET /api/kelas/:id/rapor/berkas` |
 | UC-14 | `GET /api/saya/nilai` · `GET /api/saya/presensi` |
 | UC-15 | `POST /api/saya/suggestion` |
 | UC-16 | `GET /api/saya/rapor` · `GET /api/rapor/:id/berkas` |
@@ -720,17 +775,30 @@ Seluruh enam belas use case tertutup. Seluruh layar pada [ATURAN-DAN-KRITERIA §
 
 ## 13. Temuan
 
-Celah yang ditemukan saat menurunkan kontrak. Perlu ditanggapi tim.
+Celah yang ditemukan saat menurunkan kontrak.
+
+### 13.1 Masih terbuka
 
 | # | Temuan | Usulan tindakan |
 |---|---|---|
-| A-01 | P22 menyatakan presensi baru tersimpan setelah tombol simpan, sedangkan [ARCHITECTURE.md §1.2](ARCHITECTURE.md) menjamin I-15 lewat transaksi pembukaan sesi yang menulis. Dokumen ini menafsirkan P22 berlaku atas **status**, bukan atas keberadaan sesi (CK-API-05) | Tegaskan pada [PRD §8.4](PRD.md) bahwa pembukaan sesi adalah tindakan yang tersimpan, dan sesi keliru diselesaikan dengan penghapusan |
-| A-02 | `catatan_wali` bersifat per siswa, sehingga satu kelas menuntut tiga puluh catatan sebelum finalisasi | Konfirmasi ke sekolah. Apabila yang dikehendaki satu catatan per kelas, hal itu mengubah [RFC-001 §4](RFC-001-model-data-konseptual.md) dan memerlukan amandemen RFC |
-| A-03 | AC-26 menyebut "berhasil sebagian" sekaligus melarang data setengah jadi. Dokumen ini memenangkan larangan tersebut dan menolak seluruh berkas (CK-API-02) | Tegaskan redaksi AC-26 pada [ATURAN-DAN-KRITERIA §4](ATURAN-DAN-KRITERIA.md) |
-| A-04 | `pengguna.aktif` ada pada model data, tetapi tidak ada alur maupun aktor yang menonaktifkan akun | Tetapkan pada PRD, atau nyatakan kolom tersebut belum dipakai pada MVP |
-| A-05 | Kelas dibuat atomik, sehingga siswa pindahan di tengah semester tidak memiliki jalur masuk. NG8 mencabut kenaikan kelas tetapi tidak menyinggung mutasi | Konfirmasi ke sekolah apakah mutasi terjadi selama pilot. Bila ya, diperlukan satu endpoint penambahan anggota kelas |
+| A-03 | AC-26 menyebut "berhasil sebagian" sekaligus melarang data setengah jadi. Dokumen ini memenangkan larangan tersebut dan menolak seluruh berkas (CK-API-02) | Ganti redaksi AC-26 pada [ATURAN-DAN-KRITERIA §4](ATURAN-DAN-KRITERIA.md) menjadi: *"Unggah CSV maupun Excel yang memuat baris bermasalah **ditolak seluruhnya**, melaporkan setiap baris yang gagal beserta alasannya, dan tidak menyisakan akun atau kelas setengah jadi."* |
+| A-04 | `pengguna.aktif` ada pada model data dan diperiksa saat masuk, tetapi **tidak ada aktor, alur, maupun layar yang mengubahnya menjadi `false`**. [aktor-role.md §5.1](aktor-role.md) tidak memuat kewenangan penonaktifan, dan [ATURAN-DAN-KRITERIA §3](ATURAN-DAN-KRITERIA.md) tidak memuat layarnya. Akibatnya kolom itu tidak akan pernah bernilai `false`, dan akun Guru yang keluar dari sekolah tetap dapat masuk | Nyatakan pada PRD bahwa kolom tersebut **belum dipakai pada MVP**. Pemeriksaan saat masuk tetap dipertahankan sebagai pertahanan. Penanganan sementara bagi akun yang perlu ditutup: Administrator mereset kata sandinya dan tidak menyerahkannya. Menambah endpoint penonaktifan berarti menambah kewenangan Administrator yang tidak diberikan PRD |
+
+### 13.2 Sudah ditutup
+
+| # | Temuan | Penutupan |
+|---|---|---|
+| A-01 | Dugaan pertentangan antara P22 dan [ARCHITECTURE.md §1.2](ARCHITECTURE.md) mengenai kapan sesi presensi tersimpan | **Gugur.** Pertentangan itu berasal dari CK-API-05, bukan dari dokumen sumber. CK-API-11 menempatkan pembuatan sesi pada transaksi Simpan Presensi, sehingga P22, AC-15, [PRD §8.4](PRD.md), dan ARCHITECTURE §1.2 terpenuhi seluruhnya tanpa satu pun perlu ditafsir ulang. Tidak ada usulan perubahan bagi PRD |
+| A-02 | Beban penulisan tiga puluh catatan wali per kelas | **Ditetapkan.** Catatan wali bersifat per siswa karena melekat pada rapor siswa yang bersangkutan. Sesuai [RFC-001 §4](RFC-001-model-data-konseptual.md); tidak memerlukan amandemen |
+| A-05 | Siswa pindahan di tengah semester tidak memiliki jalur masuk | **Ditetapkan sebagai asumsi.** Tidak ada perpindahan siswa di tengah semester selama pilot, dan penanganannya berada di luar cakupan MVP bersama NG8. Berkedudukan sederajat dengan asumsi I-08 |
 
 Temuan yang masih terbuka pada dokumen sebelumnya — T-02, T-04, T-05, dan T-06 pada [RFC-001 §10](RFC-001-model-data-konseptual.md), serta S-01 sampai S-04 pada [SCHEMA.md §12](SCHEMA.md) — tidak dipengaruhi keputusan pada dokumen ini. **S-05 ditutup** oleh §6.3.
+
+### 13.3 Yang wajib diukur
+
+Satu angka menentukan apakah CK-API-12 bertahan, dan **belum pernah diukur siapa pun**: lama render tiga puluh PDF pdfmake berurutan beserta unggahannya ke S3, di dalam fungsi Lambda 1024 MB arm64.
+
+Diuji sejak berkas rapor pertama dapat dirender, bukan ditemukan saat Wali Kelas pertama memfinalisasi kelas sungguhan. Apabila melampaui anggaran lunak 20 detik secara konsisten, yang berubah hanya **jumlah berkas yang sempat dirender** — jalur render-saat-unduh tetap menutupinya, dan tidak ada satu pun endpoint yang perlu diubah.
 
 ---
 
@@ -844,6 +912,48 @@ Pembuatan massal juga membuat I-19 ditegakkan sejak awal: `uq_rapor_siswa_period
 
 **Konsekuensi yang diterima.** Wali Kelas menekan unduh tiga puluh kali apabila memerlukan seluruh kelas. Perlu diperiksa saat UAT apakah ini mengganggu; apabila ya, jalur naiknya adalah pekerjaan latar berbasis `pg-boss` (CK-07) yang ditetapkan lewat entri baru.
 
+### CK-API-11 · 6 Agustus 2026 · Sesi presensi ditulis oleh transaksi Simpan Presensi — mengamandemen CK-API-05
+
+**Diputuskan.** `POST /api/penugasan/:id/sesi` menerima tanggal **beserta seluruh status kehadiran**, dan membuat baris `sesi` bersama seluruh baris `presensi` dalam satu transaksi. Tidak ada endpoint yang menulis pada saat Guru "membuka" sesi; pembukaan sesi adalah keadaan layar.
+
+**Yang berubah dari CK-API-05.** Entri tersebut membaca "sesi terbuka dan seluruh siswa langsung memperoleh status Alpa" ([PRD §8.4](PRD.md) langkah 3) sebagai penulisan ke basis data, sehingga P22 harus ditafsirkan berlaku atas status saja. Penafsiran itu **tidak diperlukan**. Membaca langkah 3 sebagai keadaan layar memenuhi seluruh ketentuan tanpa satu pun perlu ditafsir ulang:
+
+| Ketentuan | Terpenuhi karena |
+|---|---|
+| P22 dan AC-15 — tidak ada yang tersimpan sebelum tombol ditekan | Benar secara harfiah. Layar yang ditinggalkan tidak meninggalkan satu baris pun |
+| I-15 dan AC-11 — setiap siswa tepat satu status | Server menurunkan daftar siswa dari `kelas_siswa`, bukan dari payload. Kelengkapan tidak pernah bergantung pada klien |
+| I-14 dan P6 — satu sesi per penugasan per tanggal | Unique constraint menolak pada saat penyisipan |
+| [ARCHITECTURE.md §1.2](ARCHITECTURE.md) — kelengkapan dijamin transaksi pembukaan sesi | Tetap akurat. Transaksi yang membuat baris `sesi` memang menyisipkan seluruh siswa sekaligus |
+
+**Alasan.** Selain menghapus kebutuhan menafsir ulang PRD, bentuk ini menghilangkan satu cacat nyata pada CK-API-05: sesi yang terlanjur dibuka lalu ditinggalkan tidak lagi masuk ke penyebut persentase kehadiran (I-18) dengan seluruh siswa berstatus Alpa. Pada CK-API-05 keadaan itu hanya dapat diperbaiki dengan menghapus sesi; di sini keadaan itu tidak pernah terjadi.
+
+**Alternatif yang ditolak.** *Mempertahankan CK-API-05.* Duplikat tanggal ketahuan lebih awal, yaitu pada saat membuka alih-alih pada saat menyimpan. Ditolak karena keuntungan itu dapat diperoleh dari `GET /api/penugasan/:id/sesi` di sisi layar, sedangkan harganya adalah penafsiran ulang P22 beserta cacat sesi terlantar.
+
+**Konsekuensi yang diterima.** Bentrokan tanggal dilaporkan pada saat menyimpan, sesudah Guru mengisi layar. Dikurangi dengan memuat sesi yang sudah ada untuk disunting ketika tanggalnya dipilih (§7.1), sehingga bentrokan sungguhan hanya terjadi pada perlombaan dua peramban milik Guru yang sama.
+
+### CK-API-12 · 6 Agustus 2026 · Berkas rapor dirender pada saat finalisasi, dan unduh sekelas tersedia — mengamandemen CK-API-10 dan CK-09
+
+**Diputuskan.** Finalisasi merender seluruh berkas rapor kelas sesudah `COMMIT`, di dalam request yang sama, dengan anggaran lunak 20 detik. Ditambahkan `GET /api/kelas/:id/rapor/berkas` yang mengembalikan arsip ZIP sekelas. Jalur render-saat-unduh **tetap ada** dan tidak berubah.
+
+**Yang berubah dari CK-09 dan CK-API-10.** Keduanya menolak pembuatan berkas sekelas dengan dua alasan. Keduanya ditinjau ulang:
+
+| Alasan penolakan | Status setelah ditinjau |
+|---|---|
+| Menuntut pemrosesan latar beserta tampilan progres | **Gugur, dengan syarat.** Tiga puluh render berurutan diperkirakan muat di dalam satu request berbatas 30 detik, sehingga tidak memerlukan antrean maupun worker. Angkanya belum diukur dan menjadi kewajiban pengukuran pada §13.3. Anggaran lunak 20 detik membuat kegagalan perkiraan ini tidak berakibat apa pun selain berkas yang dirender belakangan |
+| Tidak memberi manfaat produk karena rapor tidak selalu diunduh seluruhnya | **Gugur.** Manfaatnya bukan pada kecepatan unduhan per siswa, melainkan pada terbukanya unduh sekelas: dengan berkas sudah tersedia, endpoint ZIP menjadi **murni I/O** dan muat di dalam anggaran request. Tanpa pra-render, endpoint yang sama berarti tiga puluh render dalam satu permintaan — persis yang ditolak CK-09 |
+
+**Alasan.** CK-API-10 menerima konsekuensi bahwa Wali Kelas menekan unduh tiga puluh kali, dan mencatatnya untuk diperiksa saat UAT. Pemeriksaan itu tidak perlu ditunggu: tiga puluh tindakan berulang untuk satu pekerjaan tunggal adalah beban yang sudah dapat dinilai sekarang. Yang membuatnya mahal pada rancangan sebelumnya adalah render, dan render itulah yang dipindahkan.
+
+**Yang tidak berubah.** CK-A-05 tetap berlaku: koreksi Administrator atas data final menghapus berkas terkait, dan unduhan berikutnya merender ulang. Karena itu jalur render-saat-unduh tidak pernah dapat dihapus, dan pra-render **selalu bersifat tambahan, tidak pernah menggantikan**. CK-07 juga tetap berlaku penuh — tidak ada antrean, tidak ada worker, dan tidak ada pekerjaan latar yang ditambahkan.
+
+**Alternatif yang ditolak.** *Pra-render tanpa endpoint ZIP.* Mempercepat unduhan pertama, tetapi Wali Kelas tetap menekan unduh tiga puluh kali — masalah yang sesungguhnya tidak tersentuh. *Endpoint ZIP tanpa pra-render.* Menghadirkan tiga puluh render di dalam satu permintaan, yaitu keadaan yang ditolak CK-09 tanpa perubahan keadaan apa pun yang membenarkannya. *Arsip ZIP yang disimpan dan dipakai ulang.* Menghemat penyusunan berulang, tetapi menghadirkan berkas kedua yang dapat menjadi usang setelah koreksi Administrator, sehingga CK-A-05 harus diperluas untuk menghapusnya juga.
+
+**Konsekuensi yang diterima.**
+
+1. **Request finalisasi menjadi panjang**, dari ratusan milidetik menjadi belasan detik. Terjadi sekali per kelas per semester dan menghasilkan hasil yang dapat langsung dipakai, sehingga tunggu itu dibayar pada saat yang tepat.
+2. **Berkas dirender bagi rapor yang mungkin tidak pernah diunduh.** Biayanya adalah waktu compute yang menyumbang sekitar 3% tagihan ([Techstack.md §8.3](Techstack.md)) dan penyimpanan S3 yang tidak berarti pada volume ini.
+3. **Perkiraan lama render belum terbukti.** Ditangani anggaran lunak, bukan diasumsikan aman.
+
 ---
 
 ## Riwayat
@@ -851,3 +961,6 @@ Pembuatan massal juga membuat I-19 ditegakkan sejak awal: `uq_rapor_siswa_period
 | Tanggal | Perubahan |
 |---|---|
 | 6 Agustus 2026 | **Versi 1.0 — dokumen dibuat.** Menetapkan tiga puluh endpoint di atas [SCHEMA.md](SCHEMA.md) v1.0 dan [ARCHITECTURE.md](ARCHITECTURE.md) v1.0. Membuka enam keputusan yang belum ditetapkan dokumen mana pun: sesi presensi ditulis saat dibuka (**CK-API-05**), unggah bersifat tolak seluruhnya (**CK-API-02**), pembuatan kelas atomik dengan pratinjau (**CK-API-03**), kata sandi awal berupa berkas CSV sekali unduh (**CK-API-04**), penggantian kata sandi mandiri tersedia (**CK-API-06**), dan baris rapor dibuat massal saat kelas dibuat (**CK-API-07**). Ditetapkan pula amplop respons, katalog lima belas kesalahan beserta tiga teks yang diwajibkan PRD, ketiadaan versi dan paginasi, serta daftar empat belas hal yang sengaja tidak memiliki endpoint. Menutup **T-01** lewat CK-API-08 dan **S-05** lewat §6.3. Diajukan lima temuan **A-01** sampai **A-05** |
+| 6 Agustus 2026 | Sesi presensi berpindah dari ditulis-saat-dibuka menjadi ditulis oleh transaksi Simpan Presensi (**CK-API-11**, mengamandemen CK-API-05). Perpindahan ini menutup **A-01**: pertentangan yang dilaporkannya berasal dari CK-API-05, bukan dari dokumen sumber, dan tidak ada usulan perubahan bagi PRD. Ditambahkan `GET /api/penugasan/:id/siswa` |
+| 6 Agustus 2026 | Berkas rapor dirender pada saat finalisasi dengan anggaran lunak 20 detik, dan ditambahkan `GET /api/kelas/:id/rapor/berkas` yang mengembalikan arsip ZIP sekelas (**CK-API-12**, mengamandemen CK-API-10 dan CK-09). Jalur render-saat-unduh tetap ada dan tidak berubah, karena CK-A-05 menuntutnya. Ditambahkan §13.3 yang mewajibkan pengukuran lama render sebelum keputusan ini dianggap terbukti |
+| 6 Agustus 2026 | **A-02** ditetapkan: catatan wali bersifat per siswa karena melekat pada rapor siswa. **A-05** ditetapkan sebagai asumsi: tidak ada perpindahan siswa di tengah semester selama pilot. Jumlah endpoint dikoreksi dari tiga puluh menjadi **empat puluh tiga**, sesuai peta pada §4, dan daftar §11 menyusut menjadi tiga belas butir setelah unduh sekelas dipindahkan menjadi endpoint |

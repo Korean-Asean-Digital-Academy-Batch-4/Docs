@@ -49,7 +49,7 @@ Prinsip keempat — bahwa yang dapat dijamin basis data tidak diserahkan kepada 
 | **Penyajian backend** | AWS Lambda dari container image, memakai **Lambda Web Adapter**, diakses lewat **Function URL** dengan CloudFront OAC | LWA 1.0.x, arm64 |
 | **Penyimpanan berkas** | S3, diakses lewat presigned URL | — |
 | **Validasi** | Zod, di batas HTTP maupun batas berkas unggahan | — |
-| **Berkas rapor** | pdfmake, dirender saat diunduh | — |
+| **Berkas rapor** | pdfmake, dirender saat finalisasi dengan render-saat-unduh sebagai cadangan (CK-A-07) | — |
 | **IaC** | Terraform | — |
 | **CI/CD** | GitHub Actions + OIDC | — |
 | **Pemasangan on-prem** | Skrip `install.sh` tunggal, idempoten | — |
@@ -424,3 +424,4 @@ Bernomor dan bertanggal. Entri tidak disunting; perubahan keputusan ditulis seba
 | 6 Agustus 2026 | Penyedia AI berpindah dari OpenRouter ke Elice AI Cloud melalui program KADA (**CK-14**, mengamandemen CK-06). Ditetapkan bahwa identitas siswa tidak pernah dikirim ke layanan AI |
 | 6 Agustus 2026 | Penyimpanan rahasia ditetapkan pada **§7** yang baru: kredensial `app_rw` dan `app_ro` di Secrets Manager, kunci API Elice di SSM Parameter Store, dan ketiganya di berkas `.env` berizin `600` pada on-prem. Nilai rahasia dibuat di luar Terraform. Pasal biaya dan pasal keputusan terbuka bergeser menjadi §8 dan §9; total menjadi $28–36 per bulan |
 | 6 Agustus 2026 | **Versi 2.0 — dokumen dipecah tiga.** Isi yang menjelaskan hubungan antar bagian dipindahkan ke [ARCHITECTURE.md](ARCHITECTURE.md), dan isi yang menjelaskan penerapan serta operasional dipindahkan ke [DEPLOYMENT.md](DEPLOYMENT.md). Dokumen ini menyusut menjadi pilihan teknologi beserta alasannya. Ditambahkan **CK-15** yang menetapkan skrip pemasangan tunggal untuk on-prem, melengkapi CK-12. Butir §16 mengenai sisa kredit KADA dan persetujuan sekolah dihapus atas keputusan tim; butir mengenai bentuk endpoint Elice ditutup dan dipindahkan ke §6 |
+| 6 Agustus 2026 | Waktu render berkas rapor pada §2 disesuaikan mengikuti **CK-A-07** pada [ARCHITECTURE.md](ARCHITECTURE.md), yang mengamandemen **CK-09**. Amandemennya ditulis di sana, bukan di sini, karena isi yang dirujuk CK-09 sudah berpindah ke `ARCHITECTURE.md` pada pemecahan 6 Agustus 2026 |
