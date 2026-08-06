@@ -17,13 +17,13 @@ Kumpulan dokumen sumber kebenaran untuk produk **EduTrack** (Project ID: EDU-202
 | [SCHEMA.md](./SCHEMA.md) | Skema fisik PostgreSQL: tabel, constraint, indeks, pemicu, role, dan migrasi |
 | [API.md](./API.md) | Kontrak endpoint: alamat, bentuk permintaan dan respons, kode status, katalog kesalahan |
 
-### Kerangka — isi belum ditulis
+### Berlaku sebagian
 
 | Dokumen | Isi |
 |---|---|
-| [DEPLOYMENT.md](./DEPLOYMENT.md) | Bagaimana sistem dikirim dan dioperasikan: Terraform, CI/CD, rollback, pemasangan on-prem, pencadangan |
+| [DEPLOYMENT.md](./DEPLOYMENT.md) | Bagaimana sistem dikirim dan dioperasikan: Terraform, CI/CD, rollback, identitas, pemasangan on-prem, pencadangan |
 
-Susunan pasalnya sudah ditetapkan; isinya mulai ditulis ketika Terraform mulai ditulis.
+**Pasal 2, 3, 6, dan 9 sudah berlaku** — pembagian kepemilikan Terraform dan CI, urutan rilis, aturan migrasi, serta identitas dan akses. Pasal 1, 4, 5, 7, dan 8 masih rancangan, dan mulai diisi ketika Terraform mulai ditulis.
 
 ### Panduan kerja
 
@@ -31,15 +31,15 @@ Susunan pasalnya sudah ditetapkan; isinya mulai ditulis ketika Terraform mulai d
 |---|---|
 | [AGENTS.md](./AGENTS.md) | Bagaimana agen membangun EduTrack: alur kerja, batas yang tidak boleh dilanggar, urutan tahap, dan gerbang selesai |
 
+Berbeda dari dokumen di atasnya, `AGENTS.md` **tidak menetapkan apa pun tentang produk**. Ia menetapkan cara bekerja di atas dokumen yang sudah ada, sehingga berada di luar rantai penguncian.
+
 ### Runbook
 
-Prosedur yang dijalankan tangan. Runbook **tidak menetapkan apa pun** — ia menjalankan keputusan yang sudah diambil dokumen di atasnya.
+Prosedur yang dijalankan tangan. Runbook **tidak menetapkan apa pun** — ia menjalankan keputusan yang sudah diambil dokumen di atasnya, dan menyebut dokumen mana yang mendasarinya.
 
 | Dokumen | Isi |
 |---|---|
 | [RUNBOOK-OIDC.md](./RUNBOOK-OIDC.md) | Menyiapkan OIDC GitHub Actions ke AWS, langkah demi langkah, beserta diagnosa kegagalannya |
-
-Berbeda dari dokumen di atasnya, `AGENTS.md` **tidak menetapkan apa pun tentang produk**. Ia menetapkan cara bekerja di atas dokumen yang sudah ada, sehingga berada di luar rantai penguncian.
 
 ### Dokumen yang sudah dihapus
 
