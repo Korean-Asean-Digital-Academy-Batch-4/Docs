@@ -84,7 +84,7 @@ arn:aws:iam::<ID-AKUN>:oidc-provider/token.actions.githubusercontent.com
 |:--:|---|
 | 2.1 | IAM → menu kiri → **Roles** → **Create role** |
 | 2.2 | **Trusted entity type**: pilih **Custom trust policy** |
-| 2.3 | Timpa seluruh isi editor dengan JSON di bawah |
+| 2.3 | Timpa seluruh isi editor dengan JSON di bawah, **lalu ganti `GANTI-DENGAN-ID-AKUN` dengan pengenal akun sebenarnya** |
 | 2.4 | **Next** |
 | 2.5 | Halaman permissions: **jangan pilih apa pun**. Lewati, lalu **Next** |
 | 2.6 | **Role name**: `edutrack-gha-backend` — huruf kecil semua |
@@ -98,7 +98,7 @@ arn:aws:iam::<ID-AKUN>:oidc-provider/token.actions.githubusercontent.com
     {
       "Effect": "Allow",
       "Principal": {
-        "Federated": "arn:aws:iam::<ID-AKUN>:oidc-provider/token.actions.githubusercontent.com"
+        "Federated": "arn:aws:iam::GANTI-DENGAN-ID-AKUN:oidc-provider/token.actions.githubusercontent.com"
       },
       "Action": "sts:AssumeRoleWithWebIdentity",
       "Condition": {
@@ -111,6 +111,10 @@ arn:aws:iam::<ID-AKUN>:oidc-provider/token.actions.githubusercontent.com
   ]
 }
 ```
+
+> 🛑 **Jangan tempel apa adanya.** `GANTI-DENGAN-ID-AKUN` wajib diganti dengan pengenal akun yang terlihat di pojok kanan atas konsol. AWS **menerima** trust policy yang menunjuk akun tidak ada tanpa keluhan apa pun, dan kekeliruannya baru muncul sebagai `Not authorized to perform sts:AssumeRoleWithWebIdentity` ketika workflow dijalankan.
+>
+> **Cara memastikan:** setelah role dibuat, kembali ke daftar **Roles**. Kolom **Trusted entities** harus menampilkan **angka**, bukan huruf. Kalau masih terbaca `GANTI-DENGAN-ID-AKUN` atau tanda kurung siku, penggantiannya belum tersimpan.
 
 **Kenapa permissions dikosongkan.** Tahap ini hanya menguji jabat tangannya. Perintah `sts:GetCallerIdentity` yang dipakai menguji **tidak memerlukan izin apa pun**, sehingga role tanpa satu pun policy tetap membuktikan bahwa AWS memercayai token GitHub dan klaimnya cocok. Izin ECR dan Lambda ditambahkan belakangan, setelah keduanya ada.
 
@@ -241,7 +245,8 @@ Yang dibuktikan: `assumed-role/edutrack-gha-backend` — **bukan** `user/`. Kred
 | Pesan | Sebab | Perbaikan |
 |---|---|---|
 | `Unable to get ACTIONS_ID_TOKEN_REQUEST_URL` | Blok `permissions` tidak ada, atau `id-token: write` lupa ditulis | Tambahkan pada workflow. Perhatikan letaknya sejajar `on:`, bukan di dalam `jobs:` |
-| `Not authorized to perform sts:AssumeRoleWithWebIdentity` | Klaim `sub` tidak cocok. **Penyebab tersering:** workflow dijalankan dari branch selain `main`, atau dari pull request | Pastikan langkah 5.3 memilih `main`. Bandingkan `sub` pada trust policy dengan nama repositori huruf demi huruf |
+| `Not authorized to perform sts:AssumeRoleWithWebIdentity` | **Penyebab tersering: pengenal akun pada trust policy masih berupa teks pengganti**, sehingga menunjuk identity provider yang tidak ada | Roles → `edutrack-gha-backend` → tab **Trust relationships** → **Edit trust policy**. Kolom **Trusted entities** pada daftar Roles harus menampilkan angka |
+| `Not authorized to perform sts:AssumeRoleWithWebIdentity` | Klaim `sub` tidak cocok — workflow dijalankan dari branch selain `main`, atau dari pull request | Pastikan langkah 5.3 memilih `main`. Bandingkan `sub` dengan nama repositori huruf demi huruf |
 | Tombol **Run workflow** tidak muncul | Berkas workflow belum ada di branch bawaan | `git push` ke `main` |
 | `Invalid identity token` | ARN provider pada trust policy salah ketik | Bandingkan dengan ARN dari langkah 1.10 |
 | `No OpenIDConnect provider found` | Provider belum dibuat, atau URL-nya keliru | Ulangi Bagian 1. URL memakai `https://`, tanpa garis miring di akhir |
@@ -292,3 +297,4 @@ Trust policy saat ini hanya menerima baris pertama. Itu disengaja: **pull reques
 |---|---|
 | 7 Agustus 2026 | Runbook dibuat. Menjalankan keputusan `DEPLOYMENT.md` §9.4 dan CK-D-01 |
 | 7 Agustus 2026 | Ditambahkan §2.2 cara mendapatkan ARN role, dan Bagian 3 diperinci sampai tingkat letak menu. Versi pertama menulis "salin ARN-nya" tanpa menjelaskan di mana nilainya berada |
+| 7 Agustus 2026 | Teks pengganti pengenal akun pada trust policy diubah menjadi `GANTI-DENGAN-ID-AKUN` dan diberi peringatan tepat di bawah bloknya, setelah penempelan apa adanya terbukti menghasilkan role yang menunjuk akun tidak ada. Ditambahkan cara memastikan lewat kolom **Trusted entities**, dan penyebab ini dinaikkan menjadi baris pertama tabel diagnosa |
