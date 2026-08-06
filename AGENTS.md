@@ -1,0 +1,351 @@
+# Panduan Agen — EduTrack
+
+| Keterangan | Isi |
+|---|---|
+| **Versi** | v1.0 |
+| **Tanggal** | 6 Agustus 2026 |
+| **Disusun oleh** | Re:Code |
+| **Kedudukan** | Menetapkan **bagaimana agen membangun EduTrack** di atas dokumen yang sudah terkunci. Berada di luar rantai penguncian dan tidak menetapkan apa pun tentang produk |
+| **Kerangka kerja** | [ECC](https://github.com/affaan-m/ecc) — aturan, agen, dan perintah yang terpasang pada `~/.claude/` |
+
+> Dokumen ini **tidak memiliki lampiran Catatan Keputusan**. Ia bukan keputusan produk maupun keputusan teknis, melainkan cara kerja; seluruh isinya disunting langsung ketika berubah.
+>
+> Apabila isi dokumen ini bertentangan dengan dokumen pada rantai penguncian, **dokumen pada rantai penguncian yang berlaku**.
+
+---
+
+## 1. Hukum pertama
+
+**Dokumen mendahului kode. Kode mengikuti dokumen, tidak pernah sebaliknya.**
+
+Delapan dokumen sudah terkunci berurutan, dan setiap keputusan di dalamnya sudah dibayar dengan pertimbangan yang tercatat. Kode yang menyimpang tanpa mengubah dokumennya menghasilkan sistem yang tidak seorang pun dapat menjelaskan alasannya enam bulan kemudian.
+
+```
+PRD  →  RFC-001  →  Techstack  →  ARCHITECTURE  →  SCHEMA  →  API  →  kode
+```
+
+Agen yang menemukan alasan kuat untuk menyimpang **berhenti dan mengubah dokumennya lebih dahulu** (§1.2). Menyimpang diam-diam adalah pelanggaran terberat pada panduan ini.
+
+### 1.1 Peta baca
+
+Membaca seluruh delapan dokumen sebelum setiap tugas adalah pemborosan. Membaca terlalu sedikit menghasilkan kode yang melanggar invarian. Tabel ini menetapkan batas minimumnya.
+
+| Yang dikerjakan | Wajib dibaca sebelum menulis kode |
+|---|---|
+| Skema Drizzle dan migrasi | [SCHEMA.md](SCHEMA.md) §4–§7 dan §9 · [RFC-001](RFC-001-model-data-konseptual.md) §6 |
+| Endpoint apa pun | [API.md](API.md) §2, §10, dan pasal endpoint terkait · [ARCHITECTURE.md](ARCHITECTURE.md) §9.2 |
+| Autentikasi dan sesi | [ARCHITECTURE.md](ARCHITECTURE.md) §9 · [Techstack.md](Techstack.md) §5 · [API.md](API.md) §3 |
+| Nilai | [RFC-001](RFC-001-model-data-konseptual.md) §5.1 · [ARCHITECTURE.md](ARCHITECTURE.md) §14.1 · [API.md](API.md) §6 |
+| Presensi | [PRD.md](PRD.md) §8.4 · invarian I-14 sampai I-18 · [API.md](API.md) §7 |
+| Rapor dan berkasnya | [PRD.md](PRD.md) §9 · [RFC-001](RFC-001-model-data-konseptual.md) §5.5 · [ARCHITECTURE.md](ARCHITECTURE.md) Pasal 11 · [API.md](API.md) §8 |
+| Jalur AI | [PRD.md](PRD.md) §8.5 dan §8.6 · [ARCHITECTURE.md](ARCHITECTURE.md) Pasal 10 · [SCHEMA.md](SCHEMA.md) §7.1 · [API.md](API.md) §9.1 |
+| Unggah berkas | [PRD.md](PRD.md) §6.1.1, §6.1.2, §6.1.5 · AC-26 · [API.md](API.md) §5.2 dan §5.7 |
+| Pemeriksaan kewenangan | [aktor-role.md](aktor-role.md) seluruhnya · [ARCHITECTURE.md](ARCHITECTURE.md) §9.2 |
+| Frontend | [ATURAN-DAN-KRITERIA.md](ATURAN-DAN-KRITERIA.md) §3 · [ARCHITECTURE.md](ARCHITECTURE.md) Pasal 4 · aturan ECC `web/` |
+| Terraform dan CI/CD | [Techstack.md](Techstack.md) · [ARCHITECTURE.md](ARCHITECTURE.md) Pasal 2 dan 12 · [DEPLOYMENT.md](DEPLOYMENT.md) |
+
+### 1.2 Ketika kode dan dokumen bertentangan
+
+Ini akan terjadi, dan bukan pertanda ada yang salah. Prosedurnya tetap:
+
+1. **Berhenti.** Jangan menulis kode yang menyimpang sambil berniat merapikan dokumen belakangan.
+2. **Tentukan dokumen yang berwenang** menurut rantai penguncian. Yang lebih hulu selalu menang.
+3. **Isi deskriptif** — sunting langsung, ganti bagian yang usang.
+4. **Isi keputusan** — tulis Catatan Keputusan **baru** yang menyebut nomor yang diamandemen. Entri lama tidak pernah disunting.
+5. **Menyentuh PRD** — ajukan sebagai **temuan**, jangan ubah sepihak. PRD adalah kesepakatan dengan sekolah, bukan milik tim teknis.
+6. **Commit dokumennya lebih dahulu, kodenya menyusul.** Dua commit terpisah, dokumen di depan.
+
+Contoh yang sudah terjadi dan boleh ditiru bentuknya: `CK-13` menggugurkan tiga dari empat alasan `CK-01`; `CK-A-07` mengamandemen `CK-09` dari dokumen yang kini memuat isinya.
+
+---
+
+## 2. Alur kerja per tugas
+
+Mengikuti **Feature Implementation Workflow** ECC, disesuaikan dengan keadaan EduTrack.
+
+### Fase 0 — Riset dan pemakaian ulang
+
+Wajib sebelum menulis apa pun yang baru. Urutannya mengikat:
+
+1. **Pencarian kode GitHub** — `gh search repos`, `gh search code` untuk pola yang sudah terbukti.
+2. **Dokumentasi pustaka** — Context7 atau dokumen resmi vendor untuk perilaku API dan detail versi.
+3. **Registri paket** — npm sebelum menulis utilitas sendiri.
+4. **Pencarian web** hanya apabila ketiganya belum cukup.
+
+Untuk EduTrack yang paling sering relevan: Drizzle (partial index, composite foreign key, pemicu), Lambda Web Adapter, `express-rate-limit` dengan penyimpan PostgreSQL, Argon2id di Node, pdfmake, dan Zod.
+
+### Fase 1 — Rencana
+
+Gunakan agen **planner** atau perintah `/plan`. Untuk tugas berlapis, **code-architect** memetakan berkas, antarmuka, dan urutan pembangunan lebih dahulu.
+
+Rencana wajib menyebut: berkas yang disentuh, invarian yang terlibat, kriteria kesiapan (`AC-xx`) yang menjadi sasaran, dan apa yang **tidak** dikerjakan.
+
+Tunggu persetujuan sebelum menulis kode. Rencana yang tidak dibaca siapa pun bukan rencana.
+
+### Fase 2 — TDD
+
+Gunakan agen **tdd-guide** atau perintah `/react-test`. Urutannya mengikat: **RED → GREEN → REFACTOR**.
+
+Untuk EduTrack, tes pertama yang ditulis bukan tes fungsi melainkan **tes invarian**. Sebelum menulis `simpanNilai()`, tulis tes yang membuktikan nilai kedua pada komponen dan siswa yang sama ditolak (I-13). Invarian adalah pernyataan yang harus benar sepanjang umur sistem; ia layak diuji lebih dahulu daripada jalur bahagia.
+
+### Fase 3 — Tinjauan
+
+Dijalankan **paralel**, bukan berurutan. Agen yang dipakai bergantung pada apa yang disentuh:
+
+| Yang disentuh | Agen |
+|---|---|
+| Selalu | **code-reviewer** |
+| `.ts` | **typescript-reviewer** |
+| `.tsx`, komponen React | **react-reviewer** |
+| Migrasi, kueri, indeks | **database-reviewer** |
+| Autentikasi, unggah, jalur AI, presigned URL, rahasia | **security-reviewer** — wajib, tanpa pengecualian |
+| Penanganan galat | **silent-failure-hunter** |
+
+Selesaikan seluruh temuan **CRITICAL** dan **HIGH** sebelum commit. **MEDIUM** diselesaikan bila memungkinkan.
+
+### Fase 4 — Verifikasi
+
+**Bukti, bukan klaim.** Jangan pernah menyatakan sesuatu selesai, lulus, atau diperbaiki tanpa menjalankan perintahnya dan membaca keluarannya. Kalau tes gagal, katakan gagal beserta keluarannya. Kalau satu langkah dilewati, katakan dilewati.
+
+Sebelum commit: format, lint, `tsc --noEmit`, tes, dan cakupan.
+
+### Fase 5 — Commit dan push
+
+Format conventional commit sesuai aturan ECC:
+
+```
+<type>: <deskripsi>
+
+<badan opsional>
+```
+
+Jenis: `feat`, `fix`, `refactor`, `docs`, `test`, `chore`, `perf`, `ci`.
+
+Pesan commit ditulis dalam **Bahasa Indonesia**, mengikuti konvensi repositori dokumen. Sebutkan invarian atau `AC-xx` yang terkait bila ada.
+
+---
+
+## 3. Batas yang tidak boleh dilanggar
+
+### 3.1 Batas modul
+
+Ditetapkan [ARCHITECTURE.md §5.1](ARCHITECTURE.md). Pelanggarannya tidak selalu terlihat sebagai kesalahan, sehingga wajib diperiksa saat tinjauan.
+
+| Lapisan | Boleh mengimpor | Dilarang mengimpor |
+|---|---|---|
+| `domain/` | tidak ada | `db`, `adapters`, SDK AWS, `express` |
+| `routes/` | `domain`, `db`, `ports` | `adapters/aws` secara langsung |
+| `adapters/*` | `ports`, SDK yang bersangkutan | `domain`, `routes` |
+| `entry/` | `app`, `adapters` | — |
+
+`domain/` tanpa I/O berarti seluruh logika penilaian dapat diuji tanpa basis data dan tanpa AWS. Untuk bagian yang salah hitungnya berarti rapor siswa salah, ini bukan kemewahan.
+
+### 3.2 Larangan mutlak
+
+Dua belas hal berikut tidak boleh dilakukan agen dalam keadaan apa pun tanpa amandemen dokumen lebih dahulu.
+
+| # | Larangan | Dasar |
+|:--:|---|---|
+| 1 | Menulis apa pun dari jalur AI, atau memakai koneksi selain `app_ro` di sana | I-23, AC-20 |
+| 2 | Mengirim nama, NIS, atau pengenal siswa ke layanan AI | Techstack §6, ARCHITECTURE §10.1 |
+| 3 | Menyimpan keluaran AI ke tabel, cache, maupun log | I-24, NG14, AC-16 |
+| 4 | Menambah antrean, worker, cron, atau pekerjaan latar | CK-07 |
+| 5 | Menambah penyimpanan otomatis tanpa tombol simpan | P22, AC-15 |
+| 6 | Mengimpor SDK AWS di luar `adapters/aws/` | Prinsip ③ Techstack §1 |
+| 7 | Melakukan I/O di dalam `domain/` | ARCHITECTURE §5.1 |
+| 8 | Membangun entitas atau atribut yang digugurkan | RFC-001 §7 |
+| 9 | Membuat endpoint yang sengaja ditiadakan | API §11 |
+| 10 | Menurunkan status rapor, atau membuat jalur buka kembali | I-21, PRD §9 |
+| 11 | Menaruh rahasia di dalam kode, log, atau repositori | Techstack §7 |
+| 12 | Menerima data luar tanpa melewati Zod di batas HTTP | ARCHITECTURE Pasal 12 |
+
+### 3.3 Invarian
+
+Dua puluh lima invarian tercatat pada [RFC-001 §6](RFC-001-model-data-konseptual.md), dan cara penegakan masing-masing pada [SCHEMA.md §5.1](SCHEMA.md). Tujuh belas ditegakkan basis data; agen tidak perlu menulis kode untuk itu, tetapi **wajib tidak melemahkannya**.
+
+Lima invarian berikut **sepenuhnya bergantung pada kode**. Di sinilah kekeliruan menghasilkan data atau tampilan salah tanpa ditolak siapa pun:
+
+| Invarian | Isi | Letak |
+|---|---|---|
+| I-17 | Izin dan Sakit terhitung sebagai kehadiran | `domain/presensi.ts` |
+| I-18 | Penyebut kehadiran adalah jumlah sesi yang dibuka | kueri agregat |
+| I-20 | Finalisasi hanya bila seluruh mata pelajaran lengkap | transaksi finalisasi |
+| I-22 | Rapor final terkunci bagi Guru dan Wali Kelas | lapisan rute |
+| I-25 | Siswa hanya membaca datanya sendiri | lapis baris |
+
+Kelimanya adalah **sasaran utama uji integrasi**, bukan sasaran sampingan.
+
+---
+
+## 4. Pengujian
+
+### 4.1 Sasaran cakupan
+
+| Bagian | Sasaran | Alasan |
+|---|--:|---|
+| Global | **80%** | Aturan ECC |
+| `domain/` | **100% cabang** | Salah hitung berarti rapor siswa salah, dan tidak ada yang menangkapnya |
+| Lima invarian §3.3 | seluruhnya | Tidak ada penjaga lain |
+
+### 4.2 Pembuktian penegakan basis data
+
+Selain uji unit dan integrasi, EduTrack memiliki tingkat ketiga yang tidak lazim: **uji yang membuktikan basis data menolak**. Bentuknya adalah pernyataan SQL yang **wajib gagal**.
+
+```sql
+-- app_ro tidak dapat menulis (I-23, AC-20)
+UPDATE nilai SET nilai = 100 WHERE id = '<pengenal mana pun>';
+-- ERROR: permission denied for table nilai
+
+-- app_ro tidak dapat membaca identitas (SCHEMA §7.1)
+SELECT nama FROM pengguna LIMIT 1;
+-- ERROR: permission denied for table pengguna
+
+-- jenjang tidak cocok mustahil tersimpan (I-06, AC-24)
+INSERT INTO penugasan (guru_ref, mapel_ref, kelas_ref, tingkat) VALUES (…);
+-- ERROR: violates foreign key constraint
+
+-- status rapor tidak dapat mundur (I-21)
+UPDATE rapor SET status = 'draft' WHERE status = 'finalized';
+-- ERROR: Status rapor hanya bergerak maju
+```
+
+Perbedaannya menentukan. Membaca kode membuktikan **jalur yang ada hari ini** tidak melanggar; penolakan basis data membuktikan **jalur mana pun tidak akan bisa**.
+
+### 4.3 Frontend
+
+Mengikuti aturan ECC `web/testing.md`, dengan prioritas: regresi visual, aksesibilitas, kinerja, lintas peramban, responsif.
+
+Titik uji lebar layar: **320, 375, 768, 1024, 1440**. Wajib terbaca pada perangkat bergerak (NG5), dan **bukan** aplikasi Android maupun iOS.
+
+Sasaran Core Web Vitals dan anggaran bundel mengikuti ECC `web/performance.md`: LCP < 2,5 s, INP < 200 ms, CLS < 0,1, dan JS terkompresi < 300 kb untuk halaman aplikasi.
+
+Layar yang paling perlu regresi visual adalah **matriks nilai 30 × 8** ([ARCHITECTURE.md](ARCHITECTURE.md) Pasal 4). Layar itu paling padat, paling sering dipakai Guru, dan paling mudah rusak pada layar sempit.
+
+---
+
+## 5. Konvensi kode
+
+### 5.1 Bahasa dan penamaan
+
+Kosakata domain **tetap Bahasa Indonesia di seluruh lapisan**. Jangan menerjemahkan `nilai`, `penugasan`, `rapor`, `presensi`, `mapel`, atau `kelas` menjadi padanan Inggris — penerjemahan sebagian adalah cara tercepat menghasilkan dua kosakata yang tidak dapat ditelusuri satu sama lain.
+
+Yang berubah antar lapisan hanya **penulisan huruf**, mengikuti kelaziman masing-masing:
+
+| Lapisan | Bentuk | Contoh |
+|---|---|---|
+| Tabel dan kolom | `snake_case` | `kelas_siswa.siswa_ref` |
+| Alamat dan bidang JSON | `snake_case` | `/api/penugasan/:id/nilai`, `siswa_ref` |
+| Pengenal TypeScript | `camelCase` | `siswaRef`, `hitungNilaiAkhir()` |
+| Tipe dan komponen | `PascalCase` | `type Penugasan`, `MatriksNilai` |
+| Konstanta | `UPPER_SNAKE_CASE` | `BATAS_UNGGAH_BYTE` |
+| Pesan bagi pengguna | Bahasa Indonesia | API §2.2 |
+| Log server | Bahasa Inggris ringkas, **tanpa data pribadi** | — |
+
+### 5.2 Gaya
+
+Mengikuti ECC `common/coding-style.md` dan `web/coding-style.md`. Yang paling sering dilanggar:
+
+- **Kekekalan.** Bentuk objek baru, jangan mengubah yang ada.
+- **Berkas kecil.** 200–400 baris lazim, 800 maksimum. Susun menurut fitur, bukan menurut jenis berkas.
+- **Fungsi pendek.** Di bawah 50 baris, kedalaman bersarang di bawah 4.
+- **Galat ditangani terang-terangan.** Tidak ada galat yang ditelan diam-diam.
+- **Tanpa angka ajaib.** Angka seperti 2 MB, 20 detik, 5 menit, dan 12 jam sudah ditetapkan dokumen; jadikan konstanta bernama yang menyebut sumbernya.
+
+### 5.3 Migrasi
+
+**Migrasi wajib kompatibel mundur.** Penghapusan kolom dipisahkan ke rilis berikutnya, setelah kode yang memakainya sudah tidak berjalan. Migrasi yang sudah berjalan pada basis data berisi data sekolah tidak dapat dibatalkan begitu saja.
+
+Aturan lengkapnya menjadi Pasal 6 [DEPLOYMENT.md](DEPLOYMENT.md), dan **wajib ditetapkan sebelum migrasi pertama ditulis**, bukan sesudahnya.
+
+---
+
+## 6. Agen dan perintah
+
+Terpasang pada `~/.claude/`. Gunakan yang sudah ada; jangan menulis ulang kemampuan yang tersedia.
+
+| Kebutuhan | Agen | Perintah |
+|---|---|---|
+| Rencana fitur berlapis | `planner`, `code-architect` | `/plan`, `/feature-dev` |
+| Keputusan arsitektural | `architect` | — |
+| Menelusuri kode yang ada | `code-explorer` | — |
+| TDD | `tdd-guide` | `/react-test` |
+| Tinjauan umum | `code-reviewer` | `/code-review` |
+| Tinjauan TypeScript dan React | `typescript-reviewer`, `react-reviewer` | `/react-review` |
+| Tinjauan basis data | `database-reviewer` | — |
+| Tinjauan keamanan | `security-reviewer` | `/security-scan` |
+| Build gagal | `build-error-resolver`, `react-build-resolver` | `/build-fix`, `/react-build` |
+| Cakupan tes | — | `/test-coverage` |
+| Uji alur pengguna | `e2e-runner` | — |
+| Membersihkan kode mati | `refactor-cleaner`, `code-simplifier` | `/refactor-clean`, `/simplify` |
+| Menyelaraskan dokumen | `doc-updater` | `/update-docs` |
+| Menandai titik aman | — | `/checkpoint` |
+
+**Jalankan agen yang saling bebas secara paralel.** Tinjauan keamanan, tinjauan TypeScript, dan tinjauan basis data atas satu perubahan tidak saling bergantung, sehingga tidak ada alasan menjalankannya berurutan.
+
+**Pemilihan model** mengikuti ECC `common/performance.md`: Haiku untuk agen ringan yang sering dipanggil, Sonnet untuk pekerjaan pengembangan utama, Opus untuk keputusan arsitektural dan analisis mendalam.
+
+---
+
+## 7. Kait yang disarankan
+
+Urutan mengikat: **format → lint → periksa tipe → build**.
+
+```json
+{
+  "hooks": {
+    "PostToolUse": [
+      { "matcher": "Write|Edit", "command": "npm exec prettier -- --write \"$FILE_PATH\"" },
+      { "matcher": "Write|Edit", "command": "npm exec eslint -- --fix \"$FILE_PATH\"" },
+      { "matcher": "Write|Edit",
+        "command": "timeout 60 npm exec tsc -- --noEmit --pretty false --incremental --tsBuildInfoFile node_modules/.cache/tsc-hook.tsbuildinfo" }
+    ]
+  }
+}
+```
+
+`--incremental` dan `timeout` keduanya wajib. Tanpa `--incremental`, setiap suntingan memeriksa ulang seluruh program; pada laju suntingan agen, proses `tsc` menumpuk. Tanpa `timeout`, `tsc` yang menggantung tidak pernah keluar. `--tsBuildInfoFile` diperlukan karena `--noEmit` menekan penulisan buildinfo.
+
+---
+
+## 8. Tahap implementasi
+
+Urutannya bukan saran. Setiap tahap menghasilkan sesuatu yang dapat dibuktikan hidup, dan menjadi prasyarat tahap berikutnya.
+
+| Tahap | Isi | Prasyarat | Gerbang selesai |
+|:--:|---|---|---|
+| **0** | Infrastruktur naik dengan API yang hanya memuat `GET /healthz` | — | `terraform apply` hijau · pipeline men-deploy · **penandatanganan OAC atas request ber-body terbukti** ([ARCHITECTURE §12.2](ARCHITECTURE.md)) |
+| **1** | Migrasi 0001–0010 dan skema Drizzle | Aturan rollback ([DEPLOYMENT](DEPLOYMENT.md) Pasal 6) · jawaban **S-04**, **T-02**, **S-02** | Seluruh migrasi jalan di basis data kosong · uji §4.2 lulus · dua role terbukti terpisah |
+| **2** | Autentikasi, sesi, pembatas laju | 1 | AC-33 · pencabutan sesi seketika · batas 5 percobaan per 15 menit terbukti |
+| **3** | Administrasi: akun, periode, mapel, kelas | 2 | AC-01, AC-02, AC-03, AC-04, AC-22, AC-24, AC-26, AC-28 |
+| **4** | Nilai dan presensi | 3 | AC-05, AC-06, AC-11, AC-12, AC-15, AC-25, AC-29, AC-30 |
+| **5** | Rapor: catatan, finalisasi, distribusi, berkas | 4 | AC-07, AC-08, AC-09, AC-13, AC-14, AC-32 · **pengukuran lama render** ([API §13.3](API.md)) |
+| **6** | Jalur AI | 4 | AC-16, AC-17, AC-18, AC-19, AC-20, AC-21, AC-31 |
+| **7** | Frontend | Desain UI/UX | AC-10, AC-27 · Core Web Vitals · aksesibilitas · regresi visual lima lebar layar |
+
+**Tahap 0 mendahului segalanya**, termasuk mendahului backend yang berguna. Membuktikan VPC, RDS, Function URL, CloudFront, dan pipeline hidup sejak API masih berupa rangka jauh lebih murah daripada menemukannya ketika frontend mulai menyimpan nilai.
+
+**Tahap 7 tidak dapat dimulai tanpa desain.** Prototipe lama sudah dihapus karena mendahului PRD v3.0 dan menampilkan produk yang salah; tidak ada artefak desain yang berlaku saat ini.
+
+---
+
+## 9. Gerbang selesai
+
+Sebuah tugas selesai apabila seluruh baris berikut terpenuhi dan **terbukti**, bukan diperkirakan.
+
+- [ ] Kriteria `AC-xx` yang menjadi sasaran lulus, dan nomornya disebut pada commit
+- [ ] Invarian yang terlibat memiliki tesnya sendiri
+- [ ] Cakupan memenuhi §4.1
+- [ ] `tsc --noEmit` bersih, lint bersih, format rapi
+- [ ] Temuan **CRITICAL** dan **HIGH** dari fase tinjauan selesai
+- [ ] Tidak ada satu pun larangan §3.2 yang dilanggar
+- [ ] Tidak ada rahasia, `console.log`, maupun sisa penelusuran
+- [ ] Setiap mutasi menampilkan pemberitahuan berhasil atau gagal, dan kegagalannya menyebutkan alasan (P21, AC-27)
+- [ ] Dokumen sudah diperbarui apabila ada yang menyimpang, dan **commit dokumennya mendahului commit kodenya**
+
+---
+
+## Riwayat
+
+| Tanggal | Perubahan |
+|---|---|
+| 6 Agustus 2026 | Dokumen dibuat. Menetapkan alur kerja agen ECC di atas rantai penguncian EduTrack: peta baca per jenis tugas, prosedur ketika kode dan dokumen bertentangan, dua belas larangan mutlak, tiga tingkat pengujian termasuk pembuktian penegakan oleh basis data, konvensi penamaan lintas lapisan, serta delapan tahap implementasi beserta gerbang selesainya |

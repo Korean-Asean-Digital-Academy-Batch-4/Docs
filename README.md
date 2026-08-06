@@ -14,6 +14,8 @@ Kumpulan dokumen sumber kebenaran untuk produk **EduTrack** (Project ID: EDU-202
 | [RFC-001-model-data-konseptual.md](./RFC-001-model-data-konseptual.md) | Entitas, relasi, dan invarian basis data; netral teknologi |
 | [Techstack.md](./Techstack.md) | Teknologi apa yang dipilih dan mengapa, beserta perkiraan biaya |
 | [ARCHITECTURE.md](./ARCHITECTURE.md) | Bagaimana bagian-bagian sistem terhubung: peta besar, batas modul, jaringan, alur request |
+| [SCHEMA.md](./SCHEMA.md) | Skema fisik PostgreSQL: tabel, constraint, indeks, pemicu, role, dan migrasi |
+| [API.md](./API.md) | Kontrak endpoint: alamat, bentuk permintaan dan respons, kode status, katalog kesalahan |
 
 ### Kerangka — isi belum ditulis
 
@@ -21,23 +23,28 @@ Kumpulan dokumen sumber kebenaran untuk produk **EduTrack** (Project ID: EDU-202
 |---|---|
 | [DEPLOYMENT.md](./DEPLOYMENT.md) | Bagaimana sistem dikirim dan dioperasikan: Terraform, CI/CD, rollback, pemasangan on-prem, pencadangan |
 
-Lahir dari pemecahan `Techstack.md` pada 6 Agustus 2026 bersama `ARCHITECTURE.md`. Susunan pasalnya sudah ditetapkan; isinya menyusul.
+Susunan pasalnya sudah ditetapkan; isinya mulai ditulis ketika Terraform mulai ditulis.
 
-### Menunggu penyelarasan dengan PRD v3.0
-
-| Dokumen | Isi |
-|---|---|
-| [superadmin.md](./superadmin.md) | Kebutuhan dan alur khusus Super Admin |
-
-Disusun 2 Agustus 2026 dan memuat ketentuan yang bertentangan dengan PRD v3.0. Rinciannya tercatat pada [RFC-001 §2.3](./RFC-001-model-data-konseptual.md).
-
-### Arsip
+### Panduan kerja
 
 | Dokumen | Isi |
 |---|---|
-| [SCHEMA-STATIS.md](./SCHEMA-STATIS.md) | Rancangan skema komponen nilai sebagai kolom tetap. Tidak berlaku |
-| [SCHEMA-DINAMIS.md](./SCHEMA-DINAMIS.md) | Rancangan skema komponen nilai sebagai baris beserta tata kelola rumus. Tidak berlaku |
-| [ARCHITECTURE-2026-08-02.md](./ARCHITECTURE-2026-08-02.md) | Arsitektur versi 2 Agustus 2026, berbasis Hono di Lambda, Cognito, Bedrock, dan SQS. Digantikan `Techstack.md` dan `ARCHITECTURE.md`. Tidak berlaku |
+| [AGENTS.md](./AGENTS.md) | Bagaimana agen membangun EduTrack: alur kerja, batas yang tidak boleh dilanggar, urutan tahap, dan gerbang selesai |
+
+Berbeda dari dokumen di atasnya, `AGENTS.md` **tidak menetapkan apa pun tentang produk**. Ia menetapkan cara bekerja di atas dokumen yang sudah ada, sehingga berada di luar rantai penguncian.
+
+### Dokumen yang sudah dihapus
+
+Empat dokumen dihapus pada 6 Agustus 2026 karena tidak lagi berlaku. Isinya tetap tersedia pada **riwayat Git** dan tidak boleh dijadikan rujukan.
+
+| Dokumen | Alasan penghapusan |
+|---|---|
+| `SCHEMA-STATIS.md` | Rancangan skema komponen nilai sebagai kolom tetap. Digugurkan RFC-001 |
+| `SCHEMA-DINAMIS.md` | Rancangan skema komponen nilai sebagai baris beserta tata kelola rumus. Digugurkan RFC-001 |
+| `ARCHITECTURE-2026-08-02.md` | Arsitektur berbasis Hono di Lambda, Cognito, Bedrock, dan SQS. Digantikan `Techstack.md` dan `ARCHITECTURE.md` |
+| `superadmin.md` | Memuat ketentuan yang bertentangan dengan PRD v3.0 |
+
+Direktori `prototype/` juga dihapus pada tanggal yang sama. Isinya dibuat 4 Agustus 2026, satu hari sebelum PRD v3.0, dan masih menampilkan rumus penilaian dinamis serta ranah Sikap dan Keterampilan yang sudah dicabut NG10 dan NG11, sekaligus tidak memuat KKM, finalisasi, maupun tombol Suggestion. Direktori itu berada di luar repositori ini sehingga **tidak tersimpan pada riwayat Git**.
 
 ## Urutan Penguncian Keputusan
 
@@ -49,9 +56,9 @@ PRD.md  →  RFC-001  →  Techstack.md  →  ARCHITECTURE.md  →  SCHEMA.md  �
                         penerapan & operasional
 ```
 
-Biaya perubahan naik pada setiap langkah, sehingga yang paling mahal diubah dikunci paling akhir.
+Biaya perubahan naik pada setiap langkah, sehingga yang paling mahal diubah dikunci paling akhir. Seluruh rantai sudah terkunci pada 6 Agustus 2026.
 
-`DEPLOYMENT.md` berada di luar rantai penguncian karena isinya mengikuti keadaan infrastruktur yang berjalan, bukan menjadi dasar bagi dokumen berikutnya. Ia mulai diisi ketika Terraform mulai ditulis.
+`DEPLOYMENT.md` berada di luar rantai penguncian karena isinya mengikuti keadaan infrastruktur yang berjalan, bukan menjadi dasar bagi dokumen berikutnya.
 
 ## Konvensi Dokumen
 
@@ -69,15 +76,20 @@ Dua jenis isi dipisahkan tegas, karena keduanya berumur berbeda:
 | Dokumen | Awalan |
 |---|---|
 | `Techstack.md` | `CK-01` sampai `CK-15`, tanpa awalan — penomoran asli sebelum pemecahan, tidak dinomori ulang |
-| `ARCHITECTURE.md` | `CK-A-01` sampai `CK-A-06` |
+| `ARCHITECTURE.md` | `CK-A-01` dan seterusnya |
 | `DEPLOYMENT.md` | `CK-D-01` dan seterusnya |
+| `SCHEMA.md` | `CK-S-01` dan seterusnya |
+| `API.md` | `CK-API-01` dan seterusnya |
 
 Rujukan pasal di dalam `CK-01` sampai `CK-15` mengacu pada penomoran `Techstack.md` **sebelum** pemecahan 6 Agustus 2026. Entri tidak disunting, sesuai konvensi di atas; isi yang dirujuk kini berada pada `ARCHITECTURE.md` atau `DEPLOYMENT.md`.
 
-Alasan pemisahan: ketika PRD berubah, bagian deskripsi cukup dimutakhirkan, sedangkan Catatan Keputusan menunjukkan **keputusan mana yang perlu dibuka ulang**. Tanpa pemisahan ini, keduanya tidak dapat dibedakan — sebagaimana terjadi pada `ARCHITECTURE.md` versi 2 Agustus 2026.
+**Amandemen lintas dokumen** ditulis pada dokumen yang memuat isinya hari ini, bukan pada dokumen yang memuat entri aslinya. `CK-A-07` mengamandemen `CK-09` dari `ARCHITECTURE.md` karena isi yang dirujuk `CK-09` sudah berpindah ke sana.
+
+Alasan pemisahan: ketika PRD berubah, bagian deskripsi cukup dimutakhirkan, sedangkan Catatan Keputusan menunjukkan **keputusan mana yang perlu dibuka ulang**.
 
 ## Konvensi
 
 - Seluruh dokumen ditulis dalam Bahasa Indonesia formal.
 - Setiap dokumen memiliki satu tanggung jawab dan tidak mengulang isi dokumen lain; gunakan tautan antar dokumen bila diperlukan.
 - Perubahan pada dokumen dilakukan dengan mengganti bagian yang usang, bukan menumpuk versi baru di atas versi lama.
+- Dokumen yang tidak lagi berlaku **dihapus**, bukan disimpan sebagai arsip. Riwayat Git yang menyimpannya.

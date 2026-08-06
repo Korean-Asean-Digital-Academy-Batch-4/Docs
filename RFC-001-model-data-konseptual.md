@@ -8,7 +8,7 @@
 | **Tanggal** | 5 Agustus 2026 |
 | **Disusun oleh** | Re:Code |
 | **Sumber kebenaran** | [PRD.md](PRD.md) v3.0 dan [ATURAN-DAN-KRITERIA.md](ATURAN-DAN-KRITERIA.md) v1.0 |
-| **Menggantikan** | [SCHEMA-STATIS.md](SCHEMA-STATIS.md) dan [SCHEMA-DINAMIS.md](SCHEMA-DINAMIS.md), keduanya diturunkan menjadi arsip |
+| **Menggantikan** | `SCHEMA-STATIS.md` dan `SCHEMA-DINAMIS.md`, keduanya sudah dihapus dan hanya tersedia pada riwayat Git |
 | **Dokumen lanjutan** | `ARCHITECTURE.md` (stack dan arsitektur), `SCHEMA.md` (skema fisik), `API.md` (kontrak endpoint) |
 
 > Dokumen ini menetapkan **entitas, relasi, dan aturan yang harus dijamin** oleh basis data EduTrack.
@@ -87,7 +87,9 @@ Entitas, atribut, relasi, kardinalitas, dan invarian yang harus dijamin sistem.
 
 ### 3.3 Kedudukan terhadap dokumen lain
 
-`ARCHITECTURE.md`, `aktor-role.md`, dan `superadmin.md` **tidak dijadikan sumber** pada RFC ini. Satu-satunya sumber adalah PRD v3.0 beserta lampiran operasionalnya, sebagaimana ditetapkan pada §2.3. Ketiga dokumen tersebut menyesuaikan diri terhadap RFC ini, bukan sebaliknya.
+`ARCHITECTURE.md` dan `aktor-role.md` **tidak dijadikan sumber** pada RFC ini. Satu-satunya sumber adalah PRD v3.0 beserta lampiran operasionalnya, sebagaimana ditetapkan pada §2.3. Kedua dokumen tersebut menyesuaikan diri terhadap RFC ini, bukan sebaliknya.
+
+`superadmin.md` yang disebut versi terdahulu pasal ini sudah **dihapus** pada 6 Agustus 2026 karena memuat ketentuan yang bertentangan dengan PRD v3.0. Isinya hanya tersedia pada riwayat Git dan tidak boleh dijadikan rujukan.
 
 ---
 

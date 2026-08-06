@@ -6,7 +6,7 @@
 | **Tanggal** | 6 Agustus 2026 |
 | **Disusun oleh** | Re:Code |
 | **Sumber kebenaran** | [PRD.md](PRD.md) v3.0, [ATURAN-DAN-KRITERIA.md](ATURAN-DAN-KRITERIA.md) v1.0, [aktor-role.md](aktor-role.md) v3.0, [RFC-001](RFC-001-model-data-konseptual.md), dan [Techstack.md](Techstack.md) v2.0 |
-| **Kedudukan** | Menetapkan **bagaimana bagian-bagian sistem terhubung**. Menggantikan [ARCHITECTURE-2026-08-02.md](ARCHITECTURE-2026-08-02.md), yang diturunkan menjadi arsip |
+| **Kedudukan** | Menetapkan **bagaimana bagian-bagian sistem terhubung**. Menggantikan `ARCHITECTURE.md` versi 2 Agustus 2026, yang sudah dihapus dan hanya tersedia pada riwayat Git |
 | **Dokumen lanjutan** | `SCHEMA.md` — skema fisik · `API.md` — kontrak endpoint |
 
 > Dokumen ini menjawab **bagaimana bagian-bagian terhubung**. Pilihan teknologi beserta alasannya berada pada [Techstack.md](Techstack.md); prosedur penerapan dan operasional berada pada [DEPLOYMENT.md](DEPLOYMENT.md). Dokumen ini tidak mengulang keduanya.
