@@ -31,6 +31,14 @@ Susunan pasalnya sudah ditetapkan; isinya mulai ditulis ketika Terraform mulai d
 |---|---|
 | [AGENTS.md](./AGENTS.md) | Bagaimana agen membangun EduTrack: alur kerja, batas yang tidak boleh dilanggar, urutan tahap, dan gerbang selesai |
 
+### Runbook
+
+Prosedur yang dijalankan tangan. Runbook **tidak menetapkan apa pun** — ia menjalankan keputusan yang sudah diambil dokumen di atasnya.
+
+| Dokumen | Isi |
+|---|---|
+| [RUNBOOK-OIDC.md](./RUNBOOK-OIDC.md) | Menyiapkan OIDC GitHub Actions ke AWS, langkah demi langkah, beserta diagnosa kegagalannya |
+
 Berbeda dari dokumen di atasnya, `AGENTS.md` **tidak menetapkan apa pun tentang produk**. Ia menetapkan cara bekerja di atas dokumen yang sudah ada, sehingga berada di luar rantai penguncian.
 
 ### Dokumen yang sudah dihapus
