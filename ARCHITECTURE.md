@@ -29,7 +29,7 @@
 | 9 | Autentikasi dan sesi | Alur masuk, bentuk token sesi, pemeriksaan kewenangan per request, dan perintah CLI pembuatan akun Administrator | Techstack v1 §8 |
 | 10 | AI Insight | Alur endpoint Suggestion, susunan prompt, minimalisasi data, penanganan kegagalan lunak, dan batas waktu | Techstack v1 §9 dan §9.2 |
 | 11 | Berkas rapor | Finalisasi sebagai pembekuan data, render saat unduh, dan penyajian lewat presigned URL | Techstack v1 §10 |
-| 12 | Jaringan dan keamanan | Tabel lapisan jaringan, Function URL dengan `AWS_IAM`, header keamanan, pengelolaan rahasia, dan dua peringatan: sertifikat ACM di `us-east-1` serta pembuktian penandatanganan OAC atas request ber-body | Techstack v1 §11 |
+| 12 | Jaringan dan keamanan | Tabel lapisan jaringan, Function URL dengan `AWS_IAM`, header keamanan, cara rahasia dibaca lewat interface `Secrets` dan disimpan di memori container, serta dua peringatan: sertifikat ACM di `us-east-1` dan pembuktian penandatanganan OAC atas request ber-body | Techstack v1 §11, Techstack v2 §7 |
 | 13 | Portabilitas ke on-prem | Tabel lapisan beserta apa yang berubah ketika dipasang di server sekolah | Techstack v1 §14 |
 | 14 | **Alur request** | **Baru — belum pernah ditulis.** Dua alur ditelusuri langkah demi langkah: **Simpan Nilai sekelas** dari klik sampai `COMMIT`, dan **tombol Suggestion** dari klik sampai teks tampil. Termasuk pemeriksaan kewenangan, validasi, transaksi, dan penanganan kegagalan di setiap langkah | — |
 | — | Lampiran Catatan Keputusan | Bernomor `CK-A-01` dan seterusnya, sehingga tidak bertabrakan dengan `CK-xx` pada Techstack.md maupun `CK-D-xx` pada DEPLOYMENT.md. Dimulai kosong | — |

@@ -131,7 +131,7 @@ Tombol Suggestion (PRD §8.5) dilayani **Elice AI Cloud** melalui program KADA.
 |---|---|
 | Antarmuka | **Setara OpenAI** — `POST /v1/chat/completions`, otorisasi `Bearer` |
 | Alamat | Dedicated endpoint dengan jalur OpenAI di belakangnya: `https://mlapi.run/{endpoint-id}/v1/chat/completions` |
-| Kunci API | Secrets Manager di AWS; variabel lingkungan di on-prem dan pengembangan. Tidak pernah masuk ke repositori maupun ke image |
+| Kunci API | SSM Parameter Store (SecureString) di AWS; berkas `.env` di on-prem dan pengembangan. Rinciannya pada §7 |
 | Bentuk pemanggilan | Sinkron, sekali jalan, hanya membaca. Tidak ada antrean dan tidak ada penyimpanan keluaran (I-24, NG14) |
 | Biaya | Kredit program KADA, **di luar tagihan AWS** |
 
@@ -143,9 +143,34 @@ Alur pemanggilan, penanganan kegagalan, dan susunan prompt berada pada [ARCHITEC
 
 ---
 
-## 7. Perkiraan biaya
+## 7. Penyimpanan rahasia
 
-### 7.1 Asumsi beban
+Sistem memiliki tiga rahasia infrastruktur. Ketiganya **tidak pernah dibangun ke dalam image** dan tidak pernah masuk ke repositori.
+
+| Rahasia | Isinya | Di AWS | Di on-prem |
+|---|---|---|---|
+| Kredensial `app_rw` | Nama role dan kata sandi PostgreSQL untuk jalur tulis aplikasi | **Secrets Manager** | `.env`, izin `600` |
+| Kredensial `app_ro` | Nama role dan kata sandi PostgreSQL untuk jalur AI, tanpa hak tulis | **Secrets Manager** | `.env`, izin `600` |
+| Kunci API Elice | Bearer token ke `mlapi.run` | **SSM Parameter Store**, tipe SecureString | `.env`, izin `600` |
+
+**Kenapa dibedakan.** Akibat kebocorannya tidak setara. Kredensial `app_rw` yang bocor memungkinkan seseorang di dalam VPC menyambung langsung ke basis data dan mengubah nilai seluruh sekolah, melewati seluruh pemeriksaan kewenangan aplikasi — kerusakan yang permanen dan sulit ditelusuri. Kunci Elice yang bocor hanya menghabiskan kredit program, tidak menyentuh data sekolah, dan cukup dibuat ulang. Rotasi terjadwal karenanya hanya dibayar untuk yang pertama.
+
+**Ketentuan yang berlaku bagi ketiganya:**
+
+1. **Nilai rahasia dibuat di luar Terraform.** Terraform hanya menyimpan ARN-nya, sehingga kata sandi basis data tidak pernah berada di dalam state.
+2. **Tidak pernah dicetak ke log**, baik log aplikasi maupun log CI.
+3. **Dibaca sekali pada saat container menyala**, lalu disimpan di memori selama container hidup — bukan pada setiap request.
+4. Pembacaannya melewati interface `Secrets` di `ports/`, sehingga perbedaan antara AWS dan on-prem tidak menyentuh kode aplikasi.
+
+Di on-prem, ketiganya berada dalam satu berkas `.env` berizin `600` yang dibuat `install.sh` beserta kata sandi acaknya (CK-15). Untuk satu server, tidak ada tempat yang lebih baik — dan penambahan pengelola rahasia tersendiri di sana hanya menambah bagian yang dapat rusak.
+
+**Yang bukan termasuk di sini:** kata sandi akun Guru, Siswa, dan Administrator. Ketiganya tidak pernah menjadi rahasia infrastruktur, melainkan hash Argon2id di dalam tabel `pengguna` (§5), dan tidak dapat dibaca siapa pun termasuk tim.
+
+---
+
+## 8. Perkiraan biaya
+
+### 8.1 Asumsi beban
 
 Diturunkan dari volume RFC-001 §8.1 — 360 siswa, 18 guru, 1 administrator.
 
@@ -156,7 +181,7 @@ Diturunkan dari volume RFC-001 §8.1 — 360 siswa, 18 guru, 1 administrator.
 | Administrator dan lain-lain | ~15.000 |
 | **Dipakai untuk perhitungan** (dibulatkan naik sebagai margin) | **300.000** |
 
-### 7.2 Rincian
+### 8.2 Rincian
 
 | Komponen | Per bulan |
 |---|---|
@@ -166,12 +191,14 @@ Diturunkan dari volume RFC-001 §8.1 — 360 siswa, 18 guru, 1 administrator.
 | NAT instance `t4g.nano` + alamat IPv4 publik + EBS | ~$8 |
 | CloudFront dan S3 | $0–2 |
 | ECR | < $1 |
+| Secrets Manager — dua kredensial basis data | ~$1 |
+| SSM Parameter Store — kunci API Elice | $0 (tier standar) |
 | Elice AI Cloud — sekitar 1.400 panggilan tombol Suggestion | **$0** — kredit program KADA, di luar tagihan AWS |
-| **Total** | **$27–35**, atau **$12–20** dengan free tier |
+| **Total** | **$28–36**, atau **$13–21** dengan free tier |
 
 > ⚠️ Seluruh angka berasal dari daftar harga terbitan AWS untuk `ap-southeast-1` dan **belum diverifikasi lewat AWS Pricing Calculator**. Wajib diperiksa sebelum masuk [DEPLOYMENT.md](DEPLOYMENT.md).
 
-### 7.3 Yang perlu diperhatikan
+### 8.3 Yang perlu diperhatikan
 
 **Compute bukan lagi pos yang perlu dioptimalkan.** Lambda menyumbang sekitar 3% dari tagihan; sepuluh kali lipat trafik pun tetap di bawah $6. Tagihan didominasi RDS (~55%) dan NAT (~28%).
 
@@ -182,7 +209,7 @@ Dua tuas yang tersisa, keduanya perlu diperiksa lebih dahulu, bukan diasumsikan 
 | Free tier RDS | −$15 | Status kelayakan akun AWS tim perlu diperiksa. Berlaku 12 bulan |
 | Egress-only Internet Gateway lewat IPv6, menggantikan NAT instance | −$8 | Hanya berlaku apabila `mlapi.run` dapat dihubungi lewat IPv6. **Wajib diuji** |
 
-Apabila keduanya berhasil, tagihan turun ke sekitar **$5–10 per bulan**.
+Apabila keduanya berhasil, tagihan turun ke sekitar **$6–11 per bulan**.
 
 **Alamat IPv4 publik kini ditagih** sekitar $3,65 per bulan per alamat, sejak Februari 2024. Inilah sebabnya NAT instance berbiaya ~$8, bukan ~$3 sebagaimana perkiraan pada rancangan 2 Agustus 2026.
 
@@ -192,7 +219,7 @@ Apabila keduanya berhasil, tagihan turun ke sekitar **$5–10 per bulan**.
 
 ---
 
-## 8. Yang belum diputuskan
+## 9. Yang belum diputuskan
 
 | # | Item | Menunggu | Dampak apabila berubah |
 |---|---|---|---|
@@ -201,8 +228,8 @@ Apabila keduanya berhasil, tagihan turun ke sekitar **$5–10 per bulan**.
 | 3 | Kebijakan penyimpanan dan pencadangan data | V6 | Menentukan lama retensi cadangan RDS, aturan daur hidup bucket rapor, dan jadwal pencadangan on-prem |
 | 4 | Nama domain dan penerbitan sertifikat | Pihak sekolah | Menentukan modul `frontend` pada Terraform |
 | 5 | Apakah `dev` memerlukan RDS tersendiri atau cukup PostgreSQL lokal | Keputusan tim | Menentukan biaya lingkungan `dev` |
-| 6 | Apakah `mlapi.run` dapat dihubungi lewat IPv6, sehingga NAT instance dapat digantikan Egress-only Internet Gateway | Uji jaringan saat infrastruktur naik | Menghemat ~$8 per bulan, yaitu 28% tagihan (§7.3) |
-| 7 | Status kelayakan free tier akun AWS tim | Pemeriksaan akun | Menentukan apakah tagihan ~$27 atau ~$12 per bulan |
+| 6 | Apakah `mlapi.run` dapat dihubungi lewat IPv6, sehingga NAT instance dapat digantikan Egress-only Internet Gateway | Uji jaringan saat infrastruktur naik | Menghemat ~$8 per bulan, yaitu 28% tagihan (§8.3) |
+| 7 | Status kelayakan free tier akun AWS tim | Pemeriksaan akun | Menentukan apakah tagihan ~$28 atau ~$13 per bulan |
 | 8 | Apakah cold start ~0,8–1,5 detik dapat diterima pengguna | UAT | Apabila tidak, jalur naiknya provisioned concurrency atau ECS Fargate memakai image yang sama (CK-13) |
 
 Temuan RFC-001 §10 yang masih terbuka — T-01, T-02, T-04, T-05, dan T-06 — bersifat produk dan tidak dipengaruhi pilihan teknologi mana pun pada dokumen ini. T-03 ditutup oleh §5.
@@ -395,4 +422,5 @@ Bernomor dan bertanggal. Entri tidak disunting; perubahan keputusan ditulis seba
 | 6 Agustus 2026 | Dokumen dibuat. Menetapkan stack di atas PRD v3.0 dan RFC-001. Menggantikan bagian stack pada `ARCHITECTURE.md` versi 2 Agustus 2026. Menutup K-01 dan K-02 pada RFC-001 §9, serta menutup temuan T-03 |
 | 6 Agustus 2026 | Compute berpindah dari ECS Fargate dengan ALB ke Lambda Web Adapter dengan Function URL (**CK-13**, mengamandemen CK-01 dan CK-02). Perkiraan biaya diperbaiki: NAT menjadi ~$8 karena alamat IPv4 publik kini ditagih, dan total turun menjadi $27–35 per bulan |
 | 6 Agustus 2026 | Penyedia AI berpindah dari OpenRouter ke Elice AI Cloud melalui program KADA (**CK-14**, mengamandemen CK-06). Ditetapkan bahwa identitas siswa tidak pernah dikirim ke layanan AI |
+| 6 Agustus 2026 | Penyimpanan rahasia ditetapkan pada **§7** yang baru: kredensial `app_rw` dan `app_ro` di Secrets Manager, kunci API Elice di SSM Parameter Store, dan ketiganya di berkas `.env` berizin `600` pada on-prem. Nilai rahasia dibuat di luar Terraform. Pasal biaya dan pasal keputusan terbuka bergeser menjadi §8 dan §9; total menjadi $28–36 per bulan |
 | 6 Agustus 2026 | **Versi 2.0 — dokumen dipecah tiga.** Isi yang menjelaskan hubungan antar bagian dipindahkan ke [ARCHITECTURE.md](ARCHITECTURE.md), dan isi yang menjelaskan penerapan serta operasional dipindahkan ke [DEPLOYMENT.md](DEPLOYMENT.md). Dokumen ini menyusut menjadi pilihan teknologi beserta alasannya. Ditambahkan **CK-15** yang menetapkan skrip pemasangan tunggal untuk on-prem, melengkapi CK-12. Butir §16 mengenai sisa kredit KADA dan persetujuan sekolah dihapus atas keputusan tim; butir mengenai bentuk endpoint Elice ditutup dan dipindahkan ke §6 |
