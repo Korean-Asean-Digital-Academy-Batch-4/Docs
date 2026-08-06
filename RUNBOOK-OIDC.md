@@ -89,7 +89,7 @@ arn:aws:iam::<ID-AKUN>:oidc-provider/token.actions.githubusercontent.com
 | 2.5 | Halaman permissions: **jangan pilih apa pun**. Lewati, lalu **Next** |
 | 2.6 | **Role name**: `edutrack-gha-backend` — huruf kecil semua |
 | 2.7 | **Create role** |
-| 2.8 | Buka role tersebut, **salin ARN-nya** |
+| 2.8 | Salin ARN role tersebut — cara mendapatkannya pada §2.2 di bawah |
 
 ```json
 {
@@ -116,6 +116,28 @@ arn:aws:iam::<ID-AKUN>:oidc-provider/token.actions.githubusercontent.com
 
 **Kenapa Custom trust policy, bukan Web identity.** Pilihan **Web identity** menyediakan formulir GitHub yang lebih cepat, tetapi apabila kolom branch dibiarkan kosong ia menghasilkan `sub` dengan tanda bintang — dan itu berarti **branch mana pun** dapat memperoleh kredensial. Menempel JSON di atas membuat isinya terlihat apa adanya.
 
+### 2.2 Mendapatkan ARN role
+
+**Cara termudah: tidak usah dicari, tulis sendiri.** ARN sebuah role selalu berbentuk sama:
+
+```
+arn:aws:iam::<ID-AKUN>:role/edutrack-gha-backend
+```
+
+Pengenal akun terlihat di pojok kanan atas konsol. Perhatikan **dua titik dua berturut-turut** setelah `iam` — itu bukan salah ketik, melainkan bagian region yang sengaja dikosongkan karena IAM berlaku global.
+
+**Cara menyalin dari konsol**, apabila lebih yakin:
+
+| # | Langkah |
+|:--:|---|
+| a | IAM → menu kiri **Roles** |
+| b | Ketik `edutrack-gha-backend` pada kotak pencarian |
+| c | Klik **nama role-nya**, bukan kotak centang di sebelah kiri |
+| d | Panel **Summary** terbuka di bagian atas halaman |
+| e | Pada baris **ARN**, klik **ikon salin** berupa dua kotak bertumpuk |
+
+Nilai yang terpotong di layar tetap tersalin penuh.
+
 > ⚠️ Jangan pernah menulis `sub` sebagai `repo:<ORG>/*`. Itu memberi **setiap repositori di organisasi** hak menerapkan ke produksi. Ini kekeliruan OIDC yang paling sering terjadi, dan tidak menimbulkan gejala apa pun sampai disalahgunakan.
 
 ---
@@ -125,12 +147,18 @@ arn:aws:iam::<ID-AKUN>:oidc-provider/token.actions.githubusercontent.com
 | # | Langkah |
 |:--:|---|
 | 3.1 | Buka `https://github.com/Korean-Asean-Digital-Academy-Batch-4/backend` |
-| 3.2 | Tab **Settings** |
-| 3.3 | Menu kiri → **Secrets and variables** → **Actions** |
-| 3.4 | Tab **Secrets** → **New repository secret** |
-| 3.5 | **Name**: `AWS_ROLE_ARN` |
-| 3.6 | **Secret**: tempel ARN dari langkah 2.8 |
-| 3.7 | **Add secret** |
+| 3.2 | Tab **Settings** — deretan atas repositori, paling kanan, berikon roda gigi |
+| 3.3 | Sidebar kiri, gulir ke bagian **Security** → klik **Secrets and variables** untuk membukanya |
+| 3.4 | Submenu muncul → klik **Actions** |
+| 3.5 | Halaman terbuka dengan dua tab, **Secrets** dan **Variables**. Pastikan berada di tab **Secrets** |
+| 3.6 | Pada bagian **Repository secrets**, klik tombol hijau **New repository secret** |
+| 3.7 | Kolom **Name**: `AWS_ROLE_ARN` — huruf besar semua, pemisahnya garis bawah |
+| 3.8 | Kolom **Secret**: tempel ARN dari langkah 2.8 |
+| 3.9 | Klik **Add secret** |
+
+**Berhasil** apabila `AWS_ROLE_ARN` muncul pada daftar dengan keterangan *Updated now*. Nilainya tidak akan dapat dilihat lagi setelah itu — hanya dapat ditimpa. Ini memang perilaku Secret, bukan kekeliruan.
+
+Apabila tab **Settings** tidak terlihat, akun GitHub yang dipakai bukan admin pada repositori tersebut, dan haknya perlu diminta kepada pemilik organisasi.
 
 **Kenapa Secret, bukan Variable.** ARN memuat pengenal akun AWS. Sebagai Secret, GitHub menyamarkannya di seluruh keluaran log; sebagai Variable, ia tampil apa adanya kepada siapa pun yang dapat membaca repositori. Ini sejalan dengan keputusan tidak menuliskan pengenal akun ke dalam repositori dokumen.
 
@@ -263,3 +291,4 @@ Trust policy saat ini hanya menerima baris pertama. Itu disengaja: **pull reques
 | Tanggal | Perubahan |
 |---|---|
 | 7 Agustus 2026 | Runbook dibuat. Menjalankan keputusan `DEPLOYMENT.md` §9.4 dan CK-D-01 |
+| 7 Agustus 2026 | Ditambahkan §2.2 cara mendapatkan ARN role, dan Bagian 3 diperinci sampai tingkat letak menu. Versi pertama menulis "salin ARN-nya" tanpa menjelaskan di mana nilainya berada |
