@@ -30,6 +30,7 @@ Kumpulan dokumen sumber kebenaran untuk produk **EduTrack** (Project ID: EDU-202
 | Dokumen | Isi |
 |---|---|
 | [AGENTS.md](./AGENTS.md) | Bagaimana agen membangun EduTrack: alur kerja, batas yang tidak boleh dilanggar, urutan tahap, dan gerbang selesai |
+| [GLOSARIUM.md](./GLOSARIUM.md) | Setiap singkatan dan istilah teknis yang dipakai di seluruh dokumen |
 
 Berbeda dari dokumen di atasnya, `AGENTS.md` **tidak menetapkan apa pun tentang produk**. Ia menetapkan cara bekerja di atas dokumen yang sudah ada, sehingga berada di luar rantai penguncian.
 
@@ -98,6 +99,7 @@ Alasan pemisahan: ketika PRD berubah, bagian deskripsi cukup dimutakhirkan, seda
 ## Konvensi
 
 - Seluruh dokumen ditulis dalam Bahasa Indonesia formal.
+- **Singkatan dijelaskan pada pemakaian pertama di setiap dokumen, dan seluruhnya terdaftar pada [GLOSARIUM.md](./GLOSARIUM.md).** Singkatan yang muncul tanpa penjelasan adalah cacat dokumen, bukan pengetahuan yang boleh diandaikan.
 - Setiap dokumen memiliki satu tanggung jawab dan tidak mengulang isi dokumen lain; gunakan tautan antar dokumen bila diperlukan.
 - Perubahan pada dokumen dilakukan dengan mengganti bagian yang usang, bukan menumpuk versi baru di atas versi lama.
 - Dokumen yang tidak lagi berlaku **dihapus**, bukan disimpan sebagai arsip. Riwayat Git yang menyimpannya.

@@ -64,7 +64,9 @@ Dilakukan **sekali per akun AWS**. Role backend dan role frontend nanti memakai 
 | 1.9 | Tombol **Add provider** |
 | 1.10 | Buka provider yang baru dibuat, **salin ARN-nya** — diperlukan pada Bagian 2 |
 
-ARN-nya berbentuk:
+**ARN** — *Amazon Resource Name* — adalah alamat unik setiap sumber daya di AWS, yaitu cara AWS menyebut "yang ini, bukan yang lain". Bentuk lengkapnya diuraikan [GLOSARIUM §2.1](GLOSARIUM.md).
+
+ARN provider ini berbentuk:
 
 ```
 arn:aws:iam::<ID-AKUN>:oidc-provider/token.actions.githubusercontent.com

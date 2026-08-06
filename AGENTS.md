@@ -32,6 +32,7 @@ Membaca seluruh delapan dokumen sebelum setiap tugas adalah pemborosan. Membaca 
 
 | Yang dikerjakan | Wajib dibaca sebelum menulis kode |
 |---|---|
+| Apa pun, bila menemui singkatan asing | [GLOSARIUM.md](GLOSARIUM.md) |
 | Skema Drizzle dan migrasi | [SCHEMA.md](SCHEMA.md) §4–§7 dan §9 · [RFC-001](RFC-001-model-data-konseptual.md) §6 |
 | Endpoint apa pun | [API.md](API.md) §2, §10, dan pasal endpoint terkait · [ARCHITECTURE.md](ARCHITECTURE.md) §9.2 |
 | Autentikasi dan sesi | [ARCHITECTURE.md](ARCHITECTURE.md) §9 · [Techstack.md](Techstack.md) §5 · [API.md](API.md) §3 |
