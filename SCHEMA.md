@@ -169,7 +169,7 @@ CREATE TABLE kelas (
     CONSTRAINT ck_kelas_nama         CHECK (length(nama) BETWEEN 1 AND 32)
 );
 
--- Asumsi aktor-role §12 butir 1: satu Guru menjadi wali paling banyak satu kelas per periode
+-- aktor-role §12 butir 1: satu Guru menjadi wali paling banyak satu kelas per periode
 CREATE UNIQUE INDEX uq_kelas_wali_per_periode
     ON kelas (periode_ref, wali_kelas_ref) WHERE wali_kelas_ref IS NOT NULL;
 
@@ -193,7 +193,7 @@ CREATE INDEX idx_kelas_siswa_kelas ON kelas_siswa (kelas_ref);
 
 **`tahun_ajaran.aktif` sengaja tidak dibatasi partial unique index.** P19 hanya membatasi jumlah semester aktif per tahun ajaran, bukan jumlah tahun ajaran aktif. Membatasinya akan menghalangi penyiapan tahun berikutnya selagi tahun berjalan masih aktif — pembatasan yang tidak diminta dokumen mana pun.
 
-**`uq_kelas_wali_per_periode` menegakkan sebuah asumsi, bukan ketentuan.** [aktor-role.md §12](aktor-role.md) butir 1 mencatat pertanyaan ini masih terbuka dan diasumsikan paling banyak satu kelas per periode. Indeks ini menegakkan asumsi tersebut; apabila sekolah menyatakan sebaliknya, indeks dijatuhkan dengan satu `DROP INDEX` tanpa perubahan bentuk tabel. Dicatat sebagai temuan **S-02** pada Pasal 12.
+**`uq_kelas_wali_per_periode` menegakkan ketentuan sekolah.** Sekolah menyatakan pada 7 Agustus 2026 bahwa satu Guru menjadi Wali Kelas paling banyak satu kelas, menutup butir 1 pada [aktor-role.md §12](aktor-role.md) dan temuan **S-02** pada Pasal 12. Indeks ini karenanya bukan lagi penegak asumsi melainkan penegak ketentuan, dan tidak dijatuhkan.
 
 ### 4.3 Kurikulum dan penugasan
 
@@ -579,6 +579,21 @@ Tiga role, bukan dua. Migrasi memerlukan role tersendiri yang memiliki seluruh o
 | `app_ro` | **Hanya jalur AI** | Baca saja, dan tidak atas seluruh tabel |
 
 ```sql
+-- Kedua role aplikasi dibuat lebih dahulu; GRANT di bawahnya mustahil tanpa keduanya ada.
+-- Dibuat TANPA kata sandi: nilainya ditetapkan di luar migrasi (Techstack §7 butir 1),
+-- sehingga tidak ada satu pun kata sandi di dalam repositori. Role LOGIN tanpa kata sandi
+-- tidak dapat diautentikasi scram, sehingga keadaan antara tidak membuka apa pun.
+DO $$
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'app_rw') THEN
+        CREATE ROLE app_rw LOGIN;
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'app_ro') THEN
+        CREATE ROLE app_ro LOGIN;
+    END IF;
+END
+$$;
+
 -- Tidak ada hak apa pun yang diberikan secara diam-diam
 REVOKE ALL ON SCHEMA public FROM PUBLIC;
 GRANT USAGE ON SCHEMA public TO app_rw, app_ro;
@@ -607,6 +622,10 @@ TO app_ro;
 --   rapor, rapor_mapel         → di luar cakupan tombol Suggestion
 --   audit_log, sesi_masuk, pembatas_laju
 ```
+
+**`edutrack_owner` tidak dibuat migrasi.** Ia adalah role yang *menjalankan* migrasi, sehingga sudah ada sebelum pernyataan pertama dieksekusi. Yang dibuat migrasi hanyalah kedua role aplikasi (CK-S-09).
+
+**Penjaga `IF NOT EXISTS` bukan hiasan.** Role di PostgreSQL bersifat lintas basis data dalam satu cluster, bukan milik satu basis data. Tanpa penjaga tersebut, penerapan migrasi pada basis data kedua di cluster yang sama — lingkungan uji di samping lingkungan pengembangan — gagal pada `CREATE ROLE` yang sudah ada.
 
 ### 7.1 Dua jaminan dari satu role
 
@@ -794,12 +813,15 @@ Celah yang ditemukan saat menurunkan skema fisik. Perlu ditanggapi tim.
 | # | Temuan | Usulan tindakan |
 |---|---|---|
 | S-01 | [RFC-001 §6](RFC-001-model-data-konseptual.md) tidak memuat invarian "nilai hanya boleh dicatat bagi siswa yang terdaftar pada kelas penugasan", padahal [PRD §8.2](PRD.md) butir 5 menyiratkannya | Tambahkan sebagai invarian baru lewat amandemen RFC-001. Cara penegakannya sudah disiapkan pada Pasal 11 |
-| S-02 | `uq_kelas_wali_per_periode` menegakkan **asumsi** [aktor-role.md §12](aktor-role.md) butir 1, bukan ketentuan PRD. [ARCHITECTURE.md §1.1](ARCHITECTURE.md) juga menyebut partial unique index sebagai penegak I-09, padahal I-09 sudah terjamin bentuk kolom `kelas.wali_kelas_ref` | Konfirmasi ke sekolah apakah satu Guru boleh menjadi wali lebih dari satu kelas. Bila boleh, jatuhkan indeks — satu `DROP INDEX`, tanpa perubahan bentuk tabel |
+| S-02 | ~~`uq_kelas_wali_per_periode` menegakkan **asumsi** [aktor-role.md §12](aktor-role.md) butir 1, bukan ketentuan PRD~~ | **Ditutup 7 Agustus 2026.** Sekolah menyatakan satu Guru menjadi Wali Kelas paling banyak satu kelas. Indeks dipertahankan dan kini menegakkan ketentuan, bukan asumsi. Catatan kedua pada temuan ini tetap berlaku: [ARCHITECTURE.md §1.1](ARCHITECTURE.md) menyebut partial unique index sebagai penegak I-09, padahal I-09 sudah terjamin bentuk kolom `kelas.wali_kelas_ref` — indeks ini menegakkan ketentuan wali, bukan I-09 |
 | S-03 | ~~Kredensial role pemilik tidak tercatat pada `Techstack.md` §7~~ | **Ditutup 7 Agustus 2026.** `Techstack.md` §7 kini memuat empat rahasia; `edutrack_owner` diperlakukan sama seperti `app_rw`, dan hanya dapat dibaca role `edutrack-lambda-migrate` ([DEPLOYMENT.md §9.5](DEPLOYMENT.md)) |
-| S-04 | `tingkat` dibatasi `CHECK (... IN ('X','XI','XII'))`, sehingga skema ini mengikat produk pada jenjang SMA/SMK | Konfirmasi apakah pilot mencakup jenjang SMP. Bila ya, perluas `CHECK` sebelum data sekolah dimuat — satu `ALTER TABLE`, sesuai alasan CK-S-02 |
+| S-04 | ~~`tingkat` dibatasi `CHECK (... IN ('X','XI','XII'))`, sehingga skema ini mengikat produk pada jenjang SMA/SMK~~ | **Ditutup 7 Agustus 2026.** Sekolah menyatakan MVP mencakup jenjang SMA saja. `CHECK` dipertahankan apa adanya. Apabila jenjang SMP masuk cakupan kelak, perluasannya tetap satu `ALTER TABLE` sesuai alasan CK-S-02 |
 | S-05 | [ARCHITECTURE.md §11.2](ARCHITECTURE.md) mewajibkan penghapusan berkas rapor dari S3 pada koreksi Administrator, di dalam transaksi yang sama. Basis data tidak dapat menjamin keberhasilan operasi S3 di dalam transaksinya | Tetapkan urutannya pada `API.md`: hapus objek S3 lebih dahulu, baru `COMMIT`; kegagalan penghapusan membatalkan transaksi. Kosongkan `rapor.kunci_berkas` pada transaksi yang sama |
+| S-06 | Migrasi 0009 membuat `app_rw` dan `app_ro` tanpa kata sandi (CK-S-09), sehingga penerapan pertama pada lingkungan baru memiliki satu langkah penetapan kata sandi yang tidak dilakukan migrasi | Catat langkah tersebut pada [DEPLOYMENT.md](DEPLOYMENT.md) sebagai bagian penerapan pertama, sebelum penerapan sungguhan. Tidak menghalangi pengembangan maupun uji lokal |
 
-Temuan **T-01, T-02, T-04, T-05, dan T-06** pada [RFC-001 §10](RFC-001-model-data-konseptual.md) masih terbuka dan bersifat produk. Tidak satu pun terpengaruh keputusan pada dokumen ini. **T-02** perlu diperhatikan secara khusus: I-08 kini ditegakkan basis data melalui `uq_kelas_siswa_periode`, sehingga asumsi "satu siswa satu kelas per semester" menjadi **keras**. Apabila sekolah menyatakan sebaliknya, constraint tersebut dijatuhkan sebelum data dimuat, bukan sesudah.
+Temuan **T-01, T-04, T-05, dan T-06** pada [RFC-001 §10](RFC-001-model-data-konseptual.md) masih terbuka dan bersifat produk. Tidak satu pun terpengaruh keputusan pada dokumen ini.
+
+**T-02 ditutup 7 Agustus 2026.** Sekolah menyatakan satu siswa berada pada tepat satu kelas per semester sepanjang MVP, tanpa perpindahan kelas di tengah semester. I-08 dengan demikian bukan lagi asumsi, dan penegakannya lewat `uq_kelas_siswa_periode` beserta `fk_kelas_siswa_kelas` komposit dipertahankan.
 
 ---
 
@@ -910,6 +932,18 @@ Bobot dan KKM sengaja tetap bilangan bulat: [PRD §8.3](PRD.md) menyatakan kedua
 
 **Konsekuensi yang diterima.** `numeric` lebih lambat daripada aritmetika biner. Pada agregat atas belasan ribu baris yang seluruhnya berada di dalam memori, perbedaannya tidak terukur.
 
+### CK-S-09 · 7 Agustus 2026 · Role aplikasi dibuat migrasi, kata sandinya tidak
+
+**Diputuskan.** Migrasi 0009 membuat `app_rw` dan `app_ro` secara idempoten dengan `LOGIN` dan **tanpa kata sandi**. Kata sandi ditetapkan di luar migrasi. `edutrack_owner` tidak dibuat migrasi karena ia yang menjalankannya.
+
+**Alasan.** Pasal 7 menetapkan `GRANT` kepada kedua role tetapi tidak menyatakan siapa yang membuatnya, sehingga migrasi 0009 tidak dapat dijalankan pada basis data kosong mana pun — celah yang baru terlihat saat menurunkan skema menjadi berkas migrasi. Menempatkan pembuatannya di dalam 0009 menjaga agar seluruh bentuk hak akses berada pada satu berkas yang sama, dan menjadikan basis data pengembangan lokal identik dengan produksi tanpa langkah manual yang mudah terlupa.
+
+Kata sandinya tidak ikut karena [Techstack.md §7](Techstack.md) butir 1 menempatkan nilai rahasia di luar Terraform dan di luar repositori. Berkas migrasi berada di dalam repositori dan terbaca siapa pun yang memegang salinannya.
+
+**Alternatif yang ditolak.** *Membuat role di luar migrasi seluruhnya — Terraform atau prosedur manual.* Sejalan dengan pemisahan cangkang dan isi CK-D-02, tetapi menjadikan migrasi 0009 gagal pada basis data yang belum disiapkan tangan, termasuk kontainer uji yang menyala dan mati pada setiap kali tes berjalan. *`CREATE ROLE` beserta kata sandi acak di dalam migrasi.* Menempatkan kata sandi ke dalam repositori, melanggar Techstack §7.
+
+**Konsekuensi yang diterima.** Terdapat keadaan antara: role sudah ada tetapi belum dapat dipakai masuk sampai kata sandinya ditetapkan. Keadaan tersebut tidak membuka apa pun — role `LOGIN` tanpa kata sandi ditolak autentikasi scram — tetapi berarti penerapan pertama pada lingkungan baru memiliki satu langkah yang tidak dilakukan migrasi, dan langkah itu wajib tercatat pada [DEPLOYMENT.md](DEPLOYMENT.md) sebelum penerapan sungguhan. Diajukan sebagai temuan **S-06** pada Pasal 12.
+
 ---
 
 ## Riwayat
@@ -918,3 +952,5 @@ Bobot dan KKM sengaja tetap bilangan bulat: [PRD §8.3](PRD.md) menyatakan kedua
 |---|---|
 | 6 Agustus 2026 | **Versi 1.0 — dokumen dibuat.** Menurunkan [RFC-001](RFC-001-model-data-konseptual.md) menjadi skema fisik PostgreSQL 17 di atas [Techstack.md](Techstack.md) v2.0 dan [ARCHITECTURE.md](ARCHITECTURE.md) v1.0. Sembilan belas tabel: tujuh belas entitas RFC-001 ditambah `sesi_masuk` dan `pembatas_laju` sebagai wujud fisik CK-A-04 dan CK-A-03. Pasal 5 memenuhi tuntutan [RFC-001 §6](RFC-001-model-data-konseptual.md) dengan memetakan seluruh dua puluh lima invarian beserta cara penegakannya. I-10 dan I-21 dipindahkan ke basis data lewat dua pemicu, memperkuat [ARCHITECTURE.md §1.2](ARCHITECTURE.md) (**CK-S-05**). Ditetapkan role ketiga `edutrack_owner` (**CK-S-07**), dan ditetapkan bahwa `app_ro` tidak memiliki hak baca atas tabel identitas, sehingga "identitas siswa tidak pernah dikirim" menjadi batas yang ditegakkan basis data (§7.1). Lampiran Catatan Keputusan dibuka dengan **CK-S-01** sampai **CK-S-08**. Diajukan lima temuan **S-01** sampai **S-05** |
 | 7 Agustus 2026 | **S-03 ditutup.** Kredensial `edutrack_owner` ditetapkan pada `Techstack.md` §7 dengan perlakuan sama seperti `app_rw`, dan pembacanya dibatasi role `edutrack-lambda-migrate` |
+| 7 Agustus 2026 | **S-02, S-04, dan T-02 ditutup oleh jawaban sekolah.** MVP mencakup jenjang SMA saja, satu siswa berada pada tepat satu kelas per semester tanpa perpindahan, dan satu Guru menjadi Wali Kelas paling banyak satu kelas. Ketiganya sudah sesuai dengan skema v1.0, sehingga tidak ada satu pun constraint yang berubah — yang berubah adalah kedudukannya, dari asumsi menjadi ketentuan. §4.2 disesuaikan mengikutinya |
+| 7 Agustus 2026 | §7 dilengkapi pembuatan role `app_rw` dan `app_ro` beserta alasan penjaga idempotennya (**CK-S-09**). Celah ini terlihat saat menurunkan Pasal 7 menjadi migrasi 0009: `GRANT` mustahil tanpa role-nya ada, sementara tidak ada dokumen yang menyatakan siapa yang membuatnya. Kata sandi tetap di luar migrasi sesuai `Techstack.md` §7 butir 1, dan konsekuensinya diajukan sebagai temuan **S-06** |
