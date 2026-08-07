@@ -738,6 +738,22 @@ Migrasi berupa berkas SQL yang dibangkitkan `drizzle-kit` dan ditinjau sebelum d
 
 Migrasi 0010 wajib berada **setelah** 0008, karena `trg_komponen_bobot` akan menolak keadaan akhir transaksi yang jumlah bobotnya bukan 100. Penyisipan delapan baris dalam satu transaksi lolos; penyisipan sebagian tidak.
 
+**Catatan penerapan berada di luar `public`.** [DEPLOYMENT.md §3.3](DEPLOYMENT.md) langkah 6 memanggil fungsi `migrate` pada **setiap** rilis, termasuk rilis yang tidak membawa migrasi baru. Penerapnya karenanya wajib mengetahui berkas mana yang sudah dijalankan, dan pengetahuan itu disimpan pada tabel `migrasi.diterapkan` di dalam skema `migrasi` tersendiri:
+
+```sql
+CREATE SCHEMA IF NOT EXISTS migrasi;
+
+CREATE TABLE IF NOT EXISTS migrasi.diterapkan (
+    berkas          text        PRIMARY KEY,
+    sidik_jari      text        NOT NULL,
+    diterapkan_pada timestamptz NOT NULL DEFAULT now()
+);
+```
+
+Skema tersendiri, bukan tabel kedua puluh di `public`. Pasal 3 mengunci sembilan belas tabel sebagai bentuk data EduTrack, dan catatan penerapan bukan salah satunya — ia milik mekanisme penerapan, bukan model data. Pemisahan ini juga menjadikan `GRANT` Pasal 7 tidak perlu menyebutnya: `app_rw` dan `app_ro` tidak memperoleh `USAGE` atas skema `migrasi`, sehingga jalur aplikasi maupun jalur AI tidak dapat membacanya, apalagi mengubahnya (CK-S-10).
+
+`sidik_jari` berupa SHA-256 atas isi berkas. Penerap menolak melanjutkan apabila berkas yang sudah tercatat ternyata berubah isinya — migrasi yang sudah berjalan di produksi tidak boleh disunting, dan penyuntingannya menjadi kegagalan yang berisik alih-alih perbedaan diam-diam antara skema yang dikira berlaku dan skema yang sungguh berlaku.
+
 ### 9.2 Data awal
 
 Satu-satunya data awal adalah templat komponen penilaian ([PRD §8.3](PRD.md), [RFC-001 §5.1](RFC-001-model-data-konseptual.md)).
@@ -944,6 +960,20 @@ Kata sandinya tidak ikut karena [Techstack.md §7](Techstack.md) butir 1 menempa
 
 **Konsekuensi yang diterima.** Terdapat keadaan antara: role sudah ada tetapi belum dapat dipakai masuk sampai kata sandinya ditetapkan. Keadaan tersebut tidak membuka apa pun — role `LOGIN` tanpa kata sandi ditolak autentikasi scram — tetapi berarti penerapan pertama pada lingkungan baru memiliki satu langkah yang tidak dilakukan migrasi, dan langkah itu wajib tercatat pada [DEPLOYMENT.md](DEPLOYMENT.md) sebelum penerapan sungguhan. Diajukan sebagai temuan **S-06** pada Pasal 12.
 
+### CK-S-10 · 7 Agustus 2026 · Catatan penerapan migrasi berada di skema tersendiri
+
+**Diputuskan.** Berkas migrasi yang sudah dijalankan dicatat pada `migrasi.diterapkan`, di dalam skema `migrasi`, bukan pada tabel di `public`. Isinya nama berkas, sidik jari SHA-256 atas isinya, dan waktu penerapannya.
+
+**Alasan.** [DEPLOYMENT.md §3.3](DEPLOYMENT.md) langkah 6 memanggil fungsi `migrate` pada setiap rilis, sehingga penerap yang tidak mengingat apa pun akan menjalankan ulang seluruh migrasi dan gagal pada rilis kedua. Penerap membutuhkan catatan, dan catatan itu harus berada di dalam basis data yang sama agar tetap benar ketika rilis gagal di tengah.
+
+Penempatannya di luar `public` menjaga Pasal 3 tetap benar apa adanya — sembilan belas tabel, seluruhnya bentuk data EduTrack. Tabel kedua puluh yang bukan data akan menjadikan pernyataan itu perlu pengecualian, dan pengecualian pada pernyataan penghitung adalah awal dari dokumen yang tidak lagi dapat dipercaya angkanya.
+
+Manfaat kedua bersifat hak akses: Pasal 7 memberikan `USAGE` atas `public` saja, sehingga `app_rw` dan `app_ro` tidak dapat menyentuh skema `migrasi` tanpa satu pun `REVOKE` tambahan. Ini sejalan dengan §7.2 — tertutup sampai diberikan secara sadar.
+
+**Alternatif yang ditolak.** *Memakai `drizzle.__drizzle_migrations` bawaan Drizzle.* Sudah berada di skema tersendiri dan tidak perlu ditulis sendiri, tetapi menuntut penamaan berkas mengikuti `drizzle-kit` beserta `meta/_journal.json` yang dipelihara tangan — bertabrakan dengan penamaan `expand`/`contract` pada [DEPLOYMENT.md §6.5](DEPLOYMENT.md) lapis 1, yang tidak dapat dinyatakan `drizzle-kit`. *Menyimpulkan dari bentuk skema yang sedang berlaku.* Tidak memerlukan tabel sama sekali, tetapi menjadikan penerapan bergantung pada penebakan, dan migrasi yang hanya memindahkan data tidak meninggalkan jejak yang dapat ditebak.
+
+**Konsekuensi yang diterima.** Penerap migrasi menjadi kode milik sendiri, bukan pustaka. Ukurannya kecil dan seluruh perilakunya diuji, tetapi ia tetap satu bagian tambahan yang dapat rusak — dan bagian yang rusaknya paling mahal, karena ia berjalan mendahului setiap rilis.
+
 ---
 
 ## Riwayat
@@ -954,3 +984,4 @@ Kata sandinya tidak ikut karena [Techstack.md §7](Techstack.md) butir 1 menempa
 | 7 Agustus 2026 | **S-03 ditutup.** Kredensial `edutrack_owner` ditetapkan pada `Techstack.md` §7 dengan perlakuan sama seperti `app_rw`, dan pembacanya dibatasi role `edutrack-lambda-migrate` |
 | 7 Agustus 2026 | **S-02, S-04, dan T-02 ditutup oleh jawaban sekolah.** MVP mencakup jenjang SMA saja, satu siswa berada pada tepat satu kelas per semester tanpa perpindahan, dan satu Guru menjadi Wali Kelas paling banyak satu kelas. Ketiganya sudah sesuai dengan skema v1.0, sehingga tidak ada satu pun constraint yang berubah — yang berubah adalah kedudukannya, dari asumsi menjadi ketentuan. §4.2 disesuaikan mengikutinya |
 | 7 Agustus 2026 | §7 dilengkapi pembuatan role `app_rw` dan `app_ro` beserta alasan penjaga idempotennya (**CK-S-09**). Celah ini terlihat saat menurunkan Pasal 7 menjadi migrasi 0009: `GRANT` mustahil tanpa role-nya ada, sementara tidak ada dokumen yang menyatakan siapa yang membuatnya. Kata sandi tetap di luar migrasi sesuai `Techstack.md` §7 butir 1, dan konsekuensinya diajukan sebagai temuan **S-06** |
+| 7 Agustus 2026 | §9.1 dilengkapi catatan penerapan migrasi `migrasi.diterapkan` pada skema tersendiri (**CK-S-10**). Celah ini terlihat dari `DEPLOYMENT.md` §3.3 langkah 6 yang memanggil fungsi `migrate` pada setiap rilis: penerap tanpa catatan gagal pada rilis kedua. Ditempatkan di luar `public` agar Pasal 3 tetap menyebut sembilan belas tabel tanpa pengecualian, dan agar `app_rw` maupun `app_ro` tidak memperolehnya |
