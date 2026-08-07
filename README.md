@@ -41,9 +41,9 @@ Prosedur yang dijalankan tangan. Runbook **tidak menetapkan apa pun** — ia men
 | Dokumen | Isi |
 |---|---|
 | [RUNBOOK-OIDC.md](./RUNBOOK-OIDC.md) | Menyiapkan OIDC GitHub Actions ke AWS, langkah demi langkah, beserta diagnosa kegagalannya |
-| [Gitaction.md](./Gitaction.md) | 🔴 **Sedang berjalan.** Catatan penelusuran jabat tangan OIDC yang masih ditolak: apa yang sudah terbukti, apa yang sudah dicoba, apa yang belum terlihat |
+| [Gitaction.md](./Gitaction.md) | ✅ **Selesai.** Catatan penelusuran jabat tangan OIDC: penyebabnya *custom subject claim* tingkat organisasi yang mengubah format `sub` |
 
-Catatan penelusuran seperti `Gitaction.md` bersifat **sementara**. Ia ditutup, diringkas menjadi satu baris riwayat, lalu dihapus begitu persoalannya selesai.
+Catatan penelusuran seperti `Gitaction.md` bersifat **sementara**. Penyebabnya sudah dipindahkan ke tabel diagnosa `RUNBOOK-OIDC.md` Bagian 6 — tempat orang berikutnya akan mencarinya — sehingga berkas ini boleh dihapus kapan saja.
 
 ### Dokumen yang sudah dihapus
 

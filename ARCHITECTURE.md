@@ -187,18 +187,30 @@ Aturan `adapters/aws/` sebagai satu-satunya tempat SDK AWS adalah penerapan lang
 Backend dikemas sebagai container image berisi Express biasa. **Lambda Web Adapter** ditambahkan sebagai satu binary di dalam image, dan bertugas menerjemahkan event Lambda menjadi request HTTP ke aplikasi.
 
 ```dockerfile
+FROM node:24-slim AS build
+WORKDIR /app
+COPY package*.json ./
+RUN npm ci
+COPY tsconfig*.json ./
+COPY src ./src
+RUN npm run build
+
 FROM node:24-slim
+# Versi adapter WAJIB dipatok (CK-13).
 COPY --from=public.ecr.aws/awsguru/aws-lambda-adapter:1.0.1 /lambda-adapter /opt/extensions/lambda-adapter
 
 WORKDIR /app
 COPY package*.json ./
 RUN npm ci --omit=dev
-COPY dist ./dist
+COPY --from=build /app/dist ./dist
 
 ENV PORT=8080
 ENV AWS_LWA_READINESS_CHECK_PATH=/healthz
-CMD ["node", "dist/server.js"]
+EXPOSE 8080
+CMD ["node", "dist/entry/server.js"]
 ```
+
+**Dua tahap, bukan satu.** Tahap pertama membangun TypeScript **di dalam image**, sehingga `docker build` berdiri sendiri dan tidak menuntut `dist/` sudah ada di mesin yang membangunnya. Tahap kedua hanya membawa hasilnya beserta dependensi produksi. Bentuk ini yang terpasang dan terbukti jalan pada repositori backend.
 
 Versi image adapter **wajib dipatok**. Variabel lingkungan tanpa prefiks `AWS_LWA_` sudah usang dan akan dihapus pada versi 2.0 (CK-13).
 
@@ -634,3 +646,4 @@ Keberatan kedua CK-09 — tidak ada manfaat produk karena rapor tidak selalu diu
 | 6 Agustus 2026 | **Versi 1.0 — isi ditulis.** Pasal 1 sampai 13 memindahkan isi yang sudah tervalidasi pada `Techstack.md` versi 1, dengan empat penyesuaian terhadap keadaan terbaru: adapter AI mengikuti CK-14, penyimpanan rahasia mengikuti `Techstack.md` §7, alamat endpoint Elice mengikuti `Techstack.md` §6, dan susunan jaringan mengikuti CK-13. Pasal 9 diperkaya dengan penerjemahan matriks kewenangan `aktor-role.md` menjadi dua lapis pemeriksaan. **Pasal 14 Alur request ditulis baru.** Ditetapkan pula lima angka yang sebelumnya belum pernah ditentukan: umur sesi 12 jam, umur presigned URL 5 menit, tiga batas laju, dan batas ukuran unggahan 2 MB. Lampiran Catatan Keputusan dibuka dengan **CK-A-01** sampai **CK-A-06** |
 | 6 Agustus 2026 | Pasal 11 ditulis ulang: berkas rapor dirender pada saat finalisasi dengan anggaran lunak 20 detik, render-saat-unduh menjadi jalur cadangan yang tidak dapat dihapus, dan ditambahkan unduh sekelas berbentuk arsip ZIP yang tidak merender apa pun (**CK-A-07**, mengamandemen CK-09). Batas waktu fungsi pada Pasal 6 disesuaikan: request terpanjang kini finalisasi sekelas, bukan render satu PDF |
 | 7 Agustus 2026 | Region pada Pasal 2 dan peringatan ACM pada §12.2 disesuaikan menjadi `ap-southeast-3` mengikuti **CK-16** pada [Techstack.md](Techstack.md). Kewajiban ACM di `us-east-1` tidak berubah |
+| 7 Agustus 2026 | Cuplikan Dockerfile pada Pasal 6 disesuaikan menjadi dua tahap, mengikuti bentuk yang terpasang dan terbukti jalan di repositori backend. Bentuk satu tahap sebelumnya mengandaikan `dist/` sudah dibangun di luar image. Salinan Lambda Web Adapter, `PORT`, `AWS_LWA_READINESS_CHECK_PATH`, dan `CMD` tidak berubah |
