@@ -2,7 +2,7 @@
 
 | Keterangan | Isi |
 |---|---|
-| **Versi** | v1.1 |
+| **Versi** | v2.0 |
 | **Tanggal** | 7 Agustus 2026 |
 | **Disusun oleh** | Re:Code |
 | **Kedudukan** | Menetapkan **bagaimana agen membangun EduTrack** di atas dokumen yang sudah terkunci. Berada di luar rantai penguncian dan tidak menetapkan apa pun tentang produk |
@@ -344,24 +344,61 @@ Urutan mengikat: **format → lint → periksa tipe → build**.
 
 ## 8. Tahap implementasi
 
-Urutannya bukan saran. Setiap tahap menghasilkan sesuatu yang dapat dibuktikan hidup, dan menjadi prasyarat tahap berikutnya.
+Dua jalur berjalan **bersamaan**, bukan berurutan. Pembagiannya bukan soal keahlian melainkan soal apa yang mungkin: setiap jalur menuju kuasa AWS menuntut kode MFA dari ponsel manusia, sehingga **agen tidak dapat menaikkan infrastruktur sama sekali**.
 
-| Tahap | Isi | Prasyarat | Gerbang selesai |
+```
+JALUR A — aplikasi (agen)            JALUR B — infrastruktur (manusia)
+
+A0  kerangka repositori              B0    IAM: user, grup, role
+A1  Docker dan compose               B0.5  OIDC + uji jabat tangan
+      │                                      │
+      └─────────────┬───────────────  B1    terraform bootstrap/
+A2  skema + migrasi │                 B2    push image healthz  ◄── butuh A1
+A3  domain/ murni   │                 B3    terraform infra/
+A4  auth + sesi     │                 B4    buktikan OAC ber-body
+A5  administrasi    │                 B5    izin ECR + Lambda pada role OIDC
+A6  nilai + presensi│                 B6    pr.yml dan deploy.yml
+A7  rapor + berkas  └────────────────────────►│
+A8  jalur AI                                  ▼
+                                         rilis otomatis
+```
+
+**Hanya dua titik temu.** B2 menunggu `Dockerfile` dari A1; rilis pertama menunggu B6. Selebihnya kedua jalur tidak saling menunggu.
+
+### 8.1 Jalur A — dikerjakan agen, tanpa menyentuh AWS
+
+| # | Tahap | Isi | Gerbang selesai |
 |:--:|---|---|---|
-| **0** | Infrastruktur naik dengan API yang hanya memuat `GET /healthz` | — | `terraform apply` hijau · pipeline men-deploy · **penandatanganan OAC atas request ber-body terbukti** ([ARCHITECTURE §12.2](ARCHITECTURE.md)) |
-| **1** | Migrasi 0001–0010 dan skema Drizzle | Aturan rollback ([DEPLOYMENT](DEPLOYMENT.md) Pasal 6) · jawaban **S-04**, **T-02**, **S-02** | Seluruh migrasi jalan di basis data kosong · uji §4.2 lulus · dua role terbukti terpisah |
-| **2** | Autentikasi, sesi, pembatas laju | 1 | AC-33 · pencabutan sesi seketika · batas 5 percobaan per 15 menit terbukti |
-| **3** | Administrasi: akun, periode, mapel, kelas | 2 | AC-01, AC-02, AC-03, AC-04, AC-22, AC-24, AC-26, AC-28 |
-| **4** | Nilai dan presensi | 3 | AC-05, AC-06, AC-11, AC-12, AC-15, AC-25, AC-29, AC-30 |
-| **5** | Rapor: catatan, finalisasi, distribusi, berkas | 4 | AC-07, AC-08, AC-09, AC-13, AC-14, AC-32 · **pengukuran lama render** ([API §13.3](API.md)) |
-| **6** | Jalur AI | 4 | AC-16, AC-17, AC-18, AC-19, AC-20, AC-21, AC-31 |
-| **7** | Frontend | Desain UI/UX | AC-10, AC-27 · Core Web Vitals · aksesibilitas · regresi visual lima lebar layar |
+| **A0** | Kerangka repositori | `package.json`, `tsconfig` strict, eslint beserta **penegakan batas modul**, prettier, vitest, struktur `src/` sesuai [ARCHITECTURE §5.1](ARCHITECTURE.md), linter migrasi | `npm run periksa` bersih |
+| **A1** | Docker | `Dockerfile` dengan Lambda Web Adapter, `docker-compose.yml` dengan PostgreSQL 17 | `docker compose up` menyala · `GET /healthz` menjawab |
+| **A2** | Skema dan migrasi | Drizzle beserta migrasi 0001–0010 sesuai [SCHEMA §9.1](SCHEMA.md) | Seluruh migrasi jalan · **bukti penegakan basis data** §4.2 lulus · linter migrasi bersih |
+| **A3** | `domain/` murni | `nilai.ts`, `presensi.ts`, `rapor.ts`. Tanpa I/O | **100% cabang** · I-17 dan I-18 terbukti |
+| **A4** | Auth dan sesi | Argon2id, cookie, pembatas laju di PostgreSQL | AC-33 · pencabutan sesi seketika · batas 5 percobaan per 15 menit |
+| **A5** | Administrasi | Akun, periode, mapel, kelas atomik | AC-01, 02, 03, 04, 22, 24, 26, 28 |
+| **A6** | Nilai dan presensi | Simpan Nilai, sesi presensi | AC-05, 06, 11, 12, 15, 25, 29, 30 |
+| **A7** | Rapor | Catatan, finalisasi, distribusi, berkas | AC-07, 08, 09, 13, 14, 32 · **pengukuran lama render** [API §13.3](API.md) |
+| **A8** | Jalur AI | Tombol Suggestion lewat `app_ro` | AC-16, 17, 18, 19, 20, 21, 31 |
 
-**Tahap 0 mendahului segalanya**, termasuk mendahului backend yang berguna. Membuktikan VPC, RDS, Function URL, CloudFront, dan pipeline hidup sejak API masih berupa rangka jauh lebih murah daripada menemukannya ketika frontend mulai menyimpan nilai.
+### 8.2 Jalur B — dikerjakan manusia
 
-**Tahap 7 tidak dapat dimulai tanpa desain.** Prototipe lama sudah dihapus karena mendahului PRD v3.0 dan menampilkan produk yang salah; tidak ada artefak desain yang berlaku saat ini.
+| # | Tahap | Kenapa agen tidak bisa |
+|:--:|---|---|
+| **B0** | IAM: user, grup, role | Konsol AWS, dan pembuatan MFA |
+| **B0.5** | OIDC provider, role, uji jabat tangan | Konsol AWS. Lihat [RUNBOOK-OIDC.md](RUNBOOK-OIDC.md) |
+| **B1** | `terraform apply` pada `bootstrap/` | Peminjaman role menuntut kode MFA |
+| **B2** | Push image bootstrap ke ECR | Menunggu `Dockerfile` dari A1 |
+| **B3** | `terraform apply` pada `infra/` | Sama seperti B1. Rahasia dibuat di luar Terraform |
+| **B4** | Pembuktian penandatanganan OAC atas request ber-body | Menilai hasilnya menuntut penalaran manusia |
+| **B5** | Menambahkan izin ECR dan Lambda pada role OIDC | Konsol AWS |
+| **B6** | `pr.yml` dan `deploy.yml` | Berkasnya boleh ditulis agen; **penyalaannya** menunggu B5 |
 
----
+### 8.3 Kenapa A2 dan A3 mendahului seluruh rute
+
+`domain/` **tidak bergantung pada apa pun** — tanpa basis data, tanpa Docker, tanpa AWS — dan tesnya selesai dalam milidetik. Ia juga bagian dengan taruhan tertinggi: salah hitung berarti rapor siswa salah.
+
+Setelah A3 lulus, seluruh perhitungan nilai, kehadiran, dan transisi rapor sudah benar dan terbukti, padahal belum ada satu pun endpoint. Sisanya tinggal mengantarkan data. Urutan yang dibalik membuat logika penilaian bocor ke dalam `routes/`, dan tidak akan pernah bisa diuji secepat itu lagi.
+
+**Linter migrasi dipasang di A0, bukan di A2.** Linter yang datang setelah migrasi 0001 ditulis hanya memeriksa yang sudah terlanjur ada.
 
 ## 9. Gerbang selesai
 
@@ -379,9 +416,76 @@ Sebuah tugas selesai apabila seluruh baris berikut terpenuhi dan **terbukti**, b
 
 ---
 
+## 10. Titik henti manusia
+
+Agen **berhenti dan melapor** ketika mencapai salah satu titik berikut. Tidak mencari jalan pintas, tidak menebak nilainya, tidak melanjutkan dengan nilai sementara.
+
+| Titik | Yang dibutuhkan | Kenapa agen tidak bisa |
+|---|---|---|
+| Kredensial AWS apa pun | Kode MFA | Berasal dari ponsel manusia |
+| `terraform apply` | Peminjaman role `edutrack-terraform` | Sama |
+| Pembuatan keempat rahasia | Dibuat di luar Terraform | [Techstack §7](Techstack.md) |
+| Pendaftaran OIDC provider dan role | Konsol AWS | Lihat [RUNBOOK-OIDC.md](RUNBOOK-OIDC.md) |
+| Nama domain dan sertifikat | Belum diputuskan | Techstack §9 butir 4 |
+| **Jenjang sekolah** — SMA saja atau ada SMP | Jawaban sekolah | **S-04**, menentukan `CHECK` pada migrasi 0002 dan 0003 |
+| **Satu siswa satu kelas per semester** | Jawaban sekolah | **T-02**, ditegakkan `uq_kelas_siswa_periode` |
+| **Satu guru boleh wali lebih dari satu kelas** | Jawaban sekolah | **S-02**, ditegakkan `uq_kelas_wali_per_periode` |
+| Komponen dan bobot templat | Validasi sekolah **V1** | Hanya data, bukan skema. **Tidak menghalangi** |
+
+Tiga jawaban sekolah menghalangi migrasi bertemu **data sekolah sungguhan**, bukan menghalangi migrasinya ditulis dan diuji lokal. Agen tetap melanjutkan A2, dan melaporkan bahwa ketiganya belum terjawab.
+
+**Bentuk laporan berhenti:** sebutkan titik mana, apa yang dibutuhkan, apa yang sudah selesai, dan apa yang bisa dikerjakan sementara menunggu.
+
+---
+
+## 11. Git dan pemulihan
+
+Riwayat git di sini bukan sekadar catatan — ia **satu rantai dengan pemulihan produksi**:
+
+```
+commit  →  git SHA  →  tag image  →  version Lambda  →  alias live
+```
+
+Rollback produksi berarti memindahkan alias ke version yang membeku pada satu SHA. Riwayat yang berantakan membuat pertanyaan "kembali ke mana" tidak punya jawaban.
+
+| Aturan | Isi |
+|---|---|
+| **Satu fitur satu branch** | `fitur/<tahap>-<ringkas>`, misalnya `fitur/a3-domain-nilai` |
+| **Satu commit satu satuan yang dapat dimundurkan sendiri** | Bukan satu commit per berkas, bukan satu commit per hari |
+| **Commit hijau** | Jangan pernah commit keadaan yang tesnya merah. Riwayat harus dapat di-`checkout` di titik mana pun |
+| **Dokumen mendahului kode** | Bila ada yang menyimpang, commit dokumennya lebih dahulu — dua commit terpisah (§1.2) |
+| **Merge ke `main` lewat pull request** | `main` selalu dapat dirilis |
+| **Tag pada tiap rilis** | `v<n>` pada commit yang dirilis, sehingga version Lambda dapat ditelusuri balik |
+| **Jangan `push --force` ke `main`** | Menghapus jejak yang menjadi sandaran pemulihan |
+
+**Yang berjalan di produksi saat ini** dijawab lewat perintah pada [DEPLOYMENT §2.7](DEPLOYMENT.md), bukan lewat tebakan — karena Terraform sengaja tidak mengetahuinya.
+
+---
+
+## 12. Memulai dari repositori kosong
+
+Urutan konkret dari `backend/` yang hanya berisi `README.md` sampai lingkungan lokal menyala. Ini **A0 dan A1** pada §8.1.
+
+| # | Langkah | Selesai apabila |
+|:--:|---|---|
+| 1 | `package.json`, `tsconfig.json` strict, `.gitignore`, `.env.example` | `npm install` berhasil |
+| 2 | prettier, eslint beserta **penegakan batas modul** [ARCHITECTURE §5.1](ARCHITECTURE.md), vitest | `npm run periksa` bersih |
+| 3 | Struktur `src/` — `app.ts`, `routes/`, `domain/`, `db/`, `ports/`, `adapters/`, `entry/` | Struktur cocok dengan ARCHITECTURE §5.1 |
+| 4 | `GET /healthz` yang memeriksa proses **dan** koneksi basis data | Menjawab `200` |
+| 5 | `Dockerfile` dengan Lambda Web Adapter | `docker build` berhasil |
+| 6 | `docker-compose.yml` dengan PostgreSQL 17 | `docker compose up` menyala, `/healthz` menjawab dari dalam container |
+| 7 | `migrations/` beserta konvensi header dan linter | `npm run lint:migrations` berjalan |
+
+**Batas modul ditegakkan eslint, bukan diingat.** Aturan impor pada §3.1 dipasang sebagai galat lint, sehingga `domain/` yang mengimpor `pg` gagal saat `npm run periksa` — bukan ditemukan saat tinjauan. Ini penerapan Prinsip ④ pada susunan berkas.
+
+Sesudah langkah 7, agen melanjutkan ke A2 dan tidak lagi memerlukan apa pun dari manusia sampai menyentuh salah satu titik §10.
+
+---
+
 ## Riwayat
 
 | Tanggal | Perubahan |
 |---|---|
 | 6 Agustus 2026 | Dokumen dibuat. Menetapkan alur kerja agen ECC di atas rantai penguncian EduTrack: peta baca per jenis tugas, prosedur ketika kode dan dokumen bertentangan, dua belas larangan mutlak, tiga tingkat pengujian termasuk pembuktian penegakan oleh basis data, konvensi penamaan lintas lapisan, serta delapan tahap implementasi beserta gerbang selesainya |
 | 7 Agustus 2026 | §5.3 diperluas: lima aturan migrasi dinyatakan lengkap, ditambah header klasifikasi wajib, konvensi penamaan `expand`/`contract`, kewajiban `grep` sebelum `contract`, dan kewajiban lolos `squawk`. Mengikuti [DEPLOYMENT.md §6.5](DEPLOYMENT.md) dan CK-D-03 |
+| 7 Agustus 2026 | **Versi 2.0.** Pasal 8 ditulis ulang menjadi **dua jalur yang berjalan bersamaan** — Jalur A dikerjakan agen tanpa menyentuh AWS, Jalur B dikerjakan manusia — karena setiap jalur menuju kuasa AWS menuntut kode MFA sehingga agen tidak dapat menaikkan infrastruktur. Ditambahkan **§10 titik henti manusia**, **§11 git dan pemulihan** yang mengikat riwayat git pada rantai pemulihan produksi, dan **§12 memulai dari repositori kosong** |
