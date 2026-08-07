@@ -53,7 +53,7 @@ Prinsip keempat — bahwa yang dapat dijamin basis data tidak diserahkan kepada 
 | **IaC** | Terraform | — |
 | **CI/CD** | GitHub Actions + OIDC | — |
 | **Pemasangan on-prem** | Skrip `install.sh` tunggal, idempoten | — |
-| **Region** | ap-southeast-1 (Singapura) | — |
+| **Region** | **ap-southeast-3 (Jakarta)** — CK-16. Sertifikat ACM untuk CloudFront tetap `us-east-1` | — |
 
 **Yang sengaja tidak dipakai:** API Gateway, Application Load Balancer, ECS, SQS, Cognito, Bedrock, dan Ansible. Alasan masing-masing tercatat pada Lampiran Catatan Keputusan.
 
@@ -205,7 +205,12 @@ Diturunkan dari volume RFC-001 §8.1 — 360 siswa, 18 guru, 1 administrator.
 | Elice AI Cloud — sekitar 1.400 panggilan tombol Suggestion | **$0** — kredit program KADA, di luar tagihan AWS |
 | **Total** | **$28–36**, atau **$13–21** dengan free tier |
 
-> ⚠️ Seluruh angka berasal dari daftar harga terbitan AWS untuk `ap-southeast-1` dan **belum diverifikasi lewat AWS Pricing Calculator**. Wajib diperiksa sebelum masuk [DEPLOYMENT.md](DEPLOYMENT.md).
+> ⚠️ **Seluruh angka pada pasal ini belum berlaku.** Dua sebab, dan keduanya menumpuk:
+>
+> 1. Angkanya disusun untuk **`ap-southeast-1`**, sedangkan region sudah berpindah ke `ap-southeast-3` (CK-16). Jakarta lazimnya lebih mahal daripada Singapura.
+> 2. Angkanya **belum pernah diverifikasi** lewat AWS Pricing Calculator, bahkan untuk region yang lama.
+>
+> Perkiraan pembanding kedua region sudah disusun dan tersimpan: [https://calculator.aws/#/estimate?id=5ec85f81287d121b6209e62fa01954076ba236a4](https://calculator.aws/#/estimate?id=5ec85f81287d121b6209e62fa01954076ba236a4). Membukanya menampilkan biaya RDS dan NAT instance untuk keduanya berdampingan. **Wajib diselesaikan sebelum masuk [DEPLOYMENT.md](DEPLOYMENT.md).**
 
 ### 8.3 Yang perlu diperhatikan
 
@@ -238,7 +243,8 @@ Apabila keduanya berhasil, tagihan turun ke sekitar **$6–11 per bulan**.
 | 4 | Nama domain dan penerbitan sertifikat | Pihak sekolah | Menentukan modul `frontend` pada Terraform |
 | 5 | Apakah `dev` memerlukan RDS tersendiri atau cukup PostgreSQL lokal | Keputusan tim | Menentukan biaya lingkungan `dev` |
 | 6 | Apakah `mlapi.run` dapat dihubungi lewat IPv6, sehingga NAT instance dapat digantikan Egress-only Internet Gateway | Uji jaringan saat infrastruktur naik | Menghemat ~$8 per bulan, yaitu 28% tagihan (§8.3) |
-| 7 | Status kelayakan free tier akun AWS tim | Pemeriksaan akun | Menentukan apakah tagihan ~$28 atau ~$13 per bulan |
+| 7 | Status kelayakan free tier akun AWS tim **pada `ap-southeast-3`** | Pemeriksaan akun | Menentukan apakah tagihan ~$28 atau ~$13 per bulan. Perlu diperiksa ulang setelah perpindahan region (CK-16) |
+| 9 | **Biaya sesungguhnya di `ap-southeast-3`** | Membuka perkiraan pembanding yang sudah disusun pada §8.2 | Menuntaskan seluruh pasal biaya, yang sampai kini belum pernah terverifikasi |
 | 8 | Apakah cold start ~0,8–1,5 detik dapat diterima pengguna | UAT | Apabila tidak, jalur naiknya provisioned concurrency atau ECS Fargate memakai image yang sama (CK-13) |
 
 Temuan RFC-001 §10 yang masih terbuka — T-01, T-02, T-04, T-05, dan T-06 — bersifat produk dan tidak dipengaruhi pilihan teknologi mana pun pada dokumen ini. T-03 ditutup oleh §5.
@@ -424,6 +430,29 @@ Bernomor dan bertanggal. Entri tidak disunting; perubahan keputusan ditulis seba
 
 ---
 
+### CK-16 · 7 Agustus 2026 · Region berpindah ke Jakarta — mengamandemen §2
+
+**Diputuskan.** Seluruh sumber daya ditempatkan di **`ap-southeast-3` (Jakarta)**, menggantikan `ap-southeast-1` (Singapura). Sertifikat ACM untuk CloudFront tetap wajib di `us-east-1`, dan CloudFront sendiri bersifat global.
+
+**Alasan.**
+
+1. **Kedudukan data.** EduTrack menyimpan data akademik **anak di bawah umur**. Menempatkannya di dalam negeri menjawab persoalan lokasi data alih-alih menundanya. Ini menyentuh **V6** pada [ATURAN-DAN-KRITERIA §5](ATURAN-DAN-KRITERIA.md), yang masih menunggu validasi sekolah mengenai kebijakan privasi dan penyimpanan — dan region Jakarta membuat butir itu lebih mudah dijawab, bukan lebih sulit.
+2. **Latensi.** Seluruh pengguna berada di Indonesia. Singapura sekitar 30–50 milidetik, sedangkan in-region satu digit milidetik.
+
+**Yang diperiksa sebelum diputuskan.** `db.t4g.micro` beserta penyimpanan gp3, dan `t4g.nano` untuk NAT instance, **seluruhnya diterima AWS Pricing Calculator pada `ap-southeast-3`** — sehingga ketersediaannya di Jakarta bukan lagi dugaan. Perkiraan pembandingnya tersimpan pada https://calculator.aws/#/estimate?id=5ec85f81287d121b6209e62fa01954076ba236a4.
+
+**Yang belum diperiksa.** Besaran biayanya. MCP `aws-calculator` gagal menghitung karena cacat pada peramban headless-nya, dan angka §8.2 karenanya tetap belum terverifikasi — keadaan yang sudah berlaku sebelum keputusan ini, kini ditambah region yang berubah.
+
+**Alternatif yang ditolak.** *Bertahan di `ap-southeast-1`.* Lebih murah, lebih matang, dan seluruh perkiraan biaya sudah disusun untuknya. Ditolak karena tidak menjawab kedudukan data, dan karena selisih biaya pada skala 379 pengguna berukuran beberapa dolar per bulan — tidak sebanding dengan pertanyaan yang ditinggalkannya terbuka.
+
+**Konsekuensi yang diterima.**
+
+1. **Biaya naik dengan besaran yang belum diketahui.** Region baru lazimnya lebih mahal.
+2. **Region yang jauh lebih muda**, sehingga layanan baru kerap datang belakangan. Seluruh layanan yang dipakai EduTrack sudah tersedia di sana.
+3. **Kelayakan free tier RDS perlu diperiksa ulang** untuk region ini, dan menjadi butir tersendiri pada §9.
+
+---
+
 ## Riwayat
 
 | Tanggal | Perubahan |
@@ -435,3 +464,4 @@ Bernomor dan bertanggal. Entri tidak disunting; perubahan keputusan ditulis seba
 | 6 Agustus 2026 | **Versi 2.0 — dokumen dipecah tiga.** Isi yang menjelaskan hubungan antar bagian dipindahkan ke [ARCHITECTURE.md](ARCHITECTURE.md), dan isi yang menjelaskan penerapan serta operasional dipindahkan ke [DEPLOYMENT.md](DEPLOYMENT.md). Dokumen ini menyusut menjadi pilihan teknologi beserta alasannya. Ditambahkan **CK-15** yang menetapkan skrip pemasangan tunggal untuk on-prem, melengkapi CK-12. Butir §16 mengenai sisa kredit KADA dan persetujuan sekolah dihapus atas keputusan tim; butir mengenai bentuk endpoint Elice ditutup dan dipindahkan ke §6 |
 | 6 Agustus 2026 | Waktu render berkas rapor pada §2 disesuaikan mengikuti **CK-A-07** pada [ARCHITECTURE.md](ARCHITECTURE.md), yang mengamandemen **CK-09**. Amandemennya ditulis di sana, bukan di sini, karena isi yang dirujuk CK-09 sudah berpindah ke `ARCHITECTURE.md` pada pemecahan 6 Agustus 2026 |
 | 7 Agustus 2026 | **§7 menjadi empat rahasia.** Ditambahkan kredensial `edutrack_owner` dengan perlakuan sama seperti `app_rw`, beserta kolom **dibaca oleh** yang menyatakan pembatasan IAM per rahasia. Menutup temuan **S-03** pada [SCHEMA.md](SCHEMA.md) §12. Dicatat pula bahwa pemisahan pembaca tidak tersedia di on-prem |
+| 7 Agustus 2026 | **Region berpindah dari `ap-southeast-1` ke `ap-southeast-3` (Jakarta)** — **CK-16**, mengamandemen §2. Didorong kedudukan data akademik anak di bawah umur dan latensi pengguna. Ketersediaan `db.t4g.micro` dan `t4g.nano` di Jakarta terbukti lewat AWS Pricing Calculator; besaran biayanya belum. Peringatan §8.2 diperluas: angkanya kini salah region **dan** belum pernah diverifikasi |

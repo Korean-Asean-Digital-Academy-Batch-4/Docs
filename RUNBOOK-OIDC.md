@@ -199,7 +199,7 @@ jobs:
         with:
           role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
           role-session-name: uji-oidc
-          aws-region: ap-southeast-1
+          aws-region: ap-southeast-3
 
       - name: Buktikan identitas yang diperoleh
         run: aws sts get-caller-identity
@@ -298,3 +298,4 @@ Trust policy saat ini hanya menerima baris pertama. Itu disengaja: **pull reques
 | 7 Agustus 2026 | Runbook dibuat. Menjalankan keputusan `DEPLOYMENT.md` §9.4 dan CK-D-01 |
 | 7 Agustus 2026 | Ditambahkan §2.2 cara mendapatkan ARN role, dan Bagian 3 diperinci sampai tingkat letak menu. Versi pertama menulis "salin ARN-nya" tanpa menjelaskan di mana nilainya berada |
 | 7 Agustus 2026 | Teks pengganti pengenal akun pada trust policy diubah menjadi `GANTI-DENGAN-ID-AKUN` dan diberi peringatan tepat di bawah bloknya, setelah penempelan apa adanya terbukti menghasilkan role yang menunjuk akun tidak ada. Ditambahkan cara memastikan lewat kolom **Trusted entities**, dan penyebab ini dinaikkan menjadi baris pertama tabel diagnosa |
+| 7 Agustus 2026 | `aws-region` pada workflow disesuaikan menjadi `ap-southeast-3` mengikuti **CK-16**. Tidak memengaruhi jabat tangan OIDC, yang tidak terikat region |

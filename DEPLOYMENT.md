@@ -468,17 +468,17 @@ IAM di sini **memperkuat jaminan basis data, bukan mengulanginya**: [SCHEMA.md �
 
 ```ini
 [profile andreas]
-region = ap-southeast-1
+region = ap-southeast-3
 
 [profile edutrack]
-region           = ap-southeast-1
+region           = ap-southeast-3
 role_arn         = arn:aws:iam::<ID-AKUN>:role/edutrack-terraform
 source_profile   = andreas
 mfa_serial       = arn:aws:iam::<ID-AKUN>:mfa/Andreas
 duration_seconds = 14400
 
 [profile edutrack-ro]
-region         = ap-southeast-1
+region         = ap-southeast-3
 role_arn       = arn:aws:iam::<ID-AKUN>:role/edutrack-readonly
 source_profile = andreas
 mfa_serial     = arn:aws:iam::<ID-AKUN>:mfa/Andreas
@@ -607,3 +607,4 @@ Tiga lapis berasal dari peninjauan `schema-evolution-and-contract-migrations` da
 | 6 Agustus 2026 | **Versi 0.2 — Pasal 9 Identitas dan akses ditulis.** Ditetapkan dua IAM user bernama orang, satu grup `Edutrack-dev` dengan dua customer managed policy, dan tujuh role: dua dipinjam manusia, dua dipinjam GitHub Actions lewat OIDC, dan tiga untuk fungsi Lambda serta NAT instance. Seluruh jalur mesin tanpa access key. Pasal ini ditulis mendahului pasal lain karena Terraform tidak dapat dijalankan tanpanya. Lampiran Catatan Keputusan dibuka dengan **CK-D-01**. Dicatat pula keadaan penerapan per 6 Agustus 2026 pada §9.9 |
 | 7 Agustus 2026 | **Versi 0.3 — Pasal 2, 3, dan 6 ditulis.** Ditetapkan **skema B** (**CK-D-02**): Terraform memiliki cangkang fungsi, CI memiliki isinya, dan `ignore_changes` dipasang di **dua** tempat — `image_uri` pada fungsi dan `function_version` pada alias. Yang kedua ditemukan belakangan dan lebih berbahaya, karena memindahkan alias adalah tindakan rilis itu sendiri. Ditolak: tag `:latest`, skema A, dan pemecahan Terraform menjadi `app/`. Dicatat delapan lubang yang diketahui beserta penutupnya. Pasal 6 menetapkan lima aturan migrasi kompatibel mundur, yang wajib berlaku sebelum migrasi 0001 ditulis. Nama repositori pada §9.4 dikoreksi menjadi `Korean-Asean-Digital-Academy-Batch-4/backend` |
 | 7 Agustus 2026 | Ditambahkan **§6.5 Enam lapis penjagaan** beserta **CK-D-03**: header klasifikasi, penamaan `expand`/`contract`, linter `squawk`, konfirmasi pemakai sebelum `contract`, tes rilis sebelumnya terhadap skema baru, dan latihan rollback sungguhan. Tiga lapis di antaranya lahir dari peninjauan kumpulan skill data engineering pihak ketiga. Ditolak: compatibility view, dual write, dan migrasi turun |
+| 7 Agustus 2026 | Region pada §9.6 disesuaikan menjadi `ap-southeast-3` mengikuti **CK-16** pada [Techstack.md](Techstack.md) |

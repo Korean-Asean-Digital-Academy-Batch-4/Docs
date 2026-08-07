@@ -95,7 +95,7 @@ Kegagalan kewenangan dijawab **`403`, bukan `404`**, sesuai [ARCHITECTURE.md §9
 
 | Aspek | Ketentuan |
 |---|---|
-| Zona waktu | **`Asia/Jakarta`** untuk seluruh penafsiran tanggal, termasuk penentuan "hari ini" pada sesi presensi. Region AWS `ap-southeast-1` berzona UTC+8 dan **tidak** dipakai sebagai acuan |
+| Zona waktu | **`Asia/Jakarta`** untuk seluruh penafsiran tanggal, termasuk penentuan "hari ini" pada sesi presensi. Region AWS `ap-southeast-3` kebetulan juga berzona UTC+7, tetapi kesamaan itu **tidak dijadikan sandaran** — zona waktu ditulis eksplisit agar tidak bergantung pada setelan server |
 | Momen | ISO 8601 beserta offset, misalnya `2026-08-06T14:30:00+07:00` |
 | Tanggal kalender | `YYYY-MM-DD`, tanpa waktu dan tanpa zona |
 | Nilai dan persentase | Angka JSON dengan paling banyak dua desimal |
@@ -964,3 +964,4 @@ Pembuatan massal juga membuat I-19 ditegakkan sejak awal: `uq_rapor_siswa_period
 | 6 Agustus 2026 | Sesi presensi berpindah dari ditulis-saat-dibuka menjadi ditulis oleh transaksi Simpan Presensi (**CK-API-11**, mengamandemen CK-API-05). Perpindahan ini menutup **A-01**: pertentangan yang dilaporkannya berasal dari CK-API-05, bukan dari dokumen sumber, dan tidak ada usulan perubahan bagi PRD. Ditambahkan `GET /api/penugasan/:id/siswa` |
 | 6 Agustus 2026 | Berkas rapor dirender pada saat finalisasi dengan anggaran lunak 20 detik, dan ditambahkan `GET /api/kelas/:id/rapor/berkas` yang mengembalikan arsip ZIP sekelas (**CK-API-12**, mengamandemen CK-API-10 dan CK-09). Jalur render-saat-unduh tetap ada dan tidak berubah, karena CK-A-05 menuntutnya. Ditambahkan §13.3 yang mewajibkan pengukuran lama render sebelum keputusan ini dianggap terbukti |
 | 6 Agustus 2026 | **A-02** ditetapkan: catatan wali bersifat per siswa karena melekat pada rapor siswa. **A-05** ditetapkan sebagai asumsi: tidak ada perpindahan siswa di tengah semester selama pilot. Jumlah endpoint dikoreksi dari tiga puluh menjadi **empat puluh tiga**, sesuai peta pada §4, dan daftar §11 menyusut menjadi tiga belas butir setelah unduh sekelas dipindahkan menjadi endpoint |
+| 7 Agustus 2026 | Catatan zona waktu pada §2.4 disesuaikan mengikuti perpindahan region ke `ap-southeast-3` (**CK-16**). Ketentuannya tidak berubah: `Asia/Jakarta` tetap ditulis eksplisit dan tidak menyandar pada zona waktu server |
