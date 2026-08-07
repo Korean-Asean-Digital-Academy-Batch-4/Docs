@@ -41,6 +41,9 @@ Prosedur yang dijalankan tangan. Runbook **tidak menetapkan apa pun** — ia men
 | Dokumen | Isi |
 |---|---|
 | [RUNBOOK-OIDC.md](./RUNBOOK-OIDC.md) | Menyiapkan OIDC GitHub Actions ke AWS, langkah demi langkah, beserta diagnosa kegagalannya |
+| [Gitaction.md](./Gitaction.md) | 🔴 **Sedang berjalan.** Catatan penelusuran jabat tangan OIDC yang masih ditolak: apa yang sudah terbukti, apa yang sudah dicoba, apa yang belum terlihat |
+
+Catatan penelusuran seperti `Gitaction.md` bersifat **sementara**. Ia ditutup, diringkas menjadi satu baris riwayat, lalu dihapus begitu persoalannya selesai.
 
 ### Dokumen yang sudah dihapus
 
