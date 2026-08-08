@@ -582,7 +582,9 @@ Tiga role, bukan dua. Migrasi memerlukan role tersendiri yang memiliki seluruh o
 -- Kedua role aplikasi dibuat lebih dahulu; GRANT di bawahnya mustahil tanpa keduanya ada.
 -- Dibuat TANPA kata sandi: nilainya ditetapkan di luar migrasi (Techstack §7 butir 1),
 -- sehingga tidak ada satu pun kata sandi di dalam repositori. Role LOGIN tanpa kata sandi
--- tidak dapat diautentikasi scram, sehingga keadaan antara tidak membuka apa pun.
+-- ditolak scram, md5, dan password — TETAPI TIDAK ditolak trust, peer, maupun cert.
+-- Keamanan jendela ini karenanya bergantung pada metode otentikasi cluster, bukan pada
+-- migrasi ini. Lihat S-06.
 DO $$
 BEGIN
     IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'app_rw') THEN
@@ -833,7 +835,7 @@ Celah yang ditemukan saat menurunkan skema fisik. Perlu ditanggapi tim.
 | S-03 | ~~Kredensial role pemilik tidak tercatat pada `Techstack.md` §7~~ | **Ditutup 7 Agustus 2026.** `Techstack.md` §7 kini memuat empat rahasia; `edutrack_owner` diperlakukan sama seperti `app_rw`, dan hanya dapat dibaca role `edutrack-lambda-migrate` ([DEPLOYMENT.md §9.5](DEPLOYMENT.md)) |
 | S-04 | ~~`tingkat` dibatasi `CHECK (... IN ('X','XI','XII'))`, sehingga skema ini mengikat produk pada jenjang SMA/SMK~~ | **Ditutup 8 Agustus 2026.** Sekolah menyatakan MVP mencakup jenjang SMA saja. `CHECK` dipertahankan apa adanya. Apabila jenjang SMP masuk cakupan kelak, perluasannya tetap satu `ALTER TABLE` sesuai alasan CK-S-02 |
 | S-05 | [ARCHITECTURE.md §11.2](ARCHITECTURE.md) mewajibkan penghapusan berkas rapor dari S3 pada koreksi Administrator, di dalam transaksi yang sama. Basis data tidak dapat menjamin keberhasilan operasi S3 di dalam transaksinya | Tetapkan urutannya pada `API.md`: hapus objek S3 lebih dahulu, baru `COMMIT`; kegagalan penghapusan membatalkan transaksi. Kosongkan `rapor.kunci_berkas` pada transaksi yang sama |
-| S-06 | Migrasi 0009 membuat `app_rw` dan `app_ro` tanpa kata sandi (CK-S-09), sehingga penerapan pertama pada lingkungan baru memiliki satu langkah penetapan kata sandi yang tidak dilakukan migrasi | Catat langkah tersebut pada [DEPLOYMENT.md](DEPLOYMENT.md) sebagai bagian penerapan pertama, sebelum penerapan sungguhan. Tidak menghalangi pengembangan maupun uji lokal |
+| S-06 | Migrasi 0009 membuat `app_rw` dan `app_ro` tanpa kata sandi (CK-S-09). Jendela antara pembuatan role dan penetapan kata sandinya **tidak tertutup oleh migrasi**: role `LOGIN` tanpa kata sandi ditolak `scram-sha-256`, `md5`, dan `password`, tetapi diterima `trust`, `peer`, dan `cert`. Pada on-prem, image PostgreSQL resmi menyisakan `local all all trust` untuk soket unix | Dua langkah pada [DEPLOYMENT.md](DEPLOYMENT.md). **Satu:** tetapkan kata sandi kedua role sebagai bagian penerapan pertama, sebelum layanan apa pun menyala. **Dua:** verifikasi metode otentikasi — pada on-prem setel `POSTGRES_HOST_AUTH_METHOD=scram-sha-256` dan hapus baris `trust`, pada RDS cukup dicatat bahwa `pg_hba.conf` memang tidak dapat disunting. Tidak menghalangi pengembangan maupun uji lokal, yang basis datanya berumur satu proses |
 | S-07 | Pasal 2 menetapkan awalan `fk_` bagi nama constraint dengan alasan P21 — pesan PostgreSQL menyebut nama constraint, dan nama yang berbicara mempercepat penerjemahannya menjadi pesan bagi pengguna. Namun DDL Pasal 4 memakai `REFERENCES` sebaris untuk seluruh foreign key kolom tunggal, sehingga yang terbentuk adalah nama bawaan `nilai_siswa_ref_fkey`. Ketidaksesuaian berada **di dalam dokumen ini**, bukan antara kode dan dokumen; migrasi 0001–0007 mengikuti Pasal 4 apa adanya | Putuskan yang mana yang berlaku sebelum lapisan rute menerjemahkan galat menjadi pesan Indonesia (A6). Menamainya berarti satu migrasi `expand` berisi `ALTER TABLE ... RENAME CONSTRAINT` atas dua puluh satu foreign key — aman karena tidak menyentuh data, tetapi hanya bernilai bila pesan pengguna memang diturunkan dari nama constraint |
 
 Temuan **T-01, T-04, T-05, dan T-06** pada [RFC-001 §10](RFC-001-model-data-konseptual.md) masih terbuka dan bersifat produk. Tidak satu pun terpengaruh keputusan pada dokumen ini.
@@ -959,7 +961,13 @@ Kata sandinya tidak ikut karena [Techstack.md §7](Techstack.md) butir 1 menempa
 
 **Alternatif yang ditolak.** *Membuat role di luar migrasi seluruhnya — Terraform atau prosedur manual.* Sejalan dengan pemisahan cangkang dan isi CK-D-02, tetapi menjadikan migrasi 0009 gagal pada basis data yang belum disiapkan tangan, termasuk kontainer uji yang menyala dan mati pada setiap kali tes berjalan. *`CREATE ROLE` beserta kata sandi acak di dalam migrasi.* Menempatkan kata sandi ke dalam repositori, melanggar Techstack §7.
 
-**Konsekuensi yang diterima.** Terdapat keadaan antara: role sudah ada tetapi belum dapat dipakai masuk sampai kata sandinya ditetapkan. Keadaan tersebut tidak membuka apa pun — role `LOGIN` tanpa kata sandi ditolak autentikasi scram — tetapi berarti penerapan pertama pada lingkungan baru memiliki satu langkah yang tidak dilakukan migrasi, dan langkah itu wajib tercatat pada [DEPLOYMENT.md](DEPLOYMENT.md) sebelum penerapan sungguhan. Diajukan sebagai temuan **S-06** pada Pasal 12.
+**Konsekuensi yang diterima.** Terdapat keadaan antara: role sudah ada tetapi kata sandinya belum ditetapkan.
+
+Keadaan itu **tidak sepenuhnya tertutup**, dan pernyataan sebaliknya pada versi pertama catatan ini keliru. Role `LOGIN` tanpa kata sandi memang ditolak `scram-sha-256`, `md5`, dan `password` — tetapi **tidak** ditolak `trust`, `peer`, maupun `cert`. Yang menutup jendela ini bukan migrasi melainkan metode otentikasi cluster, dan migrasi tidak dapat menjaminnya karena `pg_hba.conf` berada di luar jangkauannya.
+
+Di RDS jendela ini praktis tertutup: `pg_hba.conf` tidak dapat disunting pelanggan dan koneksi selalu lewat jaringan. Di on-prem tidak demikian — image PostgreSQL resmi menyisakan `local all all trust` untuk soket unix, sehingga proses lain pada server yang sama dapat masuk sebagai `app_rw` selama jendela itu terbuka.
+
+Penerapan pertama karenanya memiliki satu langkah yang tidak dilakukan migrasi, dan langkah itu wajib tercatat pada [DEPLOYMENT.md](DEPLOYMENT.md) sebelum penerapan sungguhan. Diajukan sebagai temuan **S-06** pada Pasal 12.
 
 ### CK-S-10 · 8 Agustus 2026 · Catatan penerapan migrasi berada di skema tersendiri
 
@@ -988,3 +996,4 @@ Manfaat kedua bersifat hak akses: Pasal 7 memberikan `USAGE` atas `public` saja,
 | 8 Agustus 2026 | §9.1 dilengkapi catatan penerapan migrasi `migrasi.diterapkan` pada skema tersendiri (**CK-S-10**). Celah ini terlihat dari `DEPLOYMENT.md` §3.3 langkah 6 yang memanggil fungsi `migrate` pada setiap rilis: penerap tanpa catatan gagal pada rilis kedua. Ditempatkan di luar `public` agar Pasal 3 tetap menyebut sembilan belas tabel tanpa pengecualian, dan agar `app_rw` maupun `app_ro` tidak memperolehnya |
 | 8 Agustus 2026 | **Butir 1 pada Pasal 13 ditutup oleh jawaban sekolah:** `nilai` menerima pecahan. `numeric(5,2)` dipertahankan dan validasi Zod menerima paling banyak dua desimal mengikuti `API.md` §2.4, sehingga tidak ada pembulatan yang perlu dilakukan lapisan aplikasi saat menyimpan |
 | 8 Agustus 2026 | Diajukan temuan **S-07**: Pasal 2 menetapkan awalan `fk_` bagi nama constraint, sedangkan DDL Pasal 4 memakai `REFERENCES` sebaris sehingga foreign key kolom tunggal terbentuk dengan nama bawaan PostgreSQL. Terlihat saat menurunkan Pasal 4 menjadi migrasi dan membandingkannya dengan keluaran `drizzle-kit` |
+| 8 Agustus 2026 | **Klaim pada CK-S-09 dipersempit setelah tinjauan keamanan.** Pernyataan bahwa jendela antara pembuatan role dan penetapan kata sandinya "tidak membuka apa pun" keliru: role `LOGIN` tanpa kata sandi ditolak `scram-sha-256`, `md5`, dan `password`, tetapi **diterima** `trust`, `peer`, dan `cert`. Yang menutup jendela itu adalah metode otentikasi cluster, bukan migrasi. Pasal 7 dan temuan **S-06** disesuaikan; S-06 kini menuntut dua langkah, bukan satu |
