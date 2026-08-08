@@ -100,6 +100,10 @@ Setiap policy menyebut sumber daya lewat ARN-nya. Itulah cara "boleh membaca rah
 | **TLS** | **T**ransport **L**ayer **S**ecurity | Enkripsi yang membuat HTTPS aman |
 | **CA** | **C**ertificate **A**uthority | Penerbit sertifikat yang dipercaya peramban |
 | **DNS** | **D**omain **N**ame **S**ystem | Penerjemah nama domain menjadi alamat IP |
+| **NS** | **N**ame **S**erver | Mesin yang menjawab pertanyaan DNS untuk sebuah domain. Didelegasikan ke Cloudflare, sekali saja di registrar (CK-17) |
+| **CNAME** | **C**anonical **NAME** | Record DNS yang mengarahkan satu nama ke nama lain, bukan ke alamat IP |
+| **Proxied** | — | Record CNAME yang trafiknya melewati jaringan Cloudflare. **Wajib** untuk Cloudflare Tunnel, **wajib mati** untuk CloudFront (CK-17) |
+| **Cloudflare Tunnel** | — | Jalan masuk on-prem. Proses `cloudflared` membuka koneksi keluar ke Cloudflare, sehingga server sekolah tidak memerlukan IP publik maupun port terbuka (CK-17) |
 | **IP** | **I**nternet **P**rotocol | Alamat numerik sebuah mesin di jaringan |
 | **CORS** | **C**ross-**O**rigin **R**esource **S**haring | Aturan peramban saat halaman memanggil domain lain. **Hilang seluruhnya** karena frontend dan API satu domain |
 | **CSRF** | **C**ross-**S**ite **R**equest **F**orgery | Serangan yang menumpang sesi pengguna dari situs lain |
@@ -211,3 +215,4 @@ Istilah produk selengkapnya pada [PRD.md Lampiran A](PRD.md). Yang berupa singka
 | Tanggal | Perubahan |
 |---|---|
 | 7 Agustus 2026 | Dokumen dibuat setelah ditemukan bahwa **ARN** dan puluhan singkatan lain dipakai di seluruh dokumen tanpa pernah dijelaskan. Ditetapkan pula aturan bahwa singkatan dijelaskan pada pemakaian pertama dan terdaftar di sini |
+| 8 Agustus 2026 | §3 memperoleh empat istilah yang dibutuhkan **CK-17**: **NS**, **CNAME**, **Proxied**, dan **Cloudflare Tunnel**. Dua yang terakhir dicantumkan meski bukan singkatan, karena arah proxy yang berlawanan antara CloudFront dan Tunnel adalah sumber kekeliruan yang paling mudah terjadi |

@@ -478,14 +478,38 @@ Pembacaan melewati interface `Secrets` di `ports/`, dengan dua implementasi: `ad
 | Pembatasan laju | ✅ | Tidak disentuh — berada di dalam aplikasi (Pasal 7) |
 | Dua role basis data | ✅ | Tidak disentuh — `app_rw` dan `app_ro` dibuat skrip pemasangan |
 | Basis data | ✅ | RDS PostgreSQL adalah PostgreSQL biasa. `pg_dump` lalu `pg_restore`; yang berubah hanya `DATABASE_URL` |
-| Frontend | ✅ | Berkas statis yang sama disajikan Nginx, atau langsung oleh Express |
+| Frontend | ✅ | Berkas statis yang sama disajikan Caddy, atau langsung oleh Express |
 | Penyimpanan berkas | ⚠️ | Tetap S3, atau ditukar ke MinIO maupun disk lokal lewat `adapters/local` |
 | Rahasia | ⚠️ | Secrets Manager dan SSM ditukar berkas `.env` berizin `600` (Pasal 12.1) |
 | Penyedia AI | ⚠️ | Elice AI Cloud tetap dipakai, atau diarahkan ke penyedia lain maupun model yang dipasang sendiri. Karena antarmukanya setara OpenAI, yang berubah hanya base URL dan kunci API (Pasal 10.2) |
 | Connection pool | ⚠️ | `max: 1` menjadi `max: 10`. **Satu baris konfigurasi**, dibaca dari variabel lingkungan |
-| CloudFront, Function URL, dan NAT | ❌ | Digantikan reverse proxy tunggal, misalnya Nginx atau Caddy |
+| CloudFront, Function URL, dan NAT | ❌ | Digantikan **Caddy** sebagai reverse proxy tunggal. Pembagian path `/*` dan `/api/*` pada Pasal 3 berpindah ke sana |
+| Jalan masuk dari internet | ❌ | Digantikan **Cloudflare Tunnel**. `cloudflared` berjalan sebagai service kedua pada `docker-compose.yml` on-prem (CK-17) |
 
 Yang berpindah bersama sistem adalah tanggung jawab operasional: pencadangan, pembaruan keamanan, enkripsi at-rest, dan risiko perangkat keras menjadi urusan pemilik server.
+
+### 13.1 Jalan masuk on-prem
+
+Server sekolah tidak memiliki alamat masuk yang dapat dihubungi dari internet, dan tidak boleh menuntut satu pun. **Cloudflare Tunnel** menyelesaikannya dengan membalik arah: `cloudflared` membuka koneksi **keluar** ke Cloudflare, lalu trafik masuk mengalir balik lewat koneksi itu.
+
+```
+Pengguna ──► Cloudflare
+                  ╎
+                  ╎ koneksi dibuka dari dalam ke luar
+                  ╎ oleh server sekolah, bukan sebaliknya
+   ┌──────────────╎───────────────────────────────────┐
+   │ Server sekolah                                   │
+   │              ▼                                   │
+   │        cloudflared ──► Caddy ──┬──► /*    statis │
+   │                                └──► /api/* :8080 │
+   └──────────────────────────────────────────────────┘
+```
+
+Tiga akibatnya langsung. **Tidak ada port yang dibuka di router sekolah**, sehingga pemasangan tidak bergantung pada kerja sama admin jaringan dan tidak menambah permukaan serangan. **IP publik statis tidak diperlukan**, sehingga sambungan internet sekolah yang biasa sudah cukup. **TLS tidak perlu diurus**, yang penting karena cookie sesi `HttpOnly` pada Pasal 12 menuntut HTTPS sementara sekolah tidak memiliki staf untuk memperbarui sertifikat.
+
+**Janji satu domain pada Pasal 3 tetap utuh.** Caddy menempati peran yang di AWS dipegang CloudFront — satu hostname, dua tujuan, dibagi berdasarkan path. Frontend tetap memanggil `/api/...` secara relatif, sehingga CORS tetap tidak ada dan tidak ada base URL yang berbeda antar lingkungan.
+
+**Yang tidak ikut berpindah** adalah OAC dan `auth_type = AWS_IAM`. Keduanya mekanisme AWS, dan tidak memiliki padanan di sini. Perlindungan on-prem karenanya bertumpu pada tunnel sebagai satu-satunya jalan masuk dan pada pemeriksaan kewenangan di dalam aplikasi (Pasal 9), bukan pada lapisan infrastruktur.
 
 **Tidak ada lapisan abstraksi yang dibangun khusus demi portabilitas.** Portabilitas berasal dari bentuk artefaknya — sebuah container — dan dari kenyataan bahwa tim menjalankan container yang sama setiap hari.
 
@@ -647,3 +671,4 @@ Keberatan kedua CK-09 — tidak ada manfaat produk karena rapor tidak selalu diu
 | 6 Agustus 2026 | Pasal 11 ditulis ulang: berkas rapor dirender pada saat finalisasi dengan anggaran lunak 20 detik, render-saat-unduh menjadi jalur cadangan yang tidak dapat dihapus, dan ditambahkan unduh sekelas berbentuk arsip ZIP yang tidak merender apa pun (**CK-A-07**, mengamandemen CK-09). Batas waktu fungsi pada Pasal 6 disesuaikan: request terpanjang kini finalisasi sekelas, bukan render satu PDF |
 | 7 Agustus 2026 | Region pada Pasal 2 dan peringatan ACM pada §12.2 disesuaikan menjadi `ap-southeast-3` mengikuti **CK-16** pada [Techstack.md](Techstack.md). Kewajiban ACM di `us-east-1` tidak berubah |
 | 7 Agustus 2026 | Cuplikan Dockerfile pada Pasal 6 disesuaikan menjadi dua tahap, mengikuti bentuk yang terpasang dan terbukti jalan di repositori backend. Bentuk satu tahap sebelumnya mengandaikan `dist/` sudah dibangun di luar image. Salinan Lambda Web Adapter, `PORT`, `AWS_LWA_READINESS_CHECK_PATH`, dan `CMD` tidak berubah |
+| 8 Agustus 2026 | **Pasal 13 memperoleh §13.1 Jalan masuk on-prem**, mengikuti **CK-17** pada [Techstack.md](Techstack.md). Reverse proxy on-prem ditetapkan **Caddy** menggantikan penyebutan "Nginx atau Caddy" yang belum memilih, dan jalan masuk dari internet ditetapkan **Cloudflare Tunnel** sebagai baris tersendiri pada tabel portabilitas. Dicatat pula bahwa OAC dan `auth_type = AWS_IAM` tidak memiliki padanan on-prem, sehingga perlindungan bertumpu pada tunnel dan pemeriksaan kewenangan di dalam aplikasi. Susunan AWS pada Pasal 2, 3, dan 7 tidak berubah |

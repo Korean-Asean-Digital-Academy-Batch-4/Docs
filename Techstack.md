@@ -53,6 +53,8 @@ Prinsip keempat — bahwa yang dapat dijamin basis data tidak diserahkan kepada 
 | **IaC** | Terraform | — |
 | **CI/CD** | GitHub Actions + OIDC | — |
 | **Pemasangan on-prem** | Skrip `install.sh` tunggal, idempoten | — |
+| **Nama domain dan DNS** | Satu domain, Cloudflare sebagai nameserver otoritatif untuk AWS maupun on-prem — CK-17 | — |
+| **Jalan masuk on-prem** | Cloudflare Tunnel (`cloudflared`) — CK-17 | — |
 | **Region** | **ap-southeast-3 (Jakarta)** — CK-16. Sertifikat ACM untuk CloudFront tetap `us-east-1` | — |
 
 **Yang sengaja tidak dipakai:** API Gateway, Application Load Balancer, ECS, SQS, Cognito, Bedrock, dan Ansible. Alasan masing-masing tercatat pada Lampiran Catatan Keputusan.
@@ -453,6 +455,48 @@ Bernomor dan bertanggal. Entri tidak disunting; perubahan keputusan ditulis seba
 
 ---
 
+### CK-17 · 8 Agustus 2026 · Cloudflare menjadi DNS untuk kedua lingkungan; on-prem dijangkau lewat Tunnel
+
+**Diputuskan.** Satu domain dikelola **Cloudflare** sebagai nameserver otoritatif, melayani AWS dan seluruh pemasangan on-prem sekaligus. Delegasi nameserver dilakukan **satu kali** di registrar; sesudahnya setiap lingkungan cukup menambah satu record.
+
+| Nama | Tipe | Menunjuk ke | Proxy Cloudflare |
+|---|---|---|---|
+| `app.edutrack.sch.id` | CNAME | distribusi CloudFront | **mati** — DNS only |
+| record validasi ACM | CNAME | nilai yang diminta ACM `us-east-1` | **mati** — DNS only |
+| `<sekolah>.edutrack.sch.id` | CNAME | `<uuid>.cfargotunnel.com` | **hidup** — Proxied |
+
+**Sisi AWS tidak berubah sama sekali.** CloudFront tetap satu-satunya pintu masuk, OAC dan `auth_type = AWS_IAM` tetap berlaku, dan TLS tetap berasal dari sertifikat ACM. Cloudflare hanya menjawab pertanyaan DNS lalu menyingkir dari jalur trafik.
+
+**Sisi on-prem memakai Cloudflare Tunnel.** Proses `cloudflared` di server sekolah membuka koneksi keluar ke Cloudflare, dan trafik masuk mengalir balik lewat koneksi itu.
+
+**Arah proxy berlawanan antara CloudFront dan Tunnel, dan itu bukan pilihan.** CloudFront wajib DNS only karena memproxy CDN di depan CDN hanya menambah lompatan. Tunnel wajib Proxied karena `cfargotunnel.com` tidak memiliki alamat publik dan hanya dapat dijangkau melalui jaringan Cloudflare — disetel DNS only, record itu tidak akan pernah resolve. Keliru menyeragamkan keduanya adalah kekeliruan yang paling mudah terjadi pada susunan ini.
+
+**Alasan.**
+
+1. **Satu titik kendali.** Dua lingkungan dengan infrastruktur yang sengaja berbeda ([ARCHITECTURE.md §13](ARCHITECTURE.md)) tetap dikelola dari satu zona DNS.
+2. **Server sekolah tidak memerlukan IP publik statis maupun port masuk yang terbuka.** Koneksi dibuka dari dalam ke luar, sehingga pemasangan tidak bergantung pada kerja sama admin jaringan sekolah dan tidak menambah permukaan serangan di router.
+3. **TLS on-prem tanpa mengurus sertifikat.** Diperlukan karena cookie sesi `HttpOnly` menuntut HTTPS, dan sekolah tidak memiliki staf untuk memperbarui sertifikat.
+
+**Penamaan.** Setiap sekolah memperoleh **subdomain di bawah domain tim**, bukan domain miliknya sendiri, sehingga `install.sh` cukup meminta nama sekolah dan zona DNS tetap dipegang satu pihak.
+
+**Alternatif yang ditolak.**
+
+*Cloudflare memproxy CloudFront (awan oranye).* Dua CDN berturut-turut: latensi bertambah dan header `Host` berpotensi tidak dikenali distribusi. Manfaatnya nol karena CloudFront sudah CDN.
+
+*Cloudflare menggantikan CloudFront seluruhnya.* Cloudflare tidak dapat menandatangani SigV4, sehingga Function URL harus turun ke `auth_type = NONE` dan bucket frontend harus meninggalkan OAC. Ini membatalkan ketetapan [ARCHITECTURE.md §7](ARCHITECTURE.md) bahwa tidak ada sumber daya yang dapat dihubungi langsung dari internet, dan memindahkan pembatasan akses dari infrastruktur ke dalam kode aplikasi.
+
+*`cloudflared` dimasukkan ke dalam image dan dijalankan di Lambda.* `cloudflared` menuntut proses yang hidup terus-menerus untuk memelihara koneksi keluarnya, sedangkan Lambda membekukan seluruh execution environment di antara invocation. Trafik tunnel juga bukan invocation, sehingga tidak ada yang membangunkan fungsi ketika request datang. Tunnel dan scale-to-zero saling meniadakan; susunan ini baru mungkin bila compute berpindah ke ECS Fargate (CK-13).
+
+*Setiap sekolah memakai domain miliknya sendiri.* Memberi sekolah kepemilikan penuh, tetapi menuntut tiap sekolah mengurus zona DNS dan token tunnelnya sendiri — bertentangan dengan **CK-15** yang menetapkan pemasangan dapat dijalankan staf TI sekolah dari satu skrip.
+
+**Konsekuensi yang diterima.**
+
+1. **Domain wajib dibeli sebelum pemasangan on-prem pertama.** Selama sistem hanya berjalan di AWS, nama bawaan CloudFront masih cukup dan pembelian dapat ditunda.
+2. **Zona DNS menjadi milik tim, bukan sekolah.** Setiap pemasangan baru menuntut satu record dibuat tim lebih dahulu, sehingga `install.sh` tidak sepenuhnya mandiri.
+3. **Satu pihak ketiga berada di jalur masuk on-prem.** Tunnel yang putus membuat sekolah tidak dapat dijangkau dari luar, meski jaringan lokalnya tetap berjalan.
+
+---
+
 ## Riwayat
 
 | Tanggal | Perubahan |
@@ -465,3 +509,4 @@ Bernomor dan bertanggal. Entri tidak disunting; perubahan keputusan ditulis seba
 | 6 Agustus 2026 | Waktu render berkas rapor pada §2 disesuaikan mengikuti **CK-A-07** pada [ARCHITECTURE.md](ARCHITECTURE.md), yang mengamandemen **CK-09**. Amandemennya ditulis di sana, bukan di sini, karena isi yang dirujuk CK-09 sudah berpindah ke `ARCHITECTURE.md` pada pemecahan 6 Agustus 2026 |
 | 7 Agustus 2026 | **§7 menjadi empat rahasia.** Ditambahkan kredensial `edutrack_owner` dengan perlakuan sama seperti `app_rw`, beserta kolom **dibaca oleh** yang menyatakan pembatasan IAM per rahasia. Menutup temuan **S-03** pada [SCHEMA.md](SCHEMA.md) §12. Dicatat pula bahwa pemisahan pembaca tidak tersedia di on-prem |
 | 7 Agustus 2026 | **Region berpindah dari `ap-southeast-1` ke `ap-southeast-3` (Jakarta)** — **CK-16**, mengamandemen §2. Didorong kedudukan data akademik anak di bawah umur dan latensi pengguna. Ketersediaan `db.t4g.micro` dan `t4g.nano` di Jakarta terbukti lewat AWS Pricing Calculator; besaran biayanya belum. Peringatan §8.2 diperluas: angkanya kini salah region **dan** belum pernah diverifikasi |
+| 8 Agustus 2026 | **Nama domain dan DNS ditetapkan pada CK-17.** Satu domain dikelola Cloudflare sebagai nameserver otoritatif untuk kedua lingkungan: CNAME tanpa proxy ke CloudFront di sisi AWS, dan CNAME ber-proxy ke Cloudflare Tunnel di sisi on-prem, dengan subdomain per sekolah di bawah domain tim. Susunan AWS tidak berubah — OAC, `auth_type = AWS_IAM`, dan sertifikat ACM tetap berlaku. Dicatat pula tiga alternatif yang ditolak, termasuk menjalankan `cloudflared` di dalam Lambda |
