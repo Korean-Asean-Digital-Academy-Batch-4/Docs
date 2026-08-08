@@ -404,7 +404,7 @@ Setiap baris adalah pernyataan yang harus dijamin sistem. `SCHEMA.md` wajib menu
 | I-05 | Satu guru mengampu paling banyak satu mata pelajaran | §8.2 |
 | I-06 | Penugasan hanya sah bila jenjang kelas sama dengan jenjang mata pelajaran | §8.2, AC-24 |
 | I-07 | Satu mata pelajaran pada satu kelas diajar tepat satu guru | turunan I-04 dan I-05 |
-| I-08 | Satu siswa berada pada tepat satu kelas dalam satu semester | jawaban sekolah 7 Agustus 2026, lihat T-02 |
+| I-08 | Satu siswa berada pada tepat satu kelas dalam satu semester | jawaban sekolah 8 Agustus 2026, lihat T-02 |
 | I-09 | Satu kelas memiliki paling banyak satu wali kelas per semester | P3 |
 | I-10 | Jumlah bobot seluruh komponen penilaian tepat 100 | P4, AC-04 |
 | I-11 | KKM bernilai awal 75 dan dapat diubah Administrator | AC-22 |
@@ -520,7 +520,7 @@ Celah yang ditemukan saat menurunkan model data. Perlu ditanggapi tim sebelum `S
 | # | Temuan | Usulan tindakan |
 |---|---|---|
 | T-01 | §8.5 mensyaratkan AI membaca topik, tetapi tidak ada layar mana pun pada [ATURAN-DAN-KRITERIA.md §3](ATURAN-DAN-KRITERIA.md) yang mengisinya | Tambahkan kolom topik pada layar pengisian nilai; sampaikan kepada UI/UX |
-| T-02 | ~~I-08, satu siswa berada pada tepat satu kelas dalam satu semester, tidak dinyatakan eksplisit di PRD~~ | **Ditutup 7 Agustus 2026.** Sekolah menyatakan satu siswa berada pada tepat satu kelas per semester sepanjang MVP, tanpa perpindahan kelas di tengah semester. I-08 bukan lagi asumsi; penegakannya pada [SCHEMA.md §4.2](SCHEMA.md) dipertahankan |
+| T-02 | ~~I-08, satu siswa berada pada tepat satu kelas dalam satu semester, tidak dinyatakan eksplisit di PRD~~ | **Ditutup 8 Agustus 2026.** Sekolah menyatakan satu siswa berada pada tepat satu kelas per semester sepanjang MVP, tanpa perpindahan kelas di tengah semester. I-08 bukan lagi asumsi; penegakannya pada [SCHEMA.md §4.2](SCHEMA.md) dipertahankan |
 | T-03 | §6.1 hanya mengatur pembuatan akun Guru dan Siswa. Tidak ada ketentuan bagaimana akun Administrator dibuat | Tetapkan pada PRD atau `ARCHITECTURE.md`; berkaitan dengan K-01 |
 | T-04 | §9 menyatakan hanya Administrator yang dapat mengubah data final, tetapi rapor sudah berbentuk berkas yang terunduh. Tidak diatur apakah berkas diterbitkan ulang setelah koreksi | Tetapkan pada PRD |
 | T-05 | §8.2 mengunci satu guru satu mata pelajaran, tetapi tidak ada alur pergantian guru pengampu di tengah semester | Tetapkan pada PRD |
@@ -560,4 +560,4 @@ Alasan pemisahan ini tercatat pada [README.md](README.md) §Konvensi Dokumen.
 | 5 Agustus 2026 | Rujukan RFC-002, RFC-003, dan RFC-004 diganti menjadi `ARCHITECTURE.md`, `SCHEMA.md`, dan `API.md`. Dokumen lanjutan ditetapkan berbentuk deskripsi beserta lampiran Catatan Keputusan, bukan RFC tersendiri (§11.1) |
 | 6 Agustus 2026 | §2.3 diubah dari perbandingan ketentuan lama terhadap PRD v3 menjadi pernyataan ketentuan PRD v3.0 yang berlaku. Ketentuan dari dokumen 2 Agustus 2026 tidak lagi dibawa pada dokumen ini. §3.3 dan §5.5 disesuaikan mengikuti perubahan tersebut |
 | 6 Agustus 2026 | §2 dan §7 dinyatakan ulang dari sisi PRD v3.0: gugurnya `SCHEMA-STATIS.md` dan `SCHEMA-DINAMIS.md` didasarkan pada perubahan besar PRD, dan gugurnya entitas beserta atribut didasarkan pada penyempitan cakupan PRD |
-| 7 Agustus 2026 | **T-02 ditutup oleh jawaban sekolah.** Satu siswa berada pada tepat satu kelas per semester sepanjang MVP, tanpa perpindahan kelas di tengah semester. Sumber I-08 pada §6 berubah dari asumsi menjadi jawaban sekolah. Bentuk model data tidak berubah |
+| 8 Agustus 2026 | **T-02 ditutup oleh jawaban sekolah.** Satu siswa berada pada tepat satu kelas per semester sepanjang MVP, tanpa perpindahan kelas di tengah semester. Sumber I-08 pada §6 berubah dari asumsi menjadi jawaban sekolah. Bentuk model data tidak berubah |

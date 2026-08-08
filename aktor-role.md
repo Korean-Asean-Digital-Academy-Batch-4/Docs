@@ -272,7 +272,7 @@ Belum ditetapkan PRD v3.0 dan perlu dikonfirmasi sebelum implementasi kewenangan
 
 | # | Pertanyaan | Dampak apabila belum dijawab |
 |---|---|---|
-| 1 | ~~Dapatkah satu Guru menjadi Wali Kelas pada lebih dari satu kelas dalam satu periode?~~ | **Terjawab 7 Agustus 2026: tidak dapat.** Satu Guru menjadi Wali Kelas paling banyak satu kelas. Ditegakkan `uq_kelas_wali_per_periode` pada [SCHEMA.md §4.2](SCHEMA.md) |
+| 1 | ~~Dapatkah satu Guru menjadi Wali Kelas pada lebih dari satu kelas dalam satu periode?~~ | **Terjawab 8 Agustus 2026: tidak dapat.** Satu Guru menjadi Wali Kelas paling banyak satu kelas. Ditegakkan `uq_kelas_wali_per_periode` pada [SCHEMA.md §4.2](SCHEMA.md) |
 | 2 | Apabila Administrator mengubah nilai setelah rapor berstatus Distributed, apakah berkas rapor yang telah diterima siswa ikut diperbarui? | Berpotensi menimbulkan selisih antara nilai pada sistem dan berkas rapor yang sudah diunduh |
 | 3 | Apakah tindakan Administrator terhadap nilai perlu dibedakan dari tindakan Guru bagi pihak sekolah? | MVP tidak mencatat riwayat perubahan nilai maupun presensi |
 | 4 | Apakah Wali Kelas perlu melihat rincian presensi per tanggal, atau cukup ringkasan persentase? | PRD hanya menyebut ringkasan; rincian per tanggal tidak tersedia |
