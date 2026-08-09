@@ -312,6 +312,7 @@ Dua endpoint: satu **pratinjau yang tidak menulis apa pun**, dan satu **pembuata
 ```http
 POST /api/kelas/pratinjau
 Content-Type: multipart/form-data
+  periode_ref=…
   berkas=<XLSX: Kelas, NIS, Nama>
 ```
 
@@ -326,6 +327,8 @@ Content-Type: multipart/form-data
     ]
 } }
 ```
+
+`periode_ref` wajib menunjuk periode sasaran yang juga akan dikirim pada `POST /api/kelas`; nilai yang tidak ada atau bukan UUID ditolak `400 PERMINTAAN_TIDAK_SAH`. Periode tidak boleh ditebak dari periode aktif karena Administrator dapat menyiapkan semester yang belum aktif (CK-API-14).
 
 `nama_berkas` dan `nama_sistem` ditampilkan berdampingan karena **NIS adalah kunci pencocokan dan nama hanya pemeriksaan** ([PRD §6.1.5](PRD.md) butir 3). Selisih nama tidak menggagalkan pencocokan, tetapi Administrator perlu melihatnya.
 
@@ -975,6 +978,14 @@ Pembuatan massal juga membuat I-19 ditegakkan sejak awal: `uq_rapor_siswa_period
 
 **Alternatif yang ditolak.** *Dua alamat `/guru.csv` dan `/siswa.csv`.* Menambah alamat untuk perbedaan yang sudah dinyatakan oleh parameter `peran` pada endpoint unggah. *Satu templat `Nama,NIP,NIS`.* Selalu menyisakan satu kolom yang tidak berlaku dan mengaburkan pemeriksaan kepala yang ketat. *Default Guru.* Menebak maksud pemanggil dan menghasilkan kegagalan baru ketika templat itu dipakai untuk Siswa.
 
+### CK-API-14 · 10 Agustus 2026 · Pratinjau kelas membawa periode sasaran
+
+**Diputuskan.** `POST /api/kelas/pratinjau` mensyaratkan bidang multipart `periode_ref` di samping berkas XLSX. Pengenal itu adalah periode yang sama dengan `data.periode_ref` pada `POST /api/kelas` berikutnya.
+
+**Alasan.** Pratinjau pada §5.7 wajib melaporkan siswa yang sudah berada di kelas lain pada semester sasaran, sedangkan I-08 membatasi keanggotaan berdasarkan periode. Berkas hanya memuat Kelas, NIS, dan Nama; tanpa `periode_ref` server tidak memiliki dasar untuk memilih semester yang diperiksa.
+
+**Alternatif yang ditolak.** *Memakai periode aktif.* Administrator dapat menyiapkan semester berikutnya sebelum diaktifkan, sehingga periode aktif dapat berbeda dari sasaran. *Menunda pemeriksaan I-08 sampai pembuatan.* Menghilangkan salah satu masalah yang secara eksplisit dijanjikan respons pratinjau dan memindahkan kegagalan ke langkah terakhir.
+
 ---
 
 ## Riwayat
@@ -986,4 +997,4 @@ Pembuatan massal juga membuat I-19 ditegakkan sejak awal: `uq_rapor_siswa_period
 | 6 Agustus 2026 | Berkas rapor dirender pada saat finalisasi dengan anggaran lunak 20 detik, dan ditambahkan `GET /api/kelas/:id/rapor/berkas` yang mengembalikan arsip ZIP sekelas (**CK-API-12**, mengamandemen CK-API-10 dan CK-09). Jalur render-saat-unduh tetap ada dan tidak berubah, karena CK-A-05 menuntutnya. Ditambahkan §13.3 yang mewajibkan pengukuran lama render sebelum keputusan ini dianggap terbukti |
 | 6 Agustus 2026 | **A-02** ditetapkan: catatan wali bersifat per siswa karena melekat pada rapor siswa. **A-05** ditetapkan sebagai asumsi: tidak ada perpindahan siswa di tengah semester selama pilot. Jumlah endpoint dikoreksi dari tiga puluh menjadi **empat puluh tiga**, sesuai peta pada §4, dan daftar §11 menyusut menjadi tiga belas butir setelah unduh sekelas dipindahkan menjadi endpoint |
 | 7 Agustus 2026 | Catatan zona waktu pada §2.4 disesuaikan mengikuti perpindahan region ke `ap-southeast-3` (**CK-16**). Ketentuannya tidak berubah: `Asia/Jakarta` tetap ditulis eksplisit dan tidak menyandar pada zona waktu server |
-| 10 Agustus 2026 | **A-03 ditutup**: redaksi AC-26 diselaraskan dengan CK-API-02 sehingga unggahan CSV maupun Excel yang memuat baris bermasalah ditolak seluruhnya. Kontrak `GET /api/templat/pengguna.csv` diperjelas dengan parameter wajib `peran=guru\|siswa` (**CK-API-13**). Katalog kesalahan melengkapi `TIDAK_DITEMUKAN` yang sudah dipakai rute dan menambahkan `DATA_SUDAH_ADA` bagi benturan unik administrasi |
+| 10 Agustus 2026 | **A-03 ditutup**: redaksi AC-26 diselaraskan dengan CK-API-02 sehingga unggahan CSV maupun Excel yang memuat baris bermasalah ditolak seluruhnya. Kontrak `GET /api/templat/pengguna.csv` diperjelas dengan parameter wajib `peran=guru\|siswa` (**CK-API-13**). Katalog kesalahan melengkapi `TIDAK_DITEMUKAN` yang sudah dipakai rute dan menambahkan `DATA_SUDAH_ADA` bagi benturan unik administrasi. Pratinjau kelas kini membawa `periode_ref` agar pemeriksaan I-08 memiliki periode sasaran (**CK-API-14**) |
