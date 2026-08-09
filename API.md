@@ -169,7 +169,7 @@ Dibatasi **dua lapis**: 5 kegagalan per 15 menit per akun, dan 30 kegagalan per 
 |---|---|---|
 | **Autentikasi** | `POST /api/auth/masuk` · `POST /api/auth/keluar` · `GET /api/saya` · `PATCH /api/saya/kata-sandi` | Semua |
 | **Akun** | `POST /api/pengguna` · `POST /api/pengguna/unggah` · `GET /api/pengguna` · `POST /api/pengguna/:id/kata-sandi` | Administrator |
-| **Templat** | `GET /api/templat/pengguna.csv` · `GET /api/templat/daftar-siswa.xlsx` | Administrator |
+| **Templat** | `GET /api/templat/pengguna.csv?peran=guru\|siswa` · `GET /api/templat/daftar-siswa.xlsx` | Administrator |
 | **Periode** | `POST /api/tahun-ajaran` · `GET /api/tahun-ajaran` · `POST /api/tahun-ajaran/:id/periode` · `PATCH /api/periode/:id/aktif` | Administrator |
 | **Mata pelajaran** | `POST /api/mapel` · `GET /api/mapel` · `PATCH /api/mapel/:id` | Administrator |
 | **Komponen** | `GET /api/komponen-penilaian` · `PUT /api/komponen-penilaian` | Baca: semua · Tulis: Administrator |
@@ -238,9 +238,19 @@ Gagal — respons JSON menyebutkan setiap baris yang bermasalah, dan **tidak sat
 } }
 ```
 
-**Satu baris gagal membatalkan seluruh berkas** (CK-API-02). Ini penafsiran AC-26 yang menempatkan "tidak menyisakan akun setengah jadi" sebagai ketentuan yang menang: Administrator memperbaiki berkasnya lalu mengunggah ulang, alih-alih menelusuri akun mana yang sudah terlanjur ada. Dicatat sebagai temuan **A-03**.
+**Satu baris gagal membatalkan seluruh berkas** (CK-API-02). Ini pemenuhan AC-26 setelah redaksinya diselaraskan: Administrator memperbaiki berkasnya lalu mengunggah ulang, alih-alih menelusuri akun mana yang sudah terlanjur ada. Penutupan temuan **A-03** dicatat pada §13.2.
 
 Dibatasi **10 unggahan per jam per pengguna**, dengan **batas 2 MB per berkas** ([ARCHITECTURE.md §7](ARCHITECTURE.md)). Berkas yang lebih besar dijawab `413` tanpa dibaca isinya.
+
+Templat unggahan akun diunduh dari:
+
+```http
+GET /api/templat/pengguna.csv?peran=guru
+```
+
+Parameter query `peran` wajib bernilai `guru` atau `siswa`; parameter yang tidak ada maupun nilai lain ditolak `400 PERMINTAAN_TIDAK_SAH`. Respons berhasil berupa berkas `text/csv; charset=utf-8` dengan `Content-Disposition: attachment; filename="templat-pengguna-guru.csv"` atau `filename="templat-pengguna-siswa.csv"`. Templat Guru hanya memuat kepala `Nama,NIP`, sedangkan templat Siswa hanya memuat kepala `Nama,NIS` (CK-API-13).
+
+Templat daftar siswa diunduh dari `GET /api/templat/daftar-siswa.xlsx`. Respons berhasil berupa berkas `application/vnd.openxmlformats-officedocument.spreadsheetml.sheet` dengan `Content-Disposition: attachment; filename="templat-daftar-siswa.xlsx"`; lembar pertamanya hanya memuat kepala `Kelas`, `NIS`, dan `Nama` yang dipakai §5.7.
 
 ### 5.3 Reset kata sandi oleh Administrator
 
@@ -696,7 +706,7 @@ Kegagalan ini tidak menghambat apa pun. Nilai, presensi, finalisasi, dan distrib
 | `KREDENSIAL_SALAH` | 401 | Nama pengguna atau kata sandi keliru, atau akun tidak aktif | — |
 | `SESI_TIDAK_SAH` | 401 | Cookie tidak ada, kedaluwarsa, atau sudah dicabut | — |
 | `KEWENANGAN_DITOLAK` | 403 | Gagal lapis peran atau lapis baris | — |
-| `PERMINTAAN_TIDAK_SAH` | 400 | Zod menolak bentuk badan permintaan | — |
+| `PERMINTAAN_TIDAK_SAH` | 400 | Zod menolak bentuk permintaan, termasuk badan maupun parameter query | — |
 | `BERKAS_TIDAK_SAH` | 400 | Satu baris atau lebih bermasalah; tidak ada yang tersimpan | AC-26 |
 | `BERKAS_TERLALU_BESAR` | 413 | Melampaui 2 MB | — |
 | `BOBOT_TIDAK_SERATUS` | 400 | Jumlah bobot bukan 100 | **AC-04** |
@@ -781,7 +791,6 @@ Celah yang ditemukan saat menurunkan kontrak.
 
 | # | Temuan | Usulan tindakan |
 |---|---|---|
-| A-03 | AC-26 menyebut "berhasil sebagian" sekaligus melarang data setengah jadi. Dokumen ini memenangkan larangan tersebut dan menolak seluruh berkas (CK-API-02) | Ganti redaksi AC-26 pada [ATURAN-DAN-KRITERIA §4](ATURAN-DAN-KRITERIA.md) menjadi: *"Unggah CSV maupun Excel yang memuat baris bermasalah **ditolak seluruhnya**, melaporkan setiap baris yang gagal beserta alasannya, dan tidak menyisakan akun atau kelas setengah jadi."* |
 | A-04 | `pengguna.aktif` ada pada model data dan diperiksa saat masuk, tetapi **tidak ada aktor, alur, maupun layar yang mengubahnya menjadi `false`**. [aktor-role.md §5.1](aktor-role.md) tidak memuat kewenangan penonaktifan, dan [ATURAN-DAN-KRITERIA §3](ATURAN-DAN-KRITERIA.md) tidak memuat layarnya. Akibatnya kolom itu tidak akan pernah bernilai `false`, dan akun Guru yang keluar dari sekolah tetap dapat masuk | Nyatakan pada PRD bahwa kolom tersebut **belum dipakai pada MVP**. Pemeriksaan saat masuk tetap dipertahankan sebagai pertahanan. Penanganan sementara bagi akun yang perlu ditutup: Administrator mereset kata sandinya dan tidak menyerahkannya. Menambah endpoint penonaktifan berarti menambah kewenangan Administrator yang tidak diberikan PRD |
 
 ### 13.2 Sudah ditutup
@@ -790,6 +799,7 @@ Celah yang ditemukan saat menurunkan kontrak.
 |---|---|---|
 | A-01 | Dugaan pertentangan antara P22 dan [ARCHITECTURE.md §1.2](ARCHITECTURE.md) mengenai kapan sesi presensi tersimpan | **Gugur.** Pertentangan itu berasal dari CK-API-05, bukan dari dokumen sumber. CK-API-11 menempatkan pembuatan sesi pada transaksi Simpan Presensi, sehingga P22, AC-15, [PRD §8.4](PRD.md), dan ARCHITECTURE §1.2 terpenuhi seluruhnya tanpa satu pun perlu ditafsir ulang. Tidak ada usulan perubahan bagi PRD |
 | A-02 | Beban penulisan tiga puluh catatan wali per kelas | **Ditetapkan.** Catatan wali bersifat per siswa karena melekat pada rapor siswa yang bersangkutan. Sesuai [RFC-001 §4](RFC-001-model-data-konseptual.md); tidak memerlukan amandemen |
+| A-03 | AC-26 menyebut "berhasil sebagian" sekaligus melarang data setengah jadi | **Ditutup 10 Agustus 2026.** [ATURAN-DAN-KRITERIA.md §4](ATURAN-DAN-KRITERIA.md) kini menetapkan unggahan dengan baris bermasalah ditolak seluruhnya. Ini selaras dengan CK-API-02 dan kontrak §5.2 |
 | A-06 | ~~§3.1 dan ARCHITECTURE Pasal 7 bertentangan mengenai ambang pembatas laju per alamat IP~~ | **Ditutup 8 Agustus 2026 oleh CK-A-08.** Keduanya tidak benar-benar bertentangan: ARCHITECTURE menuntut ambang IP yang **berbeda** dari ambang per akun, bukan meniadakannya. Ditetapkan dua lapis — 5 per akun, 30 per alamat IP — dan §3.1 disesuaikan. Tinjauan keamanan A4 menegaskan bahwa lapis per akun saja tidak menahan password spraying atas pengenal NIP dan NIS yang berpola |
 | A-05 | Siswa pindahan di tengah semester tidak memiliki jalur masuk | **Ditetapkan sebagai asumsi.** Tidak ada perpindahan siswa di tengah semester selama pilot, dan penanganannya berada di luar cakupan MVP bersama NG8. Berkedudukan sederajat dengan asumsi I-08 |
 
@@ -955,6 +965,14 @@ Pembuatan massal juga membuat I-19 ditegakkan sejak awal: `uq_rapor_siswa_period
 2. **Berkas dirender bagi rapor yang mungkin tidak pernah diunduh.** Biayanya adalah waktu compute yang menyumbang sekitar 3% tagihan ([Techstack.md §8.3](Techstack.md)) dan penyimpanan S3 yang tidak berarti pada volume ini.
 3. **Perkiraan lama render belum terbukti.** Ditangani anggaran lunak, bukan diasumsikan aman.
 
+### CK-API-13 · 10 Agustus 2026 · Templat akun dipilih dengan parameter peran wajib
+
+**Diputuskan.** `GET /api/templat/pengguna.csv` mensyaratkan parameter query `peran=guru|siswa`. Guru menerima kepala `Nama,NIP`, sedangkan Siswa menerima kepala `Nama,NIS`. Parameter yang hilang maupun nilai lain ditolak; server tidak memilihkan peran bawaan.
+
+**Alasan.** Unggahan akun pada §5.2 sudah membedakan kolom pengenal berdasarkan peran. Templat yang tidak membawa pilihan peran tidak memiliki satu bentuk CSV yang benar, sedangkan memilih salah satu secara bawaan membuat Administrator dapat mengunduh templat yang salah tanpa menyadarinya.
+
+**Alternatif yang ditolak.** *Dua alamat `/guru.csv` dan `/siswa.csv`.* Menambah alamat untuk perbedaan yang sudah dinyatakan oleh parameter `peran` pada endpoint unggah. *Satu templat `Nama,NIP,NIS`.* Selalu menyisakan satu kolom yang tidak berlaku dan mengaburkan pemeriksaan kepala yang ketat. *Default Guru.* Menebak maksud pemanggil dan menghasilkan kegagalan baru ketika templat itu dipakai untuk Siswa.
+
 ---
 
 ## Riwayat
@@ -966,3 +984,4 @@ Pembuatan massal juga membuat I-19 ditegakkan sejak awal: `uq_rapor_siswa_period
 | 6 Agustus 2026 | Berkas rapor dirender pada saat finalisasi dengan anggaran lunak 20 detik, dan ditambahkan `GET /api/kelas/:id/rapor/berkas` yang mengembalikan arsip ZIP sekelas (**CK-API-12**, mengamandemen CK-API-10 dan CK-09). Jalur render-saat-unduh tetap ada dan tidak berubah, karena CK-A-05 menuntutnya. Ditambahkan §13.3 yang mewajibkan pengukuran lama render sebelum keputusan ini dianggap terbukti |
 | 6 Agustus 2026 | **A-02** ditetapkan: catatan wali bersifat per siswa karena melekat pada rapor siswa. **A-05** ditetapkan sebagai asumsi: tidak ada perpindahan siswa di tengah semester selama pilot. Jumlah endpoint dikoreksi dari tiga puluh menjadi **empat puluh tiga**, sesuai peta pada §4, dan daftar §11 menyusut menjadi tiga belas butir setelah unduh sekelas dipindahkan menjadi endpoint |
 | 7 Agustus 2026 | Catatan zona waktu pada §2.4 disesuaikan mengikuti perpindahan region ke `ap-southeast-3` (**CK-16**). Ketentuannya tidak berubah: `Asia/Jakarta` tetap ditulis eksplisit dan tidak menyandar pada zona waktu server |
+| 10 Agustus 2026 | **A-03 ditutup**: redaksi AC-26 diselaraskan dengan CK-API-02 sehingga unggahan CSV maupun Excel yang memuat baris bermasalah ditolak seluruhnya. Kontrak `GET /api/templat/pengguna.csv` diperjelas dengan parameter wajib `peran=guru\|siswa` (**CK-API-13**) |

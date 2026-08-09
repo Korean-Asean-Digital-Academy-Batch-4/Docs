@@ -2,7 +2,7 @@
 
 | Keterangan | Isi |
 |---|---|
-| **Tanggal** | 8 Agustus 2026 |
+| **Tanggal** | 10 Agustus 2026 |
 | **Kedudukan** | Mencatat **tahap mana sudah selesai dan apa buktinya**. Berada di luar rantai penguncian dan tidak menetapkan apa pun |
 | **Tahapnya sendiri** | [AGENTS.md §8](./AGENTS.md) — dokumen ini tidak mengulang isi maupun gerbangnya |
 
@@ -70,10 +70,12 @@ Dicatat di sini hanya **judul dan tempatnya**. Isinya tidak disalin.
 | # | Tercatat pada |
 |---|---|
 | S-01, S-07 | [SCHEMA.md §12](./SCHEMA.md) |
-| A-03, A-04 | [API.md §13.1](./API.md) |
+| A-04 | [API.md §13.1](./API.md) |
 | T-01, T-04, T-05, T-06 | [RFC-001 §10](./RFC-001-model-data-konseptual.md) |
 
 **Yang ditutup sepanjang 7–8 Agustus 2026:** S-02, S-03, S-04, S-05, S-06 · T-02, T-03 · A-05, A-06. Rinciannya pada dokumen masing-masing.
+
+**Yang ditutup 10 Agustus 2026:** A-03.
 
 ## 5. Utang teknis yang sudah disepakati
 
@@ -90,5 +92,6 @@ Dicatat di sini hanya **judul dan tempatnya**. Isinya tidak disalin.
 
 | Tanggal | Perubahan |
 |---|---|
+| 10 Agustus 2026 | A-03 dikeluarkan dari daftar temuan terbuka setelah AC-26 diselaraskan dengan kontrak unggah tolak-seluruhnya pada API |
 | 8 Agustus 2026 | Bukti A3 diperbaiki dari PR #2 menjadi **PR #4**. PR #2 menggabungkan A3 ke `fitur/a2-skema-migrasi` **sesudah** cabang itu sendiri sudah masuk `main`, sehingga A3 tidak pernah sampai ke `main`; PR #4 yang membawanya |
 | 8 Agustus 2026 | Dokumen dibuat sesudah A4 selesai. Sebelumnya tidak ada satu tempat pun yang mencatat tahap mana sudah selesai — jawabannya hanya dapat diperoleh dengan membaca riwayat git atau daftar pull request, dan keduanya bukan dokumen |

@@ -109,7 +109,7 @@
 | AC-22 | KKM bernilai awal 75 dan dapat diubah Administrator |
 | AC-24 | Penghubungan kelas dengan Guru yang jenjang mata pelajarannya tidak sesuai ditolak disertai pesan yang menyebutkan kedua jenjang |
 | AC-25 | Penghapusan sesi menghapus seluruh status di dalamnya dan persentase kehadiran menyesuaikan |
-| AC-26 | Unggah CSV maupun Excel yang berhasil sebagian melaporkan baris yang gagal beserta alasannya, dan tidak menyisakan akun atau kelas setengah jadi |
+| AC-26 | Unggah CSV maupun Excel yang memuat baris bermasalah ditolak seluruhnya, melaporkan setiap baris yang gagal beserta alasannya, dan tidak menyisakan akun atau kelas setengah jadi |
 | AC-27 | Setiap interaksi yang memasukkan atau mengubah data menampilkan pemberitahuan berhasil atau gagal, dan pemberitahuan gagal menyebutkan alasannya |
 | AC-28 | Guru yang belum dihubungkan dengan mata pelajaran tidak memiliki menu mengajar, dan Siswa yang belum masuk kelas tidak memiliki data akademik |
 | AC-29 | Izin dan Sakit terhitung sebagai kehadiran pada persentase presensi, dan hanya Alpa yang menguranginya |
