@@ -522,7 +522,7 @@ Sesudah langkah 7, agen melanjutkan ke A2 dan tidak lagi memerlukan apa pun dari
 
 ## 13. Alat bantu ingatan dan penelusuran
 
-Dua alat terpasang pada mesin pengembang. Keduanya **membantu agen**, dan tidak satu pun menjadi sumber kebenaran — sumber kebenaran tetap sepuluh dokumen pada `context/`.
+Dua alat terpasang pada mesin pengembang. Keduanya **membantu agen**, dan tidak satu pun menjadi sumber kebenaran — sumber kebenaran tetap dokumen pada `context/`.
 
 ### 13.1 engram — ingatan lintas sesi
 
