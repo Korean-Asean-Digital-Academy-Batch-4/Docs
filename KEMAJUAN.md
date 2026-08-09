@@ -19,8 +19,8 @@
 | **A0** | Kerangka repositori | ✅ Selesai | `1b52439` |
 | **A1** | Docker dan compose | ✅ Selesai | `1b52439` |
 | **A2** | Skema dan migrasi | ✅ Selesai | `a562b60` · PR #1 |
-| **A3** | `domain/` murni | ✅ Selesai | `15365e5`, `a1e357f` · PR #2 |
-| **A4** | Auth dan sesi | ✅ Selesai | `474d789`, `57b7e91`, `0f4135c` · PR #3 |
+| **A3** | `domain/` murni | ✅ Selesai | `15365e5`, `a1e357f` · PR #4 |
+| **A4** | Auth dan sesi | ✅ Selesai | `474d789`, `57b7e91`, `0f4135c` · PR #3 — **belum digabung** |
 | **A5** | Administrasi | ⬜ Belum | — |
 | **A6** | Nilai dan presensi | ⬜ Belum | — |
 | **A7** | Rapor | ⬜ Belum | — |
@@ -90,4 +90,5 @@ Dicatat di sini hanya **judul dan tempatnya**. Isinya tidak disalin.
 
 | Tanggal | Perubahan |
 |---|---|
+| 8 Agustus 2026 | Bukti A3 diperbaiki dari PR #2 menjadi **PR #4**. PR #2 menggabungkan A3 ke `fitur/a2-skema-migrasi` **sesudah** cabang itu sendiri sudah masuk `main`, sehingga A3 tidak pernah sampai ke `main`; PR #4 yang membawanya |
 | 8 Agustus 2026 | Dokumen dibuat sesudah A4 selesai. Sebelumnya tidak ada satu tempat pun yang mencatat tahap mana sudah selesai — jawabannya hanya dapat diperoleh dengan membaca riwayat git atau daftar pull request, dan keduanya bukan dokumen |
