@@ -243,7 +243,7 @@ Karena setiap instance Lambda memiliki memorinya sendiri, penghitung pembatas la
 
 | Jalur | Batas | Alasan |
 |---|---|---|
-| `POST /api/auth/login` | **5 percobaan gagal per 15 menit**, dihitung per akun **dan** per alamat IP | Menahan percobaan kata sandi beruntun. Relevan karena PRD §6.1.3 meniadakan syarat kerumitan kata sandi, sehingga pembatasan percobaan adalah satu-satunya pertahanan yang tersisa |
+| `POST /api/auth/masuk` | **Dua lapis.** Per akun: 5 kegagalan per 15 menit. Per alamat IP: **30 kegagalan per 15 menit** | Menahan percobaan kata sandi beruntun. Relevan karena PRD §6.1.3 meniadakan syarat kerumitan kata sandi, sehingga pembatasan percobaan adalah satu-satunya pertahanan yang tersisa. Dua ambang yang berbeda, beserta alasannya, pada **CK-A-08** |
 | Tombol Suggestion | **5 kali per jam per siswa** | Setiap penekanan memanggil layanan AI dan menggerus kredit KADA. Cukup untuk pemakaian wajar dalam satu sesi belajar |
 | Unggah berkas | **10 unggahan per jam per pengguna**, dengan **batas ukuran 2 MB per berkas** | Administrator yang mengunggah ulang karena salah format tetap leluasa, sedangkan pemakaian memori tetap terkendali |
 
@@ -344,7 +344,11 @@ Kegagalan kewenangan dijawab **`403`, bukan `404`**. Sistem ini tertutup bagi pu
 npm run admin:create -- --nama-pengguna <pengenal> --nama "<nama lengkap>"
 ```
 
-Perintah mencetak kata sandi awal yang dihasilkan sistem ke keluaran terminal, sekali dan tidak dapat ditampilkan ulang. Di lingkungan AWS, perintah dijalankan dengan memanggil fungsi Lambda `migrate` yang memakai image yang sama dengan argumen berbeda; di lingkungan on-prem maupun pengembangan, dijalankan langsung di dalam container. Penggantian kata sandi Administrator memakai perintah yang sama dengan sub-perintah berbeda.
+Perintah mencetak kata sandi awal yang dihasilkan sistem ke keluaran terminal, sekali dan tidak dapat ditampilkan ulang **pada on-prem dan pengembangan**.
+
+**Di AWS perintah ini menolak berjalan.** Fungsi `migrate` mengalirkan seluruh `stdout` ke CloudWatch Logs, dan itu perilaku runtime Lambda yang tidak dapat dimatikan dari dalam aplikasi. Mencetak kata sandi di sana berarti menyimpannya sebagai teks polos yang bertahan selama retensi log — dapat dibaca siapa pun yang memegang hak baca CloudWatch, tanpa perlu menyentuh basis data. Jaminan "tidak dapat ditampilkan ulang" karenanya **tidak berlaku** di jalur itu, dan perintahnya berhenti dengan pesan alih-alih diam-diam membocorkannya.
+
+Cara membuat Administrator pertama di AWS **belum diputuskan**, dan tercatat sebagai titik henti manusia. Jalur yang paling mungkin: menulis kata sandi ke Secrets Manager berumur pendek lalu mencetak ARN-nya saja ke log, sehingga yang masuk CloudWatch adalah rujukan, bukan rahasianya. Di lingkungan AWS, perintah dijalankan dengan memanggil fungsi Lambda `migrate` yang memakai image yang sama dengan argumen berbeda; di lingkungan on-prem maupun pengembangan, dijalankan langsung di dalam container. Penggantian kata sandi Administrator memakai perintah yang sama dengan sub-perintah berbeda.
 
 Hal ini menutup temuan **T-03** pada [RFC-001 §10](RFC-001-model-data-konseptual.md), yang mencatat bahwa PRD tidak mengatur cara akun Administrator dibuat.
 
@@ -662,6 +666,26 @@ Keberatan kedua CK-09 — tidak ada manfaat produk karena rapor tidak selalu diu
 
 ---
 
+### CK-A-08 · 8 Agustus 2026 · Pembatasan masuk dua lapis dengan ambang berbeda
+
+**Diputuskan.** `POST /api/auth/masuk` dibatasi dua lapis sekaligus: **5 kegagalan per 15 menit per akun**, dan **30 kegagalan per 15 menit per alamat IP**. Keduanya diperiksa; salah satu terlampaui berarti ditolak `429`.
+
+**Alasan.** Satu lapis saja bocor ke salah satu arah, dan keduanya nyata.
+
+*Per akun saja* menahan serangan terhadap satu akun, tetapi tidak menahan **password spraying**: penyerang mencoba satu kata sandi umum terhadap ratusan akun, dan setiap akun menyumbang jatah lima kegagalannya sendiri tanpa plafon bersama. Pengenal masuk di sini adalah NIP dan NIS yang berpola dan mudah ditebak, sehingga daftar sasarannya tidak perlu dicuri lebih dahulu.
+
+*Per IP dengan ambang yang sama* menahan spraying tetapi mengunci sekolah. Pasal 7 sudah mencatat satu sekolah kerap berbagi satu alamat IP publik; pada ambang lima, lima kesalahan ketik dari lima orang berbeda memutus akses seluruh sekolah selama lima belas menit. Itu penolakan layanan terhadap penggunanya sendiri.
+
+**Angka 30 dipilih dari kedua sisi.** Dari sisi pengguna: pada 379 akun, tiga puluh kegagalan dalam seperempat jam dari satu gedung jauh di atas laju kesalahan ketik yang wajar, termasuk pada pagi pertama pemakaian. Dari sisi penyerang: tiga puluh percobaan per seperempat jam menjadikan penyisiran kata sandi umum atas ratusan akun memakan waktu berhari-hari, bukan menit — dan sepanjang itu terlihat pada penghitung.
+
+**Alamat IP diambil dari entri TERAKHIR `X-Forwarded-For`, bukan yang pertama.** CloudFront dan Caddy sama-sama **menambahkan** alamat yang mereka lihat di ujung daftar, sehingga entri terakhir berasal dari proksi tepercaya dan tidak dapat dipalsukan klien. Entri pertama justru sepenuhnya dikuasai klien; memakainya berarti pembatas laju yang dapat dilewati hanya dengan mengarang satu header, yaitu keadaan yang lebih buruk daripada tidak ada pembatas sama sekali karena ia tampak melindungi.
+
+**Alternatif yang ditolak.** *Kunci gabungan `(akun, IP)`.* Tidak mengunci sekolah dan sederhana, tetapi melemahkan batas per akun: penyerang cukup berpindah alamat untuk memperoleh lima percobaan baru atas akun yang sama. *`app.set("trust proxy", n)`.* Bergantung pada jumlah lompatan yang berbeda antara AWS dan on-prem; salah menghitungnya menghasilkan pembacaan alamat yang keliru tanpa gejala apa pun.
+
+**Konsekuensi yang diterima.** Satu sekolah yang benar-benar mengalami tiga puluh kegagalan dalam seperempat jam akan tertahan bersama-sama. Bila itu terjadi pada pemakaian sungguhan, angkanya dinaikkan lewat amandemen catatan ini — bukan lewat penyuntingan diam-diam pada kode.
+
+---
+
 ## Riwayat
 
 | Tanggal | Perubahan |
@@ -672,3 +696,4 @@ Keberatan kedua CK-09 — tidak ada manfaat produk karena rapor tidak selalu diu
 | 7 Agustus 2026 | Region pada Pasal 2 dan peringatan ACM pada §12.2 disesuaikan menjadi `ap-southeast-3` mengikuti **CK-16** pada [Techstack.md](Techstack.md). Kewajiban ACM di `us-east-1` tidak berubah |
 | 7 Agustus 2026 | Cuplikan Dockerfile pada Pasal 6 disesuaikan menjadi dua tahap, mengikuti bentuk yang terpasang dan terbukti jalan di repositori backend. Bentuk satu tahap sebelumnya mengandaikan `dist/` sudah dibangun di luar image. Salinan Lambda Web Adapter, `PORT`, `AWS_LWA_READINESS_CHECK_PATH`, dan `CMD` tidak berubah |
 | 8 Agustus 2026 | **Pasal 13 memperoleh §13.1 Jalan masuk on-prem**, mengikuti **CK-17** pada [Techstack.md](Techstack.md). Reverse proxy on-prem ditetapkan **Caddy** menggantikan penyebutan "Nginx atau Caddy" yang belum memilih, dan jalan masuk dari internet ditetapkan **Cloudflare Tunnel** sebagai baris tersendiri pada tabel portabilitas. Dicatat pula bahwa OAC dan `auth_type = AWS_IAM` tidak memiliki padanan on-prem, sehingga perlindungan bertumpu pada tunnel dan pemeriksaan kewenangan di dalam aplikasi. Susunan AWS pada Pasal 2, 3, dan 7 tidak berubah |
+| 8 Agustus 2026 | **Pasal 7 dan §9.3 disesuaikan setelah tinjauan keamanan tahap A4.** Pembatasan masuk ditetapkan **dua lapis** dengan ambang berbeda (**CK-A-08**), karena satu lapis bocor ke salah satu arah: per akun saja tidak menahan password spraying, sedangkan per IP berambang sama mengunci seluruh sekolah yang berbagi satu alamat. §9.3 dikoreksi: jaminan "tidak dapat ditampilkan ulang" **tidak berlaku** di AWS karena `stdout` fungsi `migrate` mengalir ke CloudWatch Logs, sehingga perintahnya kini menolak berjalan di sana |
