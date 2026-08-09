@@ -305,6 +305,8 @@ Mengganti seluruh templat dalam satu transaksi. Jumlah bobot yang bukan 100 dito
 
 Bentuk `PUT` atas seluruh daftar dipilih karena penyesuaian bobot selalu menyentuh beberapa komponen sekaligus — menaikkan UTS berarti menurunkan yang lain. Endpoint per komponen akan menolak langkah pertama dari perubahan yang sah, persis persoalan yang diselesaikan `DEFERRABLE INITIALLY DEFERRED` pada [SCHEMA.md §5.2](SCHEMA.md).
 
+`kode` menjadi identitas stabil setelah templat pernah dipakai oleh sebuah penugasan. Selama belum ada `penugasan_komponen`, seluruh daftar boleh diganti termasuk menambah atau menghapus kode. Setelah dipakai, daftar `kode` pada permintaan wajib sama dengan daftar yang tersimpan; `nama`, `bobot`, dan `urutan` tetap dapat diubah atomik, tetapi penambahan, penghapusan, atau penggantian kode ditolak `409 KOMPONEN_SUDAH_DIPAKAI` (CK-API-15). Dengan demikian foreign key atas nilai dan topik tidak pernah diputus.
+
 ### 5.7 Pembuatan kelas
 
 Dua endpoint: satu **pratinjau yang tidak menulis apa pun**, dan satu **pembuatan atomik** (CK-API-03).
@@ -349,10 +351,12 @@ Content-Type: multipart/form-data
 | Satu baris `kelas` | [PRD §6.1.5](PRD.md) |
 | Satu baris `kelas_siswa` per siswa yang cocok | §6.1.5 butir 3 |
 | Satu baris `penugasan` per guru pada `guru_ref` | §8.2 lapis 3 |
-| Delapan baris `penugasan_komponen` per penugasan, `topik` masih kosong | D-06 |
+| Satu baris `penugasan_komponen` untuk setiap komponen pada templat yang berlaku, `topik` masih kosong — delapan pada data V1 saat ini | D-06, CK-API-15 |
 | Satu baris `rapor` berstatus `draft` per siswa | CK-API-07 |
 
 **Mata pelajaran tidak disertakan dalam permintaan.** Server menurunkannya dari `mapel.guru_ref` masing-masing guru, sesuai [PRD §8.2](PRD.md): mata pelajaran sudah melekat pada guru sejak lapis kedua dan tidak pernah dipilih ulang.
+
+Setiap anggota `guru_ref` wajib sudah memiliki mata pelajaran. Guru yang akunnya sah tetapi belum dihubungkan dengan mata pelajaran ditolak `409 GURU_BELUM_MENGAMPU`, dengan rincian `guru_ref` dan nama Guru. Ini membuat keadaan Guru tanpa penugasan pada AC-28 tetap sah tanpa memaksa server menebak `mapel_ref` (CK-API-16).
 
 Penolakan yang mungkin terjadi:
 
@@ -716,6 +720,8 @@ Kegagalan ini tidak menghambat apa pun. Nilai, presensi, finalisasi, dan distrib
 | `BOBOT_TIDAK_SERATUS` | 400 | Jumlah bobot bukan 100 | **AC-04** |
 | `DATA_SUDAH_ADA` | 409 | Nama pengguna, kode, nama kelas, tahun ajaran, atau semester bertentangan dengan data yang sudah ada | — |
 | `GURU_SUDAH_MENGAMPU` | 409 | Guru sudah memiliki mata pelajaran | — |
+| `GURU_BELUM_MENGAMPU` | 409 | Guru yang dipilih untuk kelas belum memiliki mata pelajaran | AC-28 |
+| `KOMPONEN_SUDAH_DIPAKAI` | 409 | Daftar kode komponen diubah setelah templat dipakai penugasan | — |
 | `JENJANG_TIDAK_COCOK` | 409 | Jenjang kelas berbeda dari jenjang mata pelajaran | **AC-24** |
 | `SESI_SUDAH_ADA` | 409 | Penugasan dan tanggal yang sama sudah memiliki sesi | — |
 | `RAPOR_TERKUNCI` | 409 | Guru atau Wali Kelas mengubah data yang sudah final | AC-14 |
@@ -986,6 +992,22 @@ Pembuatan massal juga membuat I-19 ditegakkan sejak awal: `uq_rapor_siswa_period
 
 **Alternatif yang ditolak.** *Memakai periode aktif.* Administrator dapat menyiapkan semester berikutnya sebelum diaktifkan, sehingga periode aktif dapat berbeda dari sasaran. *Menunda pemeriksaan I-08 sampai pembuatan.* Menghilangkan salah satu masalah yang secara eksplisit dijanjikan respons pratinjau dan memindahkan kegagalan ke langkah terakhir.
 
+### CK-API-15 · 10 Agustus 2026 · Kode komponen stabil setelah dipakai
+
+**Diputuskan.** Sebelum ada satu pun `penugasan_komponen`, `PUT /api/komponen-penilaian` boleh mengganti seluruh daftar termasuk kode. Sesudah templat dipakai, himpunan kode membeku; nama, bobot, dan urutan tetap dapat diubah selama total bobot 100. Pembuatan kelas menyalin sejumlah komponen yang berlaku saat itu, bukan angka delapan yang ditulis tetap di kode.
+
+**Alasan.** `penugasan_komponen` dan `nilai` memiliki foreign key `ON DELETE RESTRICT` ke komponen. Menghapus baris yang sudah dipakai akan memutus topik dan nilai yang ada, sedangkan mengubah bobot dan nama di tempat mempertahankan identitas referensial serta memenuhi kewenangan Administrator pada AC-04.
+
+**Alternatif yang ditolak.** *Selalu menghapus lalu menyisipkan ulang.* Gagal segera setelah komponen direferensikan. *Menghapus nilai dan topik terkait.* Menghilangkan data akademik tanpa alur maupun kewenangan pada PRD. *Mengunci seluruh perubahan setelah kelas ada.* Terlalu luas karena bobot dan nama masih dapat diperbarui aman dengan identitas yang sama.
+
+### CK-API-16 · 10 Agustus 2026 · Guru tanpa mata pelajaran ditolak saat kelas dibuat
+
+**Diputuskan.** Setiap Guru pada `guru_ref` yang belum memiliki baris `mapel` membuat `POST /api/kelas` ditolak seluruhnya dengan `409 GURU_BELUM_MENGAMPU`. Tidak ada `mapel_ref` bawaan dan Guru tersebut tidak dilewati diam-diam.
+
+**Alasan.** Mata pelajaran sengaja tidak ada pada payload kelas karena harus diturunkan dari Guru. Bagi Guru yang belum dihubungkan dengan mata pelajaran, sumber itu memang belum ada; keadaan akunnya tetap sah menurut PRD §6.1.1 dan AC-28, tetapi belum sah dipilih untuk membentuk penugasan.
+
+**Alternatif yang ditolak.** *Melewati Guru tersebut.* Menghasilkan kelas yang berbeda dari permintaan Administrator. *Meminta `mapel_ref` pada payload.* Mengulang pilihan yang menurut PRD §8.2 tidak pernah dilakukan pada lapis kelas. *Menjawab 404.* Gurunya ada; yang belum terpenuhi adalah prasyarat penugasannya.
+
 ---
 
 ## Riwayat
@@ -997,4 +1019,4 @@ Pembuatan massal juga membuat I-19 ditegakkan sejak awal: `uq_rapor_siswa_period
 | 6 Agustus 2026 | Berkas rapor dirender pada saat finalisasi dengan anggaran lunak 20 detik, dan ditambahkan `GET /api/kelas/:id/rapor/berkas` yang mengembalikan arsip ZIP sekelas (**CK-API-12**, mengamandemen CK-API-10 dan CK-09). Jalur render-saat-unduh tetap ada dan tidak berubah, karena CK-A-05 menuntutnya. Ditambahkan §13.3 yang mewajibkan pengukuran lama render sebelum keputusan ini dianggap terbukti |
 | 6 Agustus 2026 | **A-02** ditetapkan: catatan wali bersifat per siswa karena melekat pada rapor siswa. **A-05** ditetapkan sebagai asumsi: tidak ada perpindahan siswa di tengah semester selama pilot. Jumlah endpoint dikoreksi dari tiga puluh menjadi **empat puluh tiga**, sesuai peta pada §4, dan daftar §11 menyusut menjadi tiga belas butir setelah unduh sekelas dipindahkan menjadi endpoint |
 | 7 Agustus 2026 | Catatan zona waktu pada §2.4 disesuaikan mengikuti perpindahan region ke `ap-southeast-3` (**CK-16**). Ketentuannya tidak berubah: `Asia/Jakarta` tetap ditulis eksplisit dan tidak menyandar pada zona waktu server |
-| 10 Agustus 2026 | **A-03 ditutup**: redaksi AC-26 diselaraskan dengan CK-API-02 sehingga unggahan CSV maupun Excel yang memuat baris bermasalah ditolak seluruhnya. Kontrak `GET /api/templat/pengguna.csv` diperjelas dengan parameter wajib `peran=guru\|siswa` (**CK-API-13**). Katalog kesalahan melengkapi `TIDAK_DITEMUKAN` yang sudah dipakai rute dan menambahkan `DATA_SUDAH_ADA` bagi benturan unik administrasi. Pratinjau kelas kini membawa `periode_ref` agar pemeriksaan I-08 memiliki periode sasaran (**CK-API-14**) |
+| 10 Agustus 2026 | **A-03 ditutup**: redaksi AC-26 diselaraskan dengan CK-API-02 sehingga unggahan CSV maupun Excel yang memuat baris bermasalah ditolak seluruhnya. Kontrak `GET /api/templat/pengguna.csv` diperjelas dengan parameter wajib `peran=guru\|siswa` (**CK-API-13**). Katalog kesalahan melengkapi `TIDAK_DITEMUKAN` yang sudah dipakai rute dan menambahkan `DATA_SUDAH_ADA` bagi benturan unik administrasi. Pratinjau kelas kini membawa `periode_ref` agar pemeriksaan I-08 memiliki periode sasaran (**CK-API-14**). Identitas kode komponen dibekukan setelah dipakai (**CK-API-15**), dan Guru tanpa mata pelajaran memperoleh penolakan eksplisit saat dipilih untuk kelas (**CK-API-16**) |
