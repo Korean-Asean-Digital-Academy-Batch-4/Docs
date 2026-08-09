@@ -202,6 +202,8 @@ POST /api/pengguna
 
 `kata_sandi_awal` muncul **hanya pada respons ini** dan tidak dapat dibaca ulang. Responsnya menyertakan `Cache-Control: no-store` dan tidak pernah dicatat ke log.
 
+`GET /api/pengguna` mengembalikan seluruh akun Guru dan Siswa tanpa paginasi dalam bentuk `{ "data": [ { "id": "…", "nama": "Cahyo Nugroho", "nama_pengguna": "198501012010011002", "peran": "guru", "aktif": true } ] }`, terurut `nama`. Akun Administrator dan `kata_sandi_hash` tidak pernah muncul pada daftar ini (CK-API-17).
+
 ### 5.2 Unggah akun
 
 ```http
@@ -242,6 +244,8 @@ Gagal — respons JSON menyebutkan setiap baris yang bermasalah, dan **tidak sat
 
 Dibatasi **10 unggahan per jam per pengguna**, dengan **batas 2 MB per berkas** ([ARCHITECTURE.md §7](ARCHITECTURE.md)). Berkas yang lebih besar dijawab `413` tanpa dibaca isinya.
 
+Sebagai batas pengamanan parser, berkas memuat paling banyak 360 baris data; satu record CSV paling banyak 4 KiB. Pelanggaran dijawab `400 BERKAS_TIDAK_SAH`, bukan dipotong diam-diam (CK-API-18).
+
 Templat unggahan akun diunduh dari:
 
 ```http
@@ -263,15 +267,45 @@ POST /api/pengguna/:id/kata-sandi
 { "data": { "kata_sandi_awal": "p3Rw9naL" } }
 ```
 
-Menghasilkan kata sandi baru dan **mencabut seluruh sesi pengguna tersebut seketika** (CK-A-04). Inilah satu-satunya jalur pemulihan yang tersedia ketika sebuah akun diduga disalahgunakan, sekaligus satu-satunya jalur ketika berkas kredensial pada §5.2 hilang.
+Menghasilkan kata sandi baru dan **mencabut seluruh sesi pengguna tersebut seketika** (CK-A-04). Respons menyertakan `Cache-Control: no-store`. Inilah satu-satunya jalur pemulihan yang tersedia ketika sebuah akun Guru atau Siswa diduga disalahgunakan, sekaligus satu-satunya jalur ketika berkas kredensial pada §5.2 hilang.
+
+Sasaran endpoint ini hanya akun Guru dan Siswa. Pengenal Administrator dijawab `404 TIDAK_DITEMUKAN`: Administrator mengganti kata sandinya sendiri lewat `/api/saya/kata-sandi`, sedangkan pembuatan atau pemulihan Administrator di luar sesi berjalan tetap melalui CLI §9.3 arsitektur (CK-API-17).
 
 ### 5.4 Periode akademik
 
-| Metode | Alamat | Catatan |
-|---|---|---|
-| `POST` | `/api/tahun-ajaran` | `{ nama, tgl_mulai, tgl_selesai }` |
-| `POST` | `/api/tahun-ajaran/:id/periode` | `{ semester, tgl_mulai, tgl_selesai }`. `semester` bernilai `ganjil` atau `genap` |
-| `PATCH` | `/api/periode/:id/aktif` | Mengaktifkan satu periode dan menonaktifkan periode lain pada tahun ajaran yang sama, **dalam satu transaksi** |
+```http
+POST /api/tahun-ajaran
+{ "nama": "2026/2027", "tgl_mulai": "2026-07-13", "tgl_selesai": "2027-06-18" }
+```
+
+```jsonc
+// 201
+{ "data": { "id": "…", "nama": "2026/2027", "tgl_mulai": "2026-07-13", "tgl_selesai": "2027-06-18", "aktif": false } }
+```
+
+```http
+POST /api/tahun-ajaran/:id/periode
+{ "semester": "ganjil", "tgl_mulai": "2026-07-13", "tgl_selesai": "2026-12-18" }
+```
+
+`semester` hanya menerima `ganjil` atau `genap`. Tahun ajaran yang tidak ada dijawab `404 TIDAK_DITEMUKAN`; benturan nama tahun ajaran atau semester pada tahun yang sama dijawab `409 DATA_SUDAH_ADA`.
+
+```jsonc
+// 201
+{ "data": { "id": "…", "tahun_ajaran_ref": "…", "semester": "ganjil", "tgl_mulai": "2026-07-13", "tgl_selesai": "2026-12-18", "aktif": false } }
+```
+
+`GET /api/tahun-ajaran` mengembalikan seluruh tahun ajaran terurut tanggal mulai terbaru, dengan periode masing-masing terurut tanggal mulai:
+
+```jsonc
+// 200
+{ "data": [ {
+    "id": "…", "nama": "2026/2027", "tgl_mulai": "2026-07-13", "tgl_selesai": "2027-06-18", "aktif": false,
+    "periode": [ { "id": "…", "semester": "ganjil", "tgl_mulai": "2026-07-13", "tgl_selesai": "2026-12-18", "aktif": true } ]
+} ] }
+```
+
+`PATCH /api/periode/:id/aktif` menjawab `204`, mengaktifkan satu periode, dan menonaktifkan periode lain pada tahun ajaran yang sama **dalam satu transaksi**. Periode yang tidak ada dijawab `404 TIDAK_DITEMUKAN`.
 
 Penonaktifan yang menyertai pengaktifan bukan kemudahan melainkan keharusan: `uq_periode_aktif_per_tahun` ([SCHEMA.md §4.2](SCHEMA.md)) menolak dua periode aktif, sehingga pengaktifan tanpa penonaktifan akan gagal di tingkat basis data. Ini penegakan I-03 dan P19 yang terlihat sampai ke kontrak.
 
@@ -284,9 +318,26 @@ POST /api/mapel
 
 `kkm` boleh dihilangkan dan berdefault **75** (AC-22, I-11). `guru_ref` menunjuk guru yang belum mengampu mata pelajaran mana pun; guru yang sudah mengampu ditolak `409 GURU_SUDAH_MENGAMPU`, penegakan I-05.
 
-`PATCH /api/mapel/:id` menerima `nama` dan `kkm` saja. **`tingkat` dan `guru_ref` tidak dapat diubah**: keduanya menjadi bagian dari composite foreign key pada `penugasan` ([SCHEMA.md §4.3](SCHEMA.md)), sehingga perubahannya menuntut pembaruan seluruh penugasan terkait — alur yang tidak dimiliki PRD dan tercatat sebagai T-05 pada [RFC-001 §10](RFC-001-model-data-konseptual.md).
+```jsonc
+// 201 — bentuk yang sama dipakai elemen GET dan hasil PATCH
+{ "data": {
+    "id": "…", "kode": "BIO-X", "nama": "Biologi", "tingkat": "X", "kkm": 75,
+    "guru": { "id": "…", "nama": "Cahyo Nugroho", "nama_pengguna": "198501012010011002" }
+} }
+```
+
+`GET /api/mapel` mengembalikan `{ "data": [ … ] }` tanpa paginasi, terurut `tingkat` lalu `kode`. Guru yang tidak ada dijawab `404 TIDAK_DITEMUKAN`; kode duplikat dijawab `409 DATA_SUDAH_ADA`.
+
+`PATCH /api/mapel/:id` menerima `nama` dan `kkm` saja dan menjawab `200` dengan bentuk mapel di atas. **`tingkat` dan `guru_ref` tidak dapat diubah**: keduanya menjadi bagian dari composite foreign key pada `penugasan` ([SCHEMA.md §4.3](SCHEMA.md)), sehingga perubahannya menuntut pembaruan seluruh penugasan terkait — alur yang tidak dimiliki PRD dan tercatat sebagai T-05 pada [RFC-001 §10](RFC-001-model-data-konseptual.md). Mapel yang tidak ada dijawab `404 TIDAK_DITEMUKAN`.
 
 ### 5.6 Komponen penilaian
+
+`GET /api/komponen-penilaian` tersedia bagi seluruh pengguna terautentikasi dan mengembalikan daftar terurut `urutan`:
+
+```jsonc
+// 200
+{ "data": [ { "id": "…", "kode": "T1", "nama": "Tugas 1", "bobot": 6, "urutan": 1 } ] }
+```
 
 ```http
 PUT /api/komponen-penilaian
@@ -305,6 +356,8 @@ Mengganti seluruh templat dalam satu transaksi. Jumlah bobot yang bukan 100 dito
 
 Bentuk `PUT` atas seluruh daftar dipilih karena penyesuaian bobot selalu menyentuh beberapa komponen sekaligus — menaikkan UTS berarti menurunkan yang lain. Endpoint per komponen akan menolak langkah pertama dari perubahan yang sah, persis persoalan yang diselesaikan `DEFERRABLE INITIALLY DEFERRED` pada [SCHEMA.md §5.2](SCHEMA.md).
 
+Perubahan yang berhasil menjawab `200` dengan bentuk daftar yang sama seperti `GET`.
+
 `kode` menjadi identitas stabil setelah templat pernah dipakai oleh sebuah penugasan. Selama belum ada `penugasan_komponen`, seluruh daftar boleh diganti termasuk menambah atau menghapus kode. Setelah dipakai, daftar `kode` pada permintaan wajib sama dengan daftar yang tersimpan; `nama`, `bobot`, dan `urutan` tetap dapat diubah atomik, tetapi penambahan, penghapusan, atau penggantian kode ditolak `409 KOMPONEN_SUDAH_DIPAKAI` (CK-API-15). Dengan demikian foreign key atas nilai dan topik tidak pernah diputus.
 
 ### 5.7 Pembuatan kelas
@@ -321,6 +374,7 @@ Content-Type: multipart/form-data
 ```jsonc
 // 200 — tidak ada satu baris pun yang tertulis ke basis data
 { "data": {
+    "kelas_berkas": "X IPA 1",
     "cocok": [ { "baris": 2, "nis": "0071234567", "nama_berkas": "Andi Pratama", "nama_sistem": "Andi Pratama", "siswa_ref": "…" } ],
     "bermasalah": [
       { "baris": 5,  "nis": "0079999999", "sebab": "NIS tidak terdaftar sebagai akun siswa" },
@@ -332,7 +386,7 @@ Content-Type: multipart/form-data
 
 `periode_ref` wajib menunjuk periode sasaran yang juga akan dikirim pada `POST /api/kelas`; nilai yang tidak ada atau bukan UUID ditolak `400 PERMINTAAN_TIDAK_SAH`. Periode tidak boleh ditebak dari periode aktif karena Administrator dapat menyiapkan semester yang belum aktif (CK-API-14).
 
-`nama_berkas` dan `nama_sistem` ditampilkan berdampingan karena **NIS adalah kunci pencocokan dan nama hanya pemeriksaan** ([PRD §6.1.5](PRD.md) butir 3). Selisih nama tidak menggagalkan pencocokan, tetapi Administrator perlu melihatnya.
+`kelas_berkas` adalah satu-satunya nilai non-kosong kolom `Kelas` di seluruh baris. Apabila tidak ada tepat satu nilai unik, bidang ini bernilai `null` dan setiap baris yang kosong atau berbeda masuk `bermasalah`; lebih dari satu nama kelas tidak pernah dipilihkan diam-diam. `nama_berkas` dan `nama_sistem` ditampilkan berdampingan karena **NIS adalah kunci pencocokan dan nama hanya pemeriksaan** ([PRD §6.1.5](PRD.md) butir 3). Selisih nama tidak menggagalkan pencocokan, tetapi Administrator perlu melihatnya.
 
 Baris "sudah terdaftar pada kelas lain" adalah pemeriksaan awal terhadap I-08, yang pada akhirnya ditegakkan `uq_kelas_siswa_periode`. Menampilkannya di pratinjau mengubah kegagalan basis data menjadi keterangan yang dapat ditindaklanjuti.
 
@@ -343,6 +397,8 @@ Content-Type: multipart/form-data
          "guru_ref": [ "…", "…", "…" ], "wali_kelas_ref": "…" }
   berkas=<XLSX yang sama>
 ```
+
+Nilai `Kelas` pada seluruh baris XLSX wajib sama dengan `data.nama`; perbedaan dilaporkan sebagai `400 BERKAS_TIDAK_SAH`. XLSX wajib memiliki tepat satu worksheet, paling banyak 360 baris data dan 64 entry ZIP, serta jumlah ukuran entry sebelum kompresi paling banyak 16 MiB. Pelanggaran batas pengamanan ini dijawab `400 BERKAS_TIDAK_SAH` (CK-API-18).
 
 **Satu request, satu transaksi, satu kelas** (P18). Yang terbentuk sekaligus:
 
@@ -373,6 +429,44 @@ Penolakan yang mungkin terjadi:
 Pesan menyebutkan **kedua jenjang**, sesuai AC-24. Pemeriksaan ini dilakukan aplikasi agar pesannya dapat dipahami, sedangkan penjaminannya tetap berada pada composite foreign key — kekeliruan kode di jalur mana pun tetap ditolak PostgreSQL ([SCHEMA.md §4.3](SCHEMA.md)).
 
 `wali_kelas_ref` wajib merupakan salah satu anggota `guru_ref`; di luar itu ditolak `400`. Ini penerapan [aktor-role.md §3](aktor-role.md): Wali Kelas selalu merupakan Guru yang juga mengajar di kelas asuhannya.
+
+Pembuatan berhasil menjawab:
+
+```jsonc
+// 201
+{ "data": { "id": "…", "nama": "X IPA 1", "periode_ref": "…", "jumlah_siswa": 30, "jumlah_penugasan": 6 } }
+```
+
+`GET /api/kelas` mengembalikan ringkasan tanpa paginasi, terurut periode terbaru lalu nama kelas:
+
+```jsonc
+// 200
+{ "data": [ {
+    "id": "…", "nama": "X IPA 1", "tingkat": "X", "jurusan": "IPA",
+    "periode": { "id": "…", "semester": "ganjil", "tahun_ajaran_nama": "2026/2027" },
+    "wali_kelas": { "id": "…", "nama": "Cahyo Nugroho" },
+    "jumlah_siswa": 30, "jumlah_penugasan": 6
+} ] }
+```
+
+`GET /api/kelas/:id` mengembalikan ringkasan yang sama beserta anggota dan penugasan:
+
+```jsonc
+// 200
+{ "data": {
+    "id": "…", "nama": "X IPA 1", "tingkat": "X", "jurusan": "IPA",
+    "periode": { "id": "…", "semester": "ganjil", "tahun_ajaran_nama": "2026/2027" },
+    "wali_kelas": { "id": "…", "nama": "Cahyo Nugroho" },
+    "jumlah_siswa": 30, "jumlah_penugasan": 6,
+    "siswa": [ { "id": "…", "nama": "Andi Pratama", "nama_pengguna": "0071234567" } ],
+    "penugasan": [ {
+      "id": "…", "guru": { "id": "…", "nama": "Cahyo Nugroho" },
+      "mapel": { "id": "…", "kode": "BIO-X", "nama": "Biologi", "tingkat": "X", "kkm": 75 }
+    } ]
+} }
+```
+
+Larik `siswa` terurut nama; larik `penugasan` terurut kode mapel. Kelas yang tidak ada dijawab `404 TIDAK_DITEMUKAN`.
 
 **Pembatalan tidak memiliki endpoint.** Proses yang ditinggalkan sebelum `POST /api/kelas` tidak menyisakan apa pun karena belum ada yang tertulis — pemenuhan "proses dapat dibatalkan" ([PRD §6.1.5](PRD.md) butir 2) sekaligus "tidak menyisakan kelas setengah jadi" (AC-26), tanpa memerlukan kelas berstatus draf.
 
@@ -1008,6 +1102,22 @@ Pembuatan massal juga membuat I-19 ditegakkan sejak awal: `uq_rapor_siswa_period
 
 **Alternatif yang ditolak.** *Melewati Guru tersebut.* Menghasilkan kelas yang berbeda dari permintaan Administrator. *Meminta `mapel_ref` pada payload.* Mengulang pilihan yang menurut PRD §8.2 tidak pernah dilakukan pada lapis kelas. *Menjawab 404.* Gurunya ada; yang belum terpenuhi adalah prasyarat penugasannya.
 
+### CK-API-17 · 10 Agustus 2026 · Administrasi akun HTTP hanya mencakup Guru dan Siswa
+
+**Diputuskan.** `GET /api/pengguna` hanya mendaftarkan Guru dan Siswa. `POST /api/pengguna/:id/kata-sandi` hanya mereset kedua peran itu dan menjawab 404 bagi pengenal Administrator. Hash kata sandi tidak pernah masuk bentuk daftar.
+
+**Alasan.** Kewenangan pengelolaan akun pada PRD §8.1 dan aktor-role §5.1 menyebut akun Guru dan Siswa. Akun Administrator sengaja tidak memiliki endpoint pembuatan; membuka reset antarsesama Administrator melalui endpoint umum akan menciptakan kewenangan baru yang tidak diberikan dokumen sumber.
+
+**Alternatif yang ditolak.** *Mendaftarkan seluruh pengguna lalu menyembunyikan tombol.* Menyerahkan batas kewenangan kepada frontend. *Mengizinkan reset Administrator lain.* Menambahkan jalur pengambilalihan akun istimewa tanpa alur maupun layar. *Menjawab 403 bagi ID Administrator.* Mengungkap bahwa ID tersebut Administrator, padahal sumber dayanya memang berada di luar koleksi yang dikelola endpoint ini.
+
+### CK-API-18 · 10 Agustus 2026 · Batas parser berkas gagal tertutup
+
+**Diputuskan.** CSV dan XLSX memuat paling banyak 360 baris data. Record CSV paling banyak 4 KiB. XLSX memiliki tepat satu worksheet, paling banyak 64 entry ZIP, dan total ukuran entry sebelum kompresi paling banyak 16 MiB. Pelanggaran dijawab `400 BERKAS_TIDAK_SAH`; batas 2 MiB terkompresi tetap dijawab 413 sebelum isi dibaca.
+
+**Alasan.** Batas 2 MiB hanya membatasi ukuran kiriman. XLSX adalah ZIP sehingga berkas kecil dapat mengembang jauh lebih besar di memori; batas entry dan ukuran sebelum kompresi harus diperiksa dari central directory sebelum parser membuka worksheet. Angka 360 berasal dari volume terbesar RFC-001 §8.1 dan dasar batas berkas ARCHITECTURE §7, sedangkan 4 KiB per record, 64 entry, dan 16 MiB memberi margin jauh di atas tiga kolom yang sah tanpa membiarkan struktur arsip tak terbatas.
+
+**Alternatif yang ditolak.** *Mengandalkan 2 MiB saja.* Tidak membatasi zip bomb. *Memotong baris setelah batas.* Menghasilkan unggahan berhasil sebagian yang dilarang AC-26. *Menerima worksheet tambahan dan membaca yang pertama.* Menyembunyikan data yang dikira Administrator ikut diproses.
+
 ---
 
 ## Riwayat
@@ -1019,4 +1129,4 @@ Pembuatan massal juga membuat I-19 ditegakkan sejak awal: `uq_rapor_siswa_period
 | 6 Agustus 2026 | Berkas rapor dirender pada saat finalisasi dengan anggaran lunak 20 detik, dan ditambahkan `GET /api/kelas/:id/rapor/berkas` yang mengembalikan arsip ZIP sekelas (**CK-API-12**, mengamandemen CK-API-10 dan CK-09). Jalur render-saat-unduh tetap ada dan tidak berubah, karena CK-A-05 menuntutnya. Ditambahkan §13.3 yang mewajibkan pengukuran lama render sebelum keputusan ini dianggap terbukti |
 | 6 Agustus 2026 | **A-02** ditetapkan: catatan wali bersifat per siswa karena melekat pada rapor siswa. **A-05** ditetapkan sebagai asumsi: tidak ada perpindahan siswa di tengah semester selama pilot. Jumlah endpoint dikoreksi dari tiga puluh menjadi **empat puluh tiga**, sesuai peta pada §4, dan daftar §11 menyusut menjadi tiga belas butir setelah unduh sekelas dipindahkan menjadi endpoint |
 | 7 Agustus 2026 | Catatan zona waktu pada §2.4 disesuaikan mengikuti perpindahan region ke `ap-southeast-3` (**CK-16**). Ketentuannya tidak berubah: `Asia/Jakarta` tetap ditulis eksplisit dan tidak menyandar pada zona waktu server |
-| 10 Agustus 2026 | **A-03 ditutup**: redaksi AC-26 diselaraskan dengan CK-API-02 sehingga unggahan CSV maupun Excel yang memuat baris bermasalah ditolak seluruhnya. Kontrak `GET /api/templat/pengguna.csv` diperjelas dengan parameter wajib `peran=guru\|siswa` (**CK-API-13**). Katalog kesalahan melengkapi `TIDAK_DITEMUKAN` yang sudah dipakai rute dan menambahkan `DATA_SUDAH_ADA` bagi benturan unik administrasi. Pratinjau kelas kini membawa `periode_ref` agar pemeriksaan I-08 memiliki periode sasaran (**CK-API-14**). Identitas kode komponen dibekukan setelah dipakai (**CK-API-15**), dan Guru tanpa mata pelajaran memperoleh penolakan eksplisit saat dipilih untuk kelas (**CK-API-16**) |
+| 10 Agustus 2026 | **A-03 ditutup**: redaksi AC-26 diselaraskan dengan CK-API-02 sehingga unggahan CSV maupun Excel yang memuat baris bermasalah ditolak seluruhnya. Kontrak `GET /api/templat/pengguna.csv` diperjelas dengan parameter wajib `peran=guru\|siswa` (**CK-API-13**). Katalog kesalahan melengkapi `TIDAK_DITEMUKAN` yang sudah dipakai rute dan menambahkan `DATA_SUDAH_ADA` bagi benturan unik administrasi. Pratinjau kelas kini membawa `periode_ref` agar pemeriksaan I-08 memiliki periode sasaran (**CK-API-14**). Identitas kode komponen dibekukan setelah dipakai (**CK-API-15**), Guru tanpa mata pelajaran memperoleh penolakan eksplisit saat dipilih untuk kelas (**CK-API-16**), endpoint akun HTTP ditegaskan hanya mengelola Guru serta Siswa (**CK-API-17**), dan parser berkas memperoleh batas gagal-tertutup terhadap arsip terkompresi (**CK-API-18**) |
