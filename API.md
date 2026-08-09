@@ -707,9 +707,11 @@ Kegagalan ini tidak menghambat apa pun. Nilai, presensi, finalisasi, dan distrib
 | `SESI_TIDAK_SAH` | 401 | Cookie tidak ada, kedaluwarsa, atau sudah dicabut | — |
 | `KEWENANGAN_DITOLAK` | 403 | Gagal lapis peran atau lapis baris | — |
 | `PERMINTAAN_TIDAK_SAH` | 400 | Zod menolak bentuk permintaan, termasuk badan maupun parameter query | — |
+| `TIDAK_DITEMUKAN` | 404 | Sumber daya yang dirujuk pengenal tidak ada | — |
 | `BERKAS_TIDAK_SAH` | 400 | Satu baris atau lebih bermasalah; tidak ada yang tersimpan | AC-26 |
 | `BERKAS_TERLALU_BESAR` | 413 | Melampaui 2 MB | — |
 | `BOBOT_TIDAK_SERATUS` | 400 | Jumlah bobot bukan 100 | **AC-04** |
+| `DATA_SUDAH_ADA` | 409 | Nama pengguna, kode, nama kelas, tahun ajaran, atau semester bertentangan dengan data yang sudah ada | — |
 | `GURU_SUDAH_MENGAMPU` | 409 | Guru sudah memiliki mata pelajaran | — |
 | `JENJANG_TIDAK_COCOK` | 409 | Jenjang kelas berbeda dari jenjang mata pelajaran | **AC-24** |
 | `SESI_SUDAH_ADA` | 409 | Penugasan dan tanggal yang sama sudah memiliki sesi | — |
@@ -984,4 +986,4 @@ Pembuatan massal juga membuat I-19 ditegakkan sejak awal: `uq_rapor_siswa_period
 | 6 Agustus 2026 | Berkas rapor dirender pada saat finalisasi dengan anggaran lunak 20 detik, dan ditambahkan `GET /api/kelas/:id/rapor/berkas` yang mengembalikan arsip ZIP sekelas (**CK-API-12**, mengamandemen CK-API-10 dan CK-09). Jalur render-saat-unduh tetap ada dan tidak berubah, karena CK-A-05 menuntutnya. Ditambahkan §13.3 yang mewajibkan pengukuran lama render sebelum keputusan ini dianggap terbukti |
 | 6 Agustus 2026 | **A-02** ditetapkan: catatan wali bersifat per siswa karena melekat pada rapor siswa. **A-05** ditetapkan sebagai asumsi: tidak ada perpindahan siswa di tengah semester selama pilot. Jumlah endpoint dikoreksi dari tiga puluh menjadi **empat puluh tiga**, sesuai peta pada §4, dan daftar §11 menyusut menjadi tiga belas butir setelah unduh sekelas dipindahkan menjadi endpoint |
 | 7 Agustus 2026 | Catatan zona waktu pada §2.4 disesuaikan mengikuti perpindahan region ke `ap-southeast-3` (**CK-16**). Ketentuannya tidak berubah: `Asia/Jakarta` tetap ditulis eksplisit dan tidak menyandar pada zona waktu server |
-| 10 Agustus 2026 | **A-03 ditutup**: redaksi AC-26 diselaraskan dengan CK-API-02 sehingga unggahan CSV maupun Excel yang memuat baris bermasalah ditolak seluruhnya. Kontrak `GET /api/templat/pengguna.csv` diperjelas dengan parameter wajib `peran=guru\|siswa` (**CK-API-13**) |
+| 10 Agustus 2026 | **A-03 ditutup**: redaksi AC-26 diselaraskan dengan CK-API-02 sehingga unggahan CSV maupun Excel yang memuat baris bermasalah ditolak seluruhnya. Kontrak `GET /api/templat/pengguna.csv` diperjelas dengan parameter wajib `peran=guru\|siswa` (**CK-API-13**). Katalog kesalahan melengkapi `TIDAK_DITEMUKAN` yang sudah dipakai rute dan menambahkan `DATA_SUDAH_ADA` bagi benturan unik administrasi |
