@@ -340,13 +340,21 @@ Kegagalan kewenangan dijawab **`403`, bukan `404`**. Sistem ini tertutup bagi pu
 
 **Akun Administrator dibuat langsung ke basis data melalui perintah CLI**, bukan melalui antarmuka aplikasi. Aplikasi tidak memiliki layar maupun endpoint pembuatan akun Administrator dalam bentuk apa pun.
 
+**Dua perintah, dua keadaan yang berbeda** (CK-A-09).
+
 ```bash
+# Bootstrap — kata sandi ditentukan operator, dibaca dari stdin.
+printf '%s' '<kata sandi>' | npm run seed:admin -- <pengenal> "<nama lengkap>"
+
+# Reset — kata sandi dibangkitkan sistem, dicetak sekali.
 npm run admin:create -- --nama-pengguna <pengenal> --nama "<nama lengkap>"
 ```
 
-Perintah mencetak kata sandi awal yang dihasilkan sistem ke keluaran terminal, sekali dan tidak dapat ditampilkan ulang **pada on-prem dan pengembangan**.
+`seed:admin` dipakai membuat Administrator **pertama**, ketika belum ada seorang pun yang dapat masuk. `admin:create` dipakai sesudahnya, dan mengikuti P17 seperti akun Guru dan Siswa: kata sandi dibangkitkan sistem lalu diserahkan.
 
-**Di AWS perintah ini menolak berjalan.** Fungsi `migrate` mengalirkan seluruh `stdout` ke CloudWatch Logs, dan itu perilaku runtime Lambda yang tidak dapat dimatikan dari dalam aplikasi. Mencetak kata sandi di sana berarti menyimpannya sebagai teks polos yang bertahan selama retensi log — dapat dibaca siapa pun yang memegang hak baca CloudWatch, tanpa perlu menyentuh basis data. Jaminan "tidak dapat ditampilkan ulang" karenanya **tidak berlaku** di jalur itu, dan perintahnya berhenti dengan pesan alih-alih diam-diam membocorkannya.
+`admin:create` mencetak kata sandi yang dihasilkan sistem ke keluaran terminal, sekali dan tidak dapat ditampilkan ulang **pada on-prem dan pengembangan**. `seed:admin` tidak mencetak apa pun, karena operator sudah mengetahui kata sandinya.
+
+**Di AWS `admin:create` menolak berjalan.** Fungsi `migrate` mengalirkan seluruh `stdout` ke CloudWatch Logs, dan itu perilaku runtime Lambda yang tidak dapat dimatikan dari dalam aplikasi. Mencetak kata sandi di sana berarti menyimpannya sebagai teks polos yang bertahan selama retensi log — dapat dibaca siapa pun yang memegang hak baca CloudWatch, tanpa perlu menyentuh basis data. Jaminan "tidak dapat ditampilkan ulang" karenanya **tidak berlaku** di jalur itu, dan perintahnya berhenti dengan pesan alih-alih diam-diam membocorkannya.
 
 Cara membuat Administrator pertama di AWS **belum diputuskan**, dan tercatat sebagai titik henti manusia. Jalur yang paling mungkin: menulis kata sandi ke Secrets Manager berumur pendek lalu mencetak ARN-nya saja ke log, sehingga yang masuk CloudWatch adalah rujukan, bukan rahasianya. Di lingkungan AWS, perintah dijalankan dengan memanggil fungsi Lambda `migrate` yang memakai image yang sama dengan argumen berbeda; di lingkungan on-prem maupun pengembangan, dijalankan langsung di dalam container. Penggantian kata sandi Administrator memakai perintah yang sama dengan sub-perintah berbeda.
 
@@ -686,6 +694,22 @@ Keberatan kedua CK-09 — tidak ada manfaat produk karena rapor tidak selalu diu
 
 ---
 
+### CK-A-09 · 8 Agustus 2026 · Dua perintah akun Administrator; kata sandi bootstrap lewat stdin
+
+**Diputuskan.** Terdapat dua perintah. `seed:admin` membuat Administrator pertama dengan kata sandi yang **ditentukan operator** dan dibaca dari **stdin**; `admin:create` membangkitkan kata sandi acak lalu mencetaknya sekali, sebagaimana ditetapkan §9.3 semula.
+
+**Alasan adanya dua.** Keduanya melayani keadaan yang berbeda. Pada bootstrap, belum ada seorang pun yang dapat masuk, dan operator yang memasang sistem adalah orang yang sama yang akan memegang akun itu — sehingga membangkitkan kata sandi lalu mencetaknya hanya menambah satu nilai yang perlu disalin. Pada reset sesudahnya, Administrator menerima kata sandi dari pihak yang tidak boleh mengetahuinya, dan di sana pembangkitan sistem beserta pencetakan sekali memang bentuk yang benar (P17).
+
+**Alasan lewat stdin, bukan argumen.** Argumen proses terbaca pengguna lain pada mesin yang sama lewat `/proc/<pid>/cmdline`, dan tersimpan pada riwayat shell. Pada server sekolah yang dipakai bersama, itu kebocoran yang bentuknya sama persis dengan kebocoran CloudWatch yang justru sedang ditutup §9.3 — hanya pembacanya yang berbeda. Stdin tidak muncul pada keduanya.
+
+Bila stdin berupa terminal, perintah meminta kata sandi tanpa menampilkan ketikannya. Bila stdin berupa pipa, kata sandi dibaca apa adanya dengan satu akhir baris di ujung dibuang — sehingga `printf` maupun `echo` sama-sama bekerja.
+
+**Alternatif yang ditolak.** *Kata sandi sebagai argumen.* Paling ringkas diketik, dan itu satu-satunya kelebihannya. *Variabel lingkungan.* Lebih baik daripada argumen karena `/proc/<pid>/environ` hanya terbaca pemilik proses dan root, tetapi tetap tertinggal pada riwayat shell bila ditulis sebaris dengan perintahnya, dan tetap terwarisi seluruh proses anak. *Satu perintah dengan bendera pilihan.* Menggabungkan dua keadaan yang aturan keamanannya berbeda ke dalam satu jalur, sehingga bendera yang salah ketik menghasilkan perilaku yang salah tanpa terlihat.
+
+**Konsekuensi yang diterima.** Kata sandi bootstrap tidak memiliki syarat kerumitan, sama seperti seluruh kata sandi pada sistem ini (PRD §6.1.3), sehingga operator dapat memilih kata sandi lemah. Pilihan itu ada di tangan orang yang sama yang memegang kredensial basis data pada saat itu, sehingga tidak menambah kewenangan siapa pun.
+
+---
+
 ## Riwayat
 
 | Tanggal | Perubahan |
@@ -697,3 +721,4 @@ Keberatan kedua CK-09 — tidak ada manfaat produk karena rapor tidak selalu diu
 | 7 Agustus 2026 | Cuplikan Dockerfile pada Pasal 6 disesuaikan menjadi dua tahap, mengikuti bentuk yang terpasang dan terbukti jalan di repositori backend. Bentuk satu tahap sebelumnya mengandaikan `dist/` sudah dibangun di luar image. Salinan Lambda Web Adapter, `PORT`, `AWS_LWA_READINESS_CHECK_PATH`, dan `CMD` tidak berubah |
 | 8 Agustus 2026 | **Pasal 13 memperoleh §13.1 Jalan masuk on-prem**, mengikuti **CK-17** pada [Techstack.md](Techstack.md). Reverse proxy on-prem ditetapkan **Caddy** menggantikan penyebutan "Nginx atau Caddy" yang belum memilih, dan jalan masuk dari internet ditetapkan **Cloudflare Tunnel** sebagai baris tersendiri pada tabel portabilitas. Dicatat pula bahwa OAC dan `auth_type = AWS_IAM` tidak memiliki padanan on-prem, sehingga perlindungan bertumpu pada tunnel dan pemeriksaan kewenangan di dalam aplikasi. Susunan AWS pada Pasal 2, 3, dan 7 tidak berubah |
 | 8 Agustus 2026 | **Pasal 7 dan §9.3 disesuaikan setelah tinjauan keamanan tahap A4.** Pembatasan masuk ditetapkan **dua lapis** dengan ambang berbeda (**CK-A-08**), karena satu lapis bocor ke salah satu arah: per akun saja tidak menahan password spraying, sedangkan per IP berambang sama mengunci seluruh sekolah yang berbagi satu alamat. §9.3 dikoreksi: jaminan "tidak dapat ditampilkan ulang" **tidak berlaku** di AWS karena `stdout` fungsi `migrate` mengalir ke CloudWatch Logs, sehingga perintahnya kini menolak berjalan di sana |
+| 8 Agustus 2026 | §9.3 memperoleh perintah kedua. **`seed:admin`** membuat Administrator pertama dengan kata sandi yang ditentukan operator dan dibaca dari **stdin**, bukan dari argumen proses yang terbaca pengguna lain lewat `/proc/<pid>/cmdline` dan tersimpan pada riwayat shell. **`admin:create`** tetap ada bagi reset sesudahnya dan tetap membangkitkan kata sandi sesuai P17. Menutup titik henti "cara membuat Administrator pertama" (**CK-A-09**) |
