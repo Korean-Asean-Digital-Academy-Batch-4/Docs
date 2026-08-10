@@ -20,21 +20,23 @@
 | **A1** | Docker dan compose | ✅ Selesai | `1b52439` |
 | **A2** | Skema dan migrasi | ✅ Selesai | `a562b60` · PR #1 |
 | **A3** | `domain/` murni | ✅ Selesai | `15365e5`, `a1e357f` · PR #4 |
-| **A4** | Auth dan sesi | ✅ Selesai | `474d789`, `57b7e91`, `0f4135c` · PR #3 — **belum digabung** |
-| **A5** | Administrasi | ⬜ Belum | — |
+| **A4** | Auth dan sesi | ✅ Selesai | `474d789`, `57b7e91`, `0f4135c` · PR #3 |
+| **A5** | Administrasi | ✅ Selesai | `c62392e` · branch `fitur/a5-administrasi` — belum push/PR |
 | **A6** | Nilai dan presensi | ⬜ Belum | — |
 | **A7** | Rapor | ⬜ Belum | — |
 | **A8** | Jalur AI | ⬜ Belum | — |
 
-**Angka gerbang pada saat A4 ditutup.** Diperbarui hanya ketika satu tahap selesai, bukan setiap commit.
+**Angka gerbang pada saat A5 ditutup.** Diperbarui hanya ketika satu tahap selesai, bukan setiap commit.
 
 | Perintah | Hasil |
 |---|---|
-| `npm run periksa` | keluar 0 |
-| `npm test` | 111 lulus |
-| `npm run test:db` | 148 lulus |
+| `npm run periksa` | keluar 0 · unit 164 lulus · DB coverage suite 266 lulus |
+| `npm run test:db` | 266 lulus |
 | `npm run lint:migrations` | 0 temuan pada 10 berkas |
-| Cakupan `src/domain` | 100% pada keempat metrik |
+| `npm run coverage:global` | statements 91,27% · branches 87,79% · functions 84,12% · lines 91,27% |
+| `npm audit --omit=dev` | 0 kerentanan produksi |
+| `git diff --check` | keluar 0 |
+| Cakupan `src/domain` | 100% pada keempat metrik tetap terjaga oleh konfigurasi Vitest |
 
 ---
 
@@ -81,7 +83,6 @@ Dicatat di sini hanya **judul dan tempatnya**. Isinya tidak disalin.
 
 | Isi | Jatuh tempo | Tercatat pada |
 |---|---|---|
-| Ambang cakupan global 80% dinyalakan | A5 | [AGENTS.md §4.1](./AGENTS.md) · `vitest.config.ts` |
 | Kerentanan `npm audit` pada `devDependencies` | Kapan saja — nol pada jalur produksi | — |
 | Lapis 4 dan 5 penjagaan migrasi | Sebelum data sekolah dimuat | [DEPLOYMENT.md §6.5](./DEPLOYMENT.md) |
 | Pengukuran lama render tiga puluh PDF | A7 | [API.md §13.3](./API.md) |
@@ -92,6 +93,7 @@ Dicatat di sini hanya **judul dan tempatnya**. Isinya tidak disalin.
 
 | Tanggal | Perubahan |
 |---|---|
+| 10 Agustus 2026 | A5 Administrasi ditandai selesai pada backend `c62392e` di branch `fitur/a5-administrasi`; tabel gerbang diperbarui dari angka A4 ke angka A5 dan utang cakupan global dihapus |
 | 10 Agustus 2026 | A-03 dikeluarkan dari daftar temuan terbuka setelah AC-26 diselaraskan dengan kontrak unggah tolak-seluruhnya pada API |
 | 8 Agustus 2026 | Bukti A3 diperbaiki dari PR #2 menjadi **PR #4**. PR #2 menggabungkan A3 ke `fitur/a2-skema-migrasi` **sesudah** cabang itu sendiri sudah masuk `main`, sehingga A3 tidak pernah sampai ke `main`; PR #4 yang membawanya |
 | 8 Agustus 2026 | Dokumen dibuat sesudah A4 selesai. Sebelumnya tidak ada satu tempat pun yang mencatat tahap mana sudah selesai — jawabannya hanya dapat diperoleh dengan membaca riwayat git atau daftar pull request, dan keduanya bukan dokumen |
