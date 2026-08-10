@@ -21,7 +21,7 @@
 | **A2** | Skema dan migrasi | ✅ Selesai | `a562b60` · PR #1 |
 | **A3** | `domain/` murni | ✅ Selesai | `15365e5`, `a1e357f` · PR #4 |
 | **A4** | Auth dan sesi | ✅ Selesai | `474d789`, `57b7e91`, `0f4135c` · PR #3 |
-| **A5** | Administrasi | ✅ Selesai | `4a553f7` · branch `fitur/a5-administrasi` — belum push/PR |
+| **A5** | Administrasi | ✅ Selesai | `4a553f7` · branch `fitur/a5-administrasi` |
 | **A6** | Nilai dan presensi | ⬜ Belum | — |
 | **A7** | Rapor | ⬜ Belum | — |
 | **A8** | Jalur AI | ⬜ Belum | — |
