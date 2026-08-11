@@ -26,21 +26,21 @@
 | **A4** | Auth dan sesi | ✅ Selesai | `474d789`, `57b7e91`, `0f4135c` · PR #3 |
 | **A5** | Administrasi | ✅ Selesai | `4a553f7` · branch `fitur/a5-administrasi` · PR #5 |
 | **A6** | Nilai dan presensi | ✅ Selesai | `8a2d93f` · branch `fitur/a6-nilai-presensi` · PR #6 |
-| **A7** | Rapor | 🟨 Sebagian | `743b86d` · branch `fitur/a7-rapor` · PR #7. Seluruh enam endpoint [API §8](./API.md) beserta gerbangnya lulus. **Satu hal belum tuntas:** pengukuran render belum dijalankan di Lambda. V5 sudah terjawab ([ARCHITECTURE §11.3](./ARCHITECTURE.md), CK-A-10); templatnya tinggal ditulis ulang |
+| **A7** | Rapor | 🟨 Sebagian | `743b86d` · branch `fitur/a7-rapor` · PR #7. Seluruh enam endpoint [API §8](./API.md) beserta gerbangnya lulus. Templat sudah selaras dengan [ARCHITECTURE §11.3](./ARCHITECTURE.md). **Satu hal belum tuntas dan memang tidak dapat lokal:** pengukuran render di Lambda |
 | **A8** | Jalur AI | ⬜ Belum | — |
 
 **Angka gerbang pada saat A7 dikerjakan.** Diperbarui hanya ketika satu tahap selesai, bukan setiap commit.
 
 | Perintah | Hasil |
 |---|---|
-| `npm run periksa` | keluar 0 · unit 21 berkas / 206 tes lulus · DB coverage suite 22 berkas / 386 tes lulus |
+| `npm run periksa` | keluar 0 · unit 21 berkas / 208 tes lulus · DB coverage suite 22 berkas / 386 tes lulus |
 | `npm run test:db` | keluar 0 · 22 berkas / 386 tes lulus |
 | `npm run lint:migrations` | 0 temuan pada 10 berkas |
-| `npm run coverage:global` | keluar 0 · statements 92,38% · branches 88,15% · functions 88,14% · lines 92,38% |
+| `npm run coverage:global` | keluar 0 · statements 92,33% · branches 88,14% · functions 88,10% · lines 92,33% |
 | `npm audit --omit=dev` | 0 kerentanan produksi |
 | `git diff --check` | keluar 0 |
 | Cakupan `src/domain` | statements 100% · branches 100% · functions 100% · lines 100% |
-| `npm run ukur:render` | 30 berkas dalam 598 ms pada mesin pengembang — **bukan** angka Lambda yang dituntut [API §13.3](./API.md) |
+| `npm run ukur:render` | 30 berkas dalam **431 ms** pada mesin pengembang — **bukan** angka Lambda yang dituntut [API §13.3](./API.md) |
 
 ---
 
@@ -94,7 +94,6 @@ Dicatat di sini hanya **judul dan tempatnya**. Isinya tidak disalin.
 | Lapis 4 dan 5 penjagaan migrasi | Sebelum data sekolah dimuat | [DEPLOYMENT.md §6.5](./DEPLOYMENT.md) |
 | Pengukuran lama render tiga puluh PDF **di Lambda** | Sebelum rilis pertama | [API.md §13.3](./API.md) |
 | **Sambungan dua lingkungan**: `ports/Secrets`, `adapters/aws/` (S3 + Secrets Manager + SSM), dan pemilihan adapter pada `entry/server.ts` | Sebelum Jalur B dilanjutkan | Janji "satu image, dua lingkungan" [ARCHITECTURE Pasal 13](./ARCHITECTURE.md) belum pernah dibuktikan. Hari ini `entry/server.ts` memilih adapter lokal secara tetap, dan `config.ts` membaca `DATABASE_URL` langsung dari lingkungan tanpa melewati port |
-| Templat pdfmake diselaraskan ke [ARCHITECTURE §11.3](./ARCHITECTURE.md) | Sebelum rapor pertama dibagikan | Templat saat ini masih bentuk sementara pra-V5, mencetak rincian komponen yang kini tidak diminta |
 
 ---
 
@@ -102,6 +101,7 @@ Dicatat di sini hanya **judul dan tempatnya**. Isinya tidak disalin.
 
 | Tanggal | Perubahan |
 |---|---|
+| 11 Agustus 2026 | **A7-a selesai** — templat rapor diselaraskan ke [ARCHITECTURE §11.3](./ARCHITECTURE.md) beserta tesnya. `KomponenCetak` dan tanggal finalisasi dikeluarkan dari port, karena port seharusnya menggambarkan persis apa yang tercetak. Render 30 berkas turun 598 → 431 ms |
 | 11 Agustus 2026 | **Urutan berubah: lokal lebih dahulu.** Jalur B ditahan setelah B1; Jalur A diselesaikan sampai seluruh fiturnya berjalan setempat. Utang "sambungan dua lingkungan" dicatat menggantikan butir adapter S3, karena persoalannya lebih luas daripada satu adapter |
 | 11 Agustus 2026 | **B1 selesai** — `terraform apply` pada `bootstrap/` menambahkan 7 sumber daya. Jalur B menyala untuk pertama kalinya. **CK-18** menolak RDS Proxy |
 | 11 Agustus 2026 | **V5 terjawab.** Isi berkas rapor ditetapkan [ARCHITECTURE §11.3](./ARCHITECTURE.md) beserta CK-A-10, mengikuti rapor resmi yang dipakai sekolah. Seluruh bidangnya sudah ada pada model data, sehingga tidak ada amandemen SCHEMA maupun API. Temuan **A-09** dibuka untuk identitas sekolah |
