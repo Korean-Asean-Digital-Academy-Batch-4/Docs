@@ -1,3 +1,22 @@
+LOGIN 
+FIX LOGIN AUTENTIFIKIKASI 
+
+Nama	Email	Password
+kadaelice	admin@sekolah.id	AdminEdu#2026
+sudo	admin@edutrack.test	AdminEdu#2026
+
+Nama	NIP	Password
+Budi Santoso	198501000000000000	GuruEdu#2026
+Budi Santoso	1987010000000000	GuruEdu#2026
+Nining S.Pd.	23874500000000000000000	GuruEdu#2026
+
+Nama	NIS	Password
+Farhan	2025100004	SiswaEdu#2026
+Jingga Fahirah	392333374585888	SiswaEdu#2026
+Mikguk Soo	20202989476283	SiswaEdu#2026
+Siti Aminah	2026100123	SiswaEdu#2026
+Tika Massala	304895758393020	SiswaEdu#2026
+
 # Docs — EduTrack
 
 Kumpulan dokumen sumber kebenaran untuk produk **EduTrack** (Project ID: EDU-2026-001).
