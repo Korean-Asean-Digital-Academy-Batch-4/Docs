@@ -14,6 +14,9 @@
 
 ## 1. Jalur A — aplikasi
 
+> **Urutan sejak 11 Agustus 2026: lokal lebih dahulu.** Jalur A diselesaikan sampai seluruh fiturnya berjalan setempat; Jalur B ditahan setelah B1 — [AGENTS.md §8](./AGENTS.md).
+
+
 | # | Tahap | Keadaan | Bukti |
 |:--:|---|:--:|---|
 | **A0** | Kerangka repositori | ✅ Selesai | `1b52439` |
@@ -43,15 +46,17 @@
 
 ## 2. Jalur B — infrastruktur
 
+> **Ditahan setelah B1** sampai Jalur A selesai secara lokal. Bukan karena terhambat, melainkan karena RDS menagih sejak menyala dan sambungan `adapters/aws/` belum ada.
+
 | # | Tahap | Keadaan | Bukti |
 |:--:|---|:--:|---|
 | **B0** | IAM: user, grup, role | 🟨 Sebagian | [DEPLOYMENT.md §9.9](./DEPLOYMENT.md) — **bertanggal 6 Agustus dan belum diperbarui**. Keberhasilan B0.5 membuktikan role OIDC sudah ada, tetapi §9.9 masih mendaftarnya sebagai belum ada |
 | **B0.5** | OIDC provider, role, jabat tangan | ✅ Selesai | [Gitaction.md](./Gitaction.md) · workflow `oidc-smoke.yml` |
 | **B1** | `terraform apply` pada `bootstrap/` | ✅ Selesai | Repositori **`infra`** `b925880`. `apply` bersih, **7 sumber daya dibuat**: bucket state beserta versioning, enkripsi, blok akses publik, dan kebijakan TLS; ECR `edutrack` beserta aturan daur hidupnya |
-| **B2** | Push image bootstrap ke ECR | ⬜ Belum | — |
-| **B3** | `terraform apply` pada `infra/` | ⬜ Belum | — |
-| **B4** | Pembuktian penandatanganan OAC | ⬜ Belum | — |
-| **B5** | Izin ECR dan Lambda pada role OIDC | ⬜ Belum | — |
+| **B2** | Push image bootstrap ke ECR | ⏸️ Ditahan | Menunggu Jalur A selesai secara lokal |
+| **B3** | `terraform apply` pada `infra/` | ⏸️ Ditahan | Menunggu B2 |
+| **B4** | Pembuktian penandatanganan OAC | ⏸️ Ditahan | Menunggu B3 |
+| **B5** | Izin ECR dan Lambda pada role OIDC | ⏸️ Ditahan | Menunggu B3 |
 | **B6** | `pr.yml` dan `deploy.yml` | 🟨 Sebagian | `pr.yml` menyala; `deploy.yml` menunggu B5 |
 
 ---
@@ -88,7 +93,7 @@ Dicatat di sini hanya **judul dan tempatnya**. Isinya tidak disalin.
 | Kerentanan `npm audit` pada `devDependencies` | Kapan saja — nol pada jalur produksi | — |
 | Lapis 4 dan 5 penjagaan migrasi | Sebelum data sekolah dimuat | [DEPLOYMENT.md §6.5](./DEPLOYMENT.md) |
 | Pengukuran lama render tiga puluh PDF **di Lambda** | Sebelum rilis pertama | [API.md §13.3](./API.md) |
-| Adapter penyimpanan S3 (`adapters/aws/`) | Sebelum rilis pertama | A7 memakai adapter disk lokal; tautan `file://` bukan tautan bertanda tangan |
+| **Sambungan dua lingkungan**: `ports/Secrets`, `adapters/aws/` (S3 + Secrets Manager + SSM), dan pemilihan adapter pada `entry/server.ts` | Sebelum Jalur B dilanjutkan | Janji "satu image, dua lingkungan" [ARCHITECTURE Pasal 13](./ARCHITECTURE.md) belum pernah dibuktikan. Hari ini `entry/server.ts` memilih adapter lokal secara tetap, dan `config.ts` membaca `DATABASE_URL` langsung dari lingkungan tanpa melewati port |
 | Templat pdfmake diselaraskan ke [ARCHITECTURE §11.3](./ARCHITECTURE.md) | Sebelum rapor pertama dibagikan | Templat saat ini masih bentuk sementara pra-V5, mencetak rincian komponen yang kini tidak diminta |
 
 ---
@@ -97,6 +102,7 @@ Dicatat di sini hanya **judul dan tempatnya**. Isinya tidak disalin.
 
 | Tanggal | Perubahan |
 |---|---|
+| 11 Agustus 2026 | **Urutan berubah: lokal lebih dahulu.** Jalur B ditahan setelah B1; Jalur A diselesaikan sampai seluruh fiturnya berjalan setempat. Utang "sambungan dua lingkungan" dicatat menggantikan butir adapter S3, karena persoalannya lebih luas daripada satu adapter |
 | 11 Agustus 2026 | **B1 selesai** — `terraform apply` pada `bootstrap/` menambahkan 7 sumber daya. Jalur B menyala untuk pertama kalinya. **CK-18** menolak RDS Proxy |
 | 11 Agustus 2026 | **V5 terjawab.** Isi berkas rapor ditetapkan [ARCHITECTURE §11.3](./ARCHITECTURE.md) beserta CK-A-10, mengikuti rapor resmi yang dipakai sekolah. Seluruh bidangnya sudah ada pada model data, sehingga tidak ada amandemen SCHEMA maupun API. Temuan **A-09** dibuka untuk identitas sekolah |
 | 11 Agustus 2026 | Repositori ketiga **`infra`** dibuat berisi Terraform Jalur B. `bootstrap/` selesai ditulis: bucket state, penguncian bawaan S3 (CK-D-04), dan ECR `edutrack` |

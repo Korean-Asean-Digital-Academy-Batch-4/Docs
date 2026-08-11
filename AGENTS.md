@@ -395,7 +395,9 @@ Urutan mengikat: **format → lint → periksa tipe → build**.
 
 ## 8. Tahap implementasi
 
-Dua jalur berjalan **bersamaan**, bukan berurutan. Pembagiannya bukan soal keahlian melainkan soal apa yang mungkin: setiap jalur menuju kuasa AWS menuntut kode MFA dari ponsel manusia, sehingga **agen tidak dapat menaikkan infrastruktur sama sekali**.
+Dua jalur **dapat** berjalan bersamaan. Pembagiannya bukan soal keahlian melainkan soal apa yang mungkin: setiap jalur menuju kuasa AWS menuntut kode MFA dari ponsel manusia, sehingga **agen tidak dapat menaikkan infrastruktur sama sekali**.
+
+> **Urutan yang berlaku sejak 11 Agustus 2026: lokal lebih dahulu.** Jalur A diselesaikan sampai seluruh fiturnya berjalan di `docker compose` setempat, dan Jalur B **ditahan setelah B1** sampai saat itu. Alasannya dua. Pertama, RDS mulai menagih sejak menit ia menyala, sedangkan tidak satu pun tahap Jalur A membutuhkannya. Kedua — dan ini yang menentukan — janji "satu image, dua lingkungan" pada Pasal 13 [ARCHITECTURE.md](../context/ARCHITECTURE.md) belum pernah dibuktikan: `ports/Secrets` belum ada, `adapters/aws/` belum ada, dan `entry/server.ts` masih memilih adapter lokal secara tetap. Menaikkan infrastruktur sebelum sambungannya ada berarti membayar sewa untuk sesuatu yang belum dapat dihubungi.
 
 ```
 JALUR A — aplikasi (agen)            JALUR B — infrastruktur (manusia)
@@ -415,6 +417,8 @@ A8  jalur AI                                  ▼
 ```
 
 **Hanya dua titik temu.** B2 menunggu `Dockerfile` dari A1; rilis pertama menunggu B6. Selebihnya kedua jalur tidak saling menunggu.
+
+**Satu gerbang A7 memang tidak dapat ditutup secara lokal.** Pengukuran lama render tiga puluh PDF pada [API.md §13.3](../context/API.md) menuntut fungsi Lambda 1024 MB arm64 yang sungguhan. Selama Jalur B ditahan, A7 tetap tercatat **sebagian**; angkanya diambil pada rilis pertama. Yang diukur lokal hanya pembandingnya.
 
 ### 8.1 Jalur A — dikerjakan agen, tanpa menyentuh AWS
 
@@ -628,6 +632,7 @@ Tahap yang menambah lapisan baru — rute, tabel, adapter — mengubah bentuk gr
 
 | Tanggal | Perubahan |
 |---|---|
+| 11 Agustus 2026 | §8 — **urutan berubah menjadi lokal lebih dahulu.** Jalur B ditahan setelah B1 sampai seluruh fitur Jalur A berjalan setempat. Dicatat pula bahwa gerbang pengukuran render A7 tidak dapat ditutup tanpa Lambda |
 | 6 Agustus 2026 | Dokumen dibuat. Menetapkan alur kerja agen ECC di atas rantai penguncian EduTrack: peta baca per jenis tugas, prosedur ketika kode dan dokumen bertentangan, dua belas larangan mutlak, tiga tingkat pengujian termasuk pembuktian penegakan oleh basis data, konvensi penamaan lintas lapisan, serta delapan tahap implementasi beserta gerbang selesainya |
 | 7 Agustus 2026 | §5.3 diperluas: lima aturan migrasi dinyatakan lengkap, ditambah header klasifikasi wajib, konvensi penamaan `expand`/`contract`, kewajiban `grep` sebelum `contract`, dan kewajiban lolos `squawk`. Mengikuti [DEPLOYMENT.md §6.5](DEPLOYMENT.md) dan CK-D-03 |
 | 7 Agustus 2026 | **Versi 2.0.** Pasal 8 ditulis ulang menjadi **dua jalur yang berjalan bersamaan** — Jalur A dikerjakan agen tanpa menyentuh AWS, Jalur B dikerjakan manusia — karena setiap jalur menuju kuasa AWS menuntut kode MFA sehingga agen tidak dapat menaikkan infrastruktur. Ditambahkan **§10 titik henti manusia**, **§11 git dan pemulihan** yang mengikat riwayat git pada rantai pemulihan produksi, dan **§12 memulai dari repositori kosong** |
