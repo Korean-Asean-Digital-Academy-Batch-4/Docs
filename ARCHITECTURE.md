@@ -447,6 +447,31 @@ P14 memberi Administrator kewenangan mengubah data yang sudah final. Tanpa penan
 
 Yang tetap berada di luar jangkauan sistem: berkas yang **sudah terlanjur diunduh** pengguna sebelum koreksi. Salinan tersebut berada di perangkat masing-masing dan tidak dapat ditarik kembali. Hal ini berkaitan dengan temuan **T-04** pada [RFC-001 §10](RFC-001-model-data-konseptual.md) serta butir 2 pada [aktor-role.md §12](aktor-role.md), yang keduanya bersifat produk: apakah pihak sekolah perlu diberi tahu ketika koreksi terjadi setelah distribusi.
 
+### 11.3 Isi berkas rapor
+
+Ditetapkan **V5** pada [ATURAN-DAN-KRITERIA §5](ATURAN-DAN-KRITERIA.md), dijawab 11 Agustus 2026 dengan merujuk rapor resmi yang dipakai sekolah. Susunannya tiga bagian, berurutan dari atas:
+
+| Bagian | Isi | Sumber |
+|---|---|---|
+| **Kepala** | Periode akademik · Nama · NIS · Kelas · Wali Kelas | `rapor.periode_ref`, `pengguna.nama`, `pengguna.nama_pengguna`, `kelas.nama`, `kelas.wali_kelas_ref` |
+| **Tabel** | No · Mata Pelajaran · KKM · Nilai Akhir · Kehadiran | `rapor_mapel` seluruhnya |
+| **Kaki** | Catatan Wali Kelas | `rapor.catatan_wali` |
+
+**Seluruh bidangnya sudah ada.** Tidak ada satu pun kolom, tabel, maupun endpoint yang perlu ditambahkan untuk memenuhi bentuk ini — V5 dijawab tanpa menyentuh [SCHEMA.md](SCHEMA.md) maupun [API.md](API.md). `No` adalah nomor urut baris, bukan data yang disimpan.
+
+**Rincian komponen tidak dicetak.** Tabelnya berhenti pada nilai akhir per mata pelajaran; kode, nama, bobot, dan nilai tiap komponen tidak muncul di berkas. Meskipun begitu `rapor_mapel.snapshot_komponen` **tetap dibekukan pada saat finalisasi** — ia yang membuat nilai akhir dapat dipertanggungjawabkan kembali ketika orang tua bertanya dari mana angkanya berasal, dan tanpanya AC-13 kehilangan dasarnya. Yang berubah hanya apa yang tercetak, bukan apa yang disimpan.
+
+**Empat hal yang lazim ada pada rapor SMA sengaja tidak dimuat**, karena tidak satu pun memiliki tempat pada model data dan menambahkannya berarti mengamandemen [RFC-001](RFC-001-model-data-konseptual.md) beserta PRD:
+
+| Tidak dimuat | Sebab |
+|---|---|
+| Deskripsi capaian naratif per mata pelajaran | Sistem hanya menyimpan angka. Menambahkannya berarti entitas baru beserta layar penulisannya |
+| Predikat huruf | Tidak ada tabel konversi angka ke huruf yang ditetapkan dokumen mana pun |
+| Ekstrakurikuler | Tidak ada entitasnya. Berada di luar cakupan MVP bersama NG8 |
+| Rekap ketidakhadiran dalam satuan hari | Presensi tercatat per sesi per mata pelajaran (I-15). Satu hari memuat beberapa mata pelajaran, sehingga rekap harian tidak dapat diturunkan tanpa menetapkan lebih dahulu apa artinya "tidak hadir sehari" |
+
+Identitas sekolah — nama, NPSN, alamat, logo — juga belum dimuat, dengan sebab yang berbeda: ia bukan data siswa melainkan tetapan pemasangan, dan tempatnya belum ditetapkan dokumen mana pun. Dicatat sebagai temuan **A-09** pada [API.md §13.1](API.md).
+
 ---
 
 ## 12. Jaringan dan keamanan
@@ -708,12 +733,27 @@ Bila stdin berupa terminal, perintah meminta kata sandi tanpa menampilkan ketika
 
 **Konsekuensi yang diterima.** Kata sandi bootstrap tidak memiliki syarat kerumitan, sama seperti seluruh kata sandi pada sistem ini (PRD §6.1.3), sehingga operator dapat memilih kata sandi lemah. Pilihan itu ada di tangan orang yang sama yang memegang kredensial basis data pada saat itu, sehingga tidak menambah kewenangan siapa pun.
 
+### CK-A-10 · 11 Agustus 2026 · Berkas rapor memuat nilai akhir per mata pelajaran, tanpa rincian komponen
+
+**Diputuskan.** Berkas rapor tersusun tiga bagian sesuai §11.3: kepala berisi periode akademik beserta identitas siswa dan wali kelas, satu tabel berkolom **No, Mata Pelajaran, KKM, Nilai Akhir, Kehadiran**, dan kaki berisi catatan wali kelas. Rincian komponen penilaian tidak dicetak.
+
+**Alasan.** Bentuk ini diambil dari rapor resmi yang sudah dipakai sekolah, sehingga menjawab V5 tanpa menegosiasikan ulang apa pun. Yang menentukan bagi keputusan ini: seluruh bidangnya **sudah tersedia** pada model data, sehingga V5 tidak lagi menghalangi A7 dan tidak menimbulkan satu pun amandemen pada SCHEMA maupun API.
+
+Rincian komponen ditinggalkan karena rapor adalah dokumen ringkas yang dibaca orang tua, sedangkan rincian per komponen sudah tersedia sepanjang semester lewat layar nilai yang dapat dibuka siswa kapan saja (AC-06). Mencetaknya dua kali menambah halaman tanpa menambah informasi yang belum dapat dilihat.
+
+**Yang tidak berubah.** `rapor_mapel.snapshot_komponen` tetap ditulis pada saat finalisasi. Ia bukan bahan cetak melainkan dasar pertanggungjawaban angka, dan CK-A-07 beserta AC-13 bersandar padanya. Menghapusnya karena tidak tercetak akan menukar jaminan dengan penghematan satu kolom.
+
+**Alternatif yang ditolak.** *Mencetak rincian komponen seperti rancangan sementara sebelum V5 turun.* Ditolak sesudah dibandingkan dengan rapor sekolah yang sesungguhnya. *Menambahkan deskripsi naratif, predikat huruf, ekstrakurikuler, dan rekap ketidakhadiran harian agar setara rapor resmi selengkapnya.* Ditolak pada tahap ini karena keempatnya menuntut entitas baru; sebabnya masing-masing pada §11.3.
+
+**Konsekuensi yang diterima.** Templat pdfmake pada `adapters/local/rapor-berkas/templat.ts` ditulis ulang mengikuti §11.3. Perubahannya terbatas pada satu berkas, sebagaimana memang dirancang.
+
 ---
 
 ## Riwayat
 
 | Tanggal | Perubahan |
 |---|---|
+| 11 Agustus 2026 | **§11.3 dan CK-A-10** — isi berkas rapor ditetapkan menjawab V5: kepala, satu tabel No/Mata Pelajaran/KKM/Nilai Akhir/Kehadiran, dan catatan wali kelas. Seluruh bidangnya sudah ada pada model data, sehingga tidak ada amandemen SCHEMA maupun API. Empat hal yang lazim ada pada rapor SMA dicatat sebagai sengaja tidak dimuat beserta sebabnya |
 | 6 Agustus 2026 | Kerangka dibuat sebagai bagian dari pemecahan `Techstack.md` menjadi tiga dokumen. Isi belum ditulis. Menggantikan `ARCHITECTURE.md` versi 2 Agustus 2026, yang diturunkan menjadi arsip dengan nama `ARCHITECTURE-2026-08-02.md` |
 | 6 Agustus 2026 | **Versi 1.0 — isi ditulis.** Pasal 1 sampai 13 memindahkan isi yang sudah tervalidasi pada `Techstack.md` versi 1, dengan empat penyesuaian terhadap keadaan terbaru: adapter AI mengikuti CK-14, penyimpanan rahasia mengikuti `Techstack.md` §7, alamat endpoint Elice mengikuti `Techstack.md` §6, dan susunan jaringan mengikuti CK-13. Pasal 9 diperkaya dengan penerjemahan matriks kewenangan `aktor-role.md` menjadi dua lapis pemeriksaan. **Pasal 14 Alur request ditulis baru.** Ditetapkan pula lima angka yang sebelumnya belum pernah ditentukan: umur sesi 12 jam, umur presigned URL 5 menit, tiga batas laju, dan batas ukuran unggahan 2 MB. Lampiran Catatan Keputusan dibuka dengan **CK-A-01** sampai **CK-A-06** |
 | 6 Agustus 2026 | Pasal 11 ditulis ulang: berkas rapor dirender pada saat finalisasi dengan anggaran lunak 20 detik, render-saat-unduh menjadi jalur cadangan yang tidak dapat dihapus, dan ditambahkan unduh sekelas berbentuk arsip ZIP yang tidak merender apa pun (**CK-A-07**, mengamandemen CK-09). Batas waktu fungsi pada Pasal 6 disesuaikan: request terpanjang kini finalisasi sekelas, bukan render satu PDF |

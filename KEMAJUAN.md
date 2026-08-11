@@ -23,7 +23,7 @@
 | **A4** | Auth dan sesi | ✅ Selesai | `474d789`, `57b7e91`, `0f4135c` · PR #3 |
 | **A5** | Administrasi | ✅ Selesai | `4a553f7` · branch `fitur/a5-administrasi` · PR #5 |
 | **A6** | Nilai dan presensi | ✅ Selesai | `8a2d93f` · branch `fitur/a6-nilai-presensi` · PR #6 |
-| **A7** | Rapor | 🟨 Sebagian | `743b86d` · branch `fitur/a7-rapor` · PR #7. Seluruh enam endpoint [API §8](./API.md) beserta gerbangnya lulus. **Dua hal belum tuntas:** tata letak PDF masih sementara sampai **V5** turun, dan pengukuran render belum dijalankan di Lambda |
+| **A7** | Rapor | 🟨 Sebagian | `743b86d` · branch `fitur/a7-rapor` · PR #7. Seluruh enam endpoint [API §8](./API.md) beserta gerbangnya lulus. **Satu hal belum tuntas:** pengukuran render belum dijalankan di Lambda. V5 sudah terjawab ([ARCHITECTURE §11.3](./ARCHITECTURE.md), CK-A-10); templatnya tinggal ditulis ulang |
 | **A8** | Jalur AI | ⬜ Belum | — |
 
 **Angka gerbang pada saat A7 dikerjakan.** Diperbarui hanya ketika satu tahap selesai, bukan setiap commit.
@@ -65,7 +65,6 @@ Dicatat di sini hanya **judul dan tempatnya**. Isinya tidak disalin.
 | Nama domain dan pembeliannya | [Techstack.md §9](./Techstack.md) butir 4 · [AGENTS.md §10](./AGENTS.md) | Penerapan CK-17. **Sengaja dikerjakan paling akhir** |
 | Kredensial AWS, `terraform apply`, pembuatan rahasia | [AGENTS.md §10](./AGENTS.md) | Seluruh Jalur B |
 | Validasi komponen dan bobot templat | **V1** pada [ATURAN-DAN-KRITERIA.md §5](./ATURAN-DAN-KRITERIA.md) | Tidak menghambat — hanya data |
-| Format rapor resmi sekolah | **V5** · [Techstack.md §9](./Techstack.md) butir 2 | Tata letak PDF A7. Isi dan seluruh endpointnya tidak menunggu; yang menunggu hanya `adapters/local/rapor-berkas/templat.ts` |
 | Kredensial AWS untuk mengukur render 30 PDF di Lambda 1024 MB arm64 | [API.md §13.3](./API.md) | Penutupan gerbang A7. Angka pembanding lokal sudah ada |
 | Retensi dan pencadangan data | **V6** · [Techstack.md §9](./Techstack.md) butir 3 | Tidak menghambat |
 | Status kelayakan free tier RDS pada akun AWS tim | [Techstack.md §9](./Techstack.md) butir 7 | Tidak menghambat — menentukan $32,41 atau $11,40 per bulan |
@@ -75,7 +74,7 @@ Dicatat di sini hanya **judul dan tempatnya**. Isinya tidak disalin.
 | # | Tercatat pada |
 |---|---|
 | S-01, S-07 | [SCHEMA.md §12](./SCHEMA.md) |
-| A-04, A-07, A-08 | [API.md §13.1](./API.md) |
+| A-04, A-07, A-08, A-09 | [API.md §13.1](./API.md) |
 | T-01, T-04, T-05, T-06 | [RFC-001 §10](./RFC-001-model-data-konseptual.md) |
 
 **Yang ditutup sepanjang 7–8 Agustus 2026:** S-02, S-03, S-04, S-05, S-06 · T-02, T-03 · A-05, A-06. Rinciannya pada dokumen masing-masing.
@@ -90,6 +89,7 @@ Dicatat di sini hanya **judul dan tempatnya**. Isinya tidak disalin.
 | Lapis 4 dan 5 penjagaan migrasi | Sebelum data sekolah dimuat | [DEPLOYMENT.md §6.5](./DEPLOYMENT.md) |
 | Pengukuran lama render tiga puluh PDF **di Lambda** | Sebelum rilis pertama | [API.md §13.3](./API.md) |
 | Adapter penyimpanan S3 (`adapters/aws/`) | Sebelum rilis pertama | A7 memakai adapter disk lokal; tautan `file://` bukan tautan bertanda tangan |
+| Templat pdfmake diselaraskan ke [ARCHITECTURE §11.3](./ARCHITECTURE.md) | Sebelum rapor pertama dibagikan | Templat saat ini masih bentuk sementara pra-V5, mencetak rincian komponen yang kini tidak diminta |
 
 ---
 
@@ -97,6 +97,7 @@ Dicatat di sini hanya **judul dan tempatnya**. Isinya tidak disalin.
 
 | Tanggal | Perubahan |
 |---|---|
+| 11 Agustus 2026 | **V5 terjawab.** Isi berkas rapor ditetapkan [ARCHITECTURE §11.3](./ARCHITECTURE.md) beserta CK-A-10, mengikuti rapor resmi yang dipakai sekolah. Seluruh bidangnya sudah ada pada model data, sehingga tidak ada amandemen SCHEMA maupun API. Temuan **A-09** dibuka untuk identitas sekolah |
 | 11 Agustus 2026 | Repositori ketiga **`infra`** dibuat berisi Terraform Jalur B. `bootstrap/` selesai ditulis: bucket state, penguncian bawaan S3 (CK-D-04), dan ECR `edutrack` |
 | 11 Agustus 2026 | Gerbang biaya [Techstack §8.2](./Techstack.md) ditutup: tarif `ap-southeast-3` diverifikasi terhadap AWS Price List API, total $32,41 per bulan atau $11,40 dengan free tier RDS. Jalur B dapat dimulai |
 | 11 Agustus 2026 | A7 Rapor dikerjakan pada backend `743b86d` di branch `fitur/a7-rapor` dan dibuka sebagai PR #7: enam endpoint [API §8](./API.md), salinan beku `rapor_mapel`, perenderan PDF pada saat finalisasi beserta anggaran lunak 20 detik, dan unduh per siswa maupun sekelas. Ditandai **sebagian** karena tata letak PDF menunggu V5 dan pengukuran render Lambda menunggu Jalur B. Temuan **A-07** dan **A-08** dibuka |

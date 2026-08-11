@@ -128,5 +128,5 @@
 | V1 | Komponen penilaian dan bobot pada templat bawaan, apakah sesuai dengan yang benar-benar digunakan |
 | V2 | Nilai KKM untuk setiap mata pelajaran-jenjang |
 | V3 | Aturan remedial dan cara mengganti nilai setelah remedial |
-| V5 | Format rapor resmi sekolah dan data wajib yang harus tercantum |
+| ~~V5~~ | ~~Format rapor resmi sekolah dan data wajib yang harus tercantum~~ — **terjawab 11 Agustus 2026**, bentuknya ditetapkan [ARCHITECTURE §11.3](ARCHITECTURE.md) dan **CK-A-10** |
 | V6 | Kebijakan privasi, lama penyimpanan data, pencadangan, dan penggunaan data nyata untuk AI |

@@ -252,7 +252,6 @@ Dua tuas yang tersisa, keduanya perlu diperiksa lebih dahulu, bukan diasumsikan 
 | # | Item | Menunggu | Dampak apabila berubah |
 |---|---|---|---|
 | 1 | Model yang dipilih dari Model Library Elice beserta prompt sistemnya | Uji keluaran terhadap AC-18 dan AC-31 | Hanya isi adapter. Tidak menyentuh arsitektur |
-| 2 | Format rapor resmi sekolah | V5 pada ATURAN-DAN-KRITERIA §5 | Menentukan templat pdfmake. Apabila tata letaknya rumit, CK-09 perlu ditinjau ulang |
 | 3 | Kebijakan penyimpanan dan pencadangan data | V6 | Menentukan lama retensi cadangan RDS, aturan daur hidup bucket rapor, dan jadwal pencadangan on-prem |
 | 4 | **Nama domain yang sesungguhnya beserta pembeliannya**, dan penerbitan sertifikat ACM di atasnya | Pihak sekolah dan pembelian domain | **Bentuknya sudah ditetapkan CK-17**; yang tersisa hanya namanya. Menentukan modul `frontend` pada Terraform, nilai record CNAME, dan subdomain per sekolah. **Dikerjakan paling akhir dengan sengaja** — seluruh susunan CK-17 dapat ditulis dan ditinjau tanpa domain, dan hanya penerapannya yang menunggu |
 | 5 | Apakah `dev` memerlukan RDS tersendiri atau cukup PostgreSQL lokal | Keputusan tim | Menentukan biaya lingkungan `dev` |
@@ -512,6 +511,7 @@ Bernomor dan bertanggal. Entri tidak disunting; perubahan keputusan ditulis seba
 
 | Tanggal | Perubahan |
 |---|---|
+| 11 Agustus 2026 | Butir 2 pada §9 ditutup — format rapor resmi sekolah terjawab, dan bentuknya ditetapkan [ARCHITECTURE §11.3](ARCHITECTURE.md) beserta CK-A-10. Tata letaknya sederhana, sehingga peninjauan ulang CK-09 yang dikhawatirkan butir itu tidak diperlukan |
 | 11 Agustus 2026 | §8.2 dan §8.3 ditulis ulang dengan tarif `ap-southeast-3` yang **diverifikasi terhadap AWS Price List API**, menggantikan perkiraan `ap-southeast-1` yang belum pernah diuji. Total $32,41 per bulan, atau $11,40 dengan free tier RDS. Butir 9 pada §9 ditutup |
 | 6 Agustus 2026 | Dokumen dibuat. Menetapkan stack di atas PRD v3.0 dan RFC-001. Menggantikan bagian stack pada `ARCHITECTURE.md` versi 2 Agustus 2026. Menutup K-01 dan K-02 pada RFC-001 §9, serta menutup temuan T-03 |
 | 6 Agustus 2026 | Compute berpindah dari ECS Fargate dengan ALB ke Lambda Web Adapter dengan Function URL (**CK-13**, mengamandemen CK-01 dan CK-02). Perkiraan biaya diperbaiki: NAT menjadi ~$8 karena alamat IPv4 publik kini ditagih, dan total turun menjadi $27–35 per bulan |
