@@ -194,42 +194,54 @@ Diturunkan dari volume RFC-001 §8.1 — 360 siswa, 18 guru, 1 administrator.
 
 ### 8.2 Rincian
 
-| Komponen | Per bulan |
-|---|---|
-| Lambda — arm64, 1024 MB, rata-rata ~120 ms, 300 ribu request | **~$1** |
-| Function URL | $0 |
-| RDS `db.t4g.micro` Single-AZ + 20 GB gp3 | $15–18, atau **$0** apabila free tier akun masih berlaku |
-| NAT instance `t4g.nano` + alamat IPv4 publik + EBS | ~$8 |
-| CloudFront dan S3 | $0–2 |
-| ECR | < $1 |
-| Secrets Manager — dua kredensial basis data | ~$1 |
-| SSM Parameter Store — kunci API Elice | $0 (tier standar) |
-| Elice AI Cloud — sekitar 1.400 panggilan tombol Suggestion | **$0** — kredit program KADA, di luar tagihan AWS |
-| **Total** | **$28–36**, atau **$13–21** dengan free tier |
+**Diverifikasi 11 Agustus 2026 terhadap AWS Price List API untuk `ap-southeast-3`**, bukan diperkirakan. Setiap tarif di bawah ini dibaca dari berkas harga resmi region tersebut pada `pricing.us-east-1.amazonaws.com/offers/v1.0/aws/<layanan>/current/ap-southeast-3/index.json`.
 
-> ⚠️ **Seluruh angka pada pasal ini belum berlaku.** Dua sebab, dan keduanya menumpuk:
->
-> 1. Angkanya disusun untuk **`ap-southeast-1`**, sedangkan region sudah berpindah ke `ap-southeast-3` (CK-16). Jakarta lazimnya lebih mahal daripada Singapura.
-> 2. Angkanya **belum pernah diverifikasi** lewat AWS Pricing Calculator, bahkan untuk region yang lama.
->
-> Perkiraan pembanding kedua region sudah disusun dan tersimpan: [https://calculator.aws/#/estimate?id=5ec85f81287d121b6209e62fa01954076ba236a4](https://calculator.aws/#/estimate?id=5ec85f81287d121b6209e62fa01954076ba236a4). Membukanya menampilkan biaya RDS dan NAT instance untuk keduanya berdampingan. **Wajib diselesaikan sebelum masuk [DEPLOYMENT.md](DEPLOYMENT.md).**
+| Komponen | Tarif Jakarta | Per bulan |
+|---|---|--:|
+| Lambda `edutrack-api` — 300 rb request, arm64 1024 MB, 120 ms | $2,0·10⁻⁷ per request · $1,33334·10⁻⁵ per GB-detik | $0,54 |
+| Lambda `edutrack-migrate` — 60 kali, 5 detik | sama | $0,00 |
+| Function URL | — | $0 |
+| RDS `db.t4g.micro` Single-AZ PostgreSQL | $0,025 per jam | $18,25 |
+| RDS penyimpanan gp3 20 GB | $0,138 per GB-bulan | $2,76 |
+| NAT instance `t4g.nano` | $0,0053 per jam | $3,87 |
+| NAT — EBS gp3 8 GB | $0,096 per GB-bulan | $0,77 |
+| NAT — satu alamat IPv4 publik | $0,005 per jam | $3,65 |
+| Secrets Manager — tiga rahasia | $0,40 per rahasia | $1,20 |
+| Secrets Manager — panggilan API | $0,000005 per panggilan | $0,10 |
+| ECR — 10 GB image | $0,10 per GB-bulan | $1,00 |
+| S3 — 5 GB Standard beserta request-nya | $0,025 per GB-bulan | $0,26 |
+| CloudFront — 15 GB keluar, 500 rb request | di bawah free tier tetap 1 TB dan 10 juta request | $0 |
+| SSM Parameter Store standar · S3 gateway endpoint | — | $0 |
+| Elice AI Cloud — ~1.400 panggilan tombol Suggestion | kredit program KADA | $0, di luar tagihan AWS |
+| **Total** | | **$32,41** |
+
+Empat keadaan yang mungkin, bergantung pada dua hal yang belum diperiksa:
+
+| Keadaan | Per bulan |
+|---|--:|
+| Tanpa free tier apa pun | **$32,41** |
+| Dengan free tier RDS 12 bulan | **$11,40** |
+| NAT instance digantikan Egress-only Internet Gateway | $24,12 |
+| Keduanya | **$3,11** |
+
+**Perkiraan lama ternyata tidak meleset.** Angka $28–36 yang disusun untuk `ap-southeast-1` melingkupi $32,41 di Jakarta; yang berbeda hanya angka free tier, yang seharusnya $11,40 alih-alih $13–21. Kekhawatiran bahwa Jakarta jauh lebih mahal daripada Singapura tidak terbukti pada bauran layanan ini.
+
+**Free tier Lambda tidak diperhitungkan.** Akun yang masih memakai model free tier lama memperoleh 1 juta request dan 400 ribu GB-detik per bulan secara tetap, yang menutup seluruh $0,54 di atas. Karena kelayakannya bergantung pada usia akun, angkanya dibiarkan penuh — meleset ke arah yang aman.
 
 ### 8.3 Yang perlu diperhatikan
 
-**Compute bukan lagi pos yang perlu dioptimalkan.** Lambda menyumbang sekitar 3% dari tagihan; sepuluh kali lipat trafik pun tetap di bawah $6. Tagihan didominasi RDS (~55%) dan NAT (~28%).
+**Compute bukan pos yang perlu dioptimalkan.** Lambda menyumbang 1,7% dari tagihan; sepuluh kali lipat trafik pun menambah kurang dari $5. Tagihan didominasi **RDS (65%)** dan **NAT (26%)**; keduanya bersama-sama adalah 91% dari total.
 
 Dua tuas yang tersisa, keduanya perlu diperiksa lebih dahulu, bukan diasumsikan berhasil:
 
 | Tuas | Hemat | Syarat |
 |---|--:|---|
-| Free tier RDS | −$15 | Status kelayakan akun AWS tim perlu diperiksa. Berlaku 12 bulan |
-| Egress-only Internet Gateway lewat IPv6, menggantikan NAT instance | −$8 | Hanya berlaku apabila `mlapi.run` dapat dihubungi lewat IPv6. **Wajib diuji** |
+| Free tier RDS | −$21,01 | Status kelayakan akun AWS tim perlu diperiksa. Berlaku 12 bulan |
+| Egress-only Internet Gateway lewat IPv6, menggantikan NAT instance | −$8,29 | Hanya berlaku apabila `mlapi.run` dapat dihubungi lewat IPv6. **Wajib diuji** |
 
-Apabila keduanya berhasil, tagihan turun ke sekitar **$6–11 per bulan**.
+**Alamat IPv4 publik ditagih $0,005 per jam** — $3,65 per bulan, hampir separuh biaya NAT. Inilah sebabnya mengganti NAT instance dengan Egress-only Internet Gateway menghemat lebih banyak daripada yang tampak dari harga instance-nya saja.
 
-**Alamat IPv4 publik kini ditagih** sekitar $3,65 per bulan per alamat, sejak Februari 2024. Inilah sebabnya NAT instance berbiaya ~$8, bukan ~$3 sebagaimana perkiraan pada rancangan 2 Agustus 2026.
-
-**Sebagai pembanding**, rancangan ECS Fargate dengan dua task di belakang Application Load Balancer berbiaya **$60–71 per bulan** — selisihnya berasal dari Fargate (~$20) dan ALB (~$16). Perbandingan ini dicatat karena Fargate tetap menjadi jalur naik apabila cold start atau plafon koneksi terbukti mengganggu (CK-13).
+**Sebagai pembanding**, rancangan ECS Fargate dengan dua task di belakang Application Load Balancer berbiaya sekitar $60–71 per bulan. Perbandingan ini dicatat karena Fargate tetap menjadi jalur naik apabila cold start atau plafon koneksi terbukti mengganggu (CK-13).
 
 **Biaya AI berada di luar tagihan AWS.** Kredit program KADA bersifat terbatas dan menipis, bukan biaya berulang. Pembatasan laju per siswa adalah pengendali pemakaiannya, dan habisnya kredit tidak menghentikan aplikasi karena kegagalan layanan AI ditangani sebagai kegagalan lunak (AC-21).
 
@@ -244,9 +256,8 @@ Apabila keduanya berhasil, tagihan turun ke sekitar **$6–11 per bulan**.
 | 3 | Kebijakan penyimpanan dan pencadangan data | V6 | Menentukan lama retensi cadangan RDS, aturan daur hidup bucket rapor, dan jadwal pencadangan on-prem |
 | 4 | **Nama domain yang sesungguhnya beserta pembeliannya**, dan penerbitan sertifikat ACM di atasnya | Pihak sekolah dan pembelian domain | **Bentuknya sudah ditetapkan CK-17**; yang tersisa hanya namanya. Menentukan modul `frontend` pada Terraform, nilai record CNAME, dan subdomain per sekolah. **Dikerjakan paling akhir dengan sengaja** — seluruh susunan CK-17 dapat ditulis dan ditinjau tanpa domain, dan hanya penerapannya yang menunggu |
 | 5 | Apakah `dev` memerlukan RDS tersendiri atau cukup PostgreSQL lokal | Keputusan tim | Menentukan biaya lingkungan `dev` |
-| 6 | Apakah `mlapi.run` dapat dihubungi lewat IPv6, sehingga NAT instance dapat digantikan Egress-only Internet Gateway | Uji jaringan saat infrastruktur naik | Menghemat ~$8 per bulan, yaitu 28% tagihan (§8.3) |
-| 7 | Status kelayakan free tier akun AWS tim **pada `ap-southeast-3`** | Pemeriksaan akun | Menentukan apakah tagihan ~$28 atau ~$13 per bulan. Perlu diperiksa ulang setelah perpindahan region (CK-16) |
-| 9 | **Biaya sesungguhnya di `ap-southeast-3`** | Membuka perkiraan pembanding yang sudah disusun pada §8.2 | Menuntaskan seluruh pasal biaya, yang sampai kini belum pernah terverifikasi |
+| 6 | Apakah `mlapi.run` dapat dihubungi lewat IPv6, sehingga NAT instance dapat digantikan Egress-only Internet Gateway | Uji jaringan saat infrastruktur naik | Menghemat $8,29 per bulan, yaitu 26% tagihan (§8.3) |
+| 7 | Status kelayakan free tier akun AWS tim **pada `ap-southeast-3`** | Pemeriksaan akun | Menentukan apakah tagihan $32,41 atau $11,40 per bulan (§8.2) |
 | 8 | Apakah cold start ~0,8–1,5 detik dapat diterima pengguna | UAT | Apabila tidak, jalur naiknya provisioned concurrency atau ECS Fargate memakai image yang sama (CK-13) |
 
 Temuan RFC-001 §10 yang masih terbuka — T-01, T-02, T-04, T-05, dan T-06 — bersifat produk dan tidak dipengaruhi pilihan teknologi mana pun pada dokumen ini. T-03 ditutup oleh §5.
@@ -501,6 +512,7 @@ Bernomor dan bertanggal. Entri tidak disunting; perubahan keputusan ditulis seba
 
 | Tanggal | Perubahan |
 |---|---|
+| 11 Agustus 2026 | §8.2 dan §8.3 ditulis ulang dengan tarif `ap-southeast-3` yang **diverifikasi terhadap AWS Price List API**, menggantikan perkiraan `ap-southeast-1` yang belum pernah diuji. Total $32,41 per bulan, atau $11,40 dengan free tier RDS. Butir 9 pada §9 ditutup |
 | 6 Agustus 2026 | Dokumen dibuat. Menetapkan stack di atas PRD v3.0 dan RFC-001. Menggantikan bagian stack pada `ARCHITECTURE.md` versi 2 Agustus 2026. Menutup K-01 dan K-02 pada RFC-001 §9, serta menutup temuan T-03 |
 | 6 Agustus 2026 | Compute berpindah dari ECS Fargate dengan ALB ke Lambda Web Adapter dengan Function URL (**CK-13**, mengamandemen CK-01 dan CK-02). Perkiraan biaya diperbaiki: NAT menjadi ~$8 karena alamat IPv4 publik kini ditagih, dan total turun menjadi $27–35 per bulan |
 | 6 Agustus 2026 | Penyedia AI berpindah dari OpenRouter ke Elice AI Cloud melalui program KADA (**CK-14**, mengamandemen CK-06). Ditetapkan bahwa identitas siswa tidak pernah dikirim ke layanan AI |

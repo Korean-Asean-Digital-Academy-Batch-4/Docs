@@ -68,6 +68,7 @@ Dicatat di sini hanya **judul dan tempatnya**. Isinya tidak disalin.
 | Format rapor resmi sekolah | **V5** · [Techstack.md §9](./Techstack.md) butir 2 | Tata letak PDF A7. Isi dan seluruh endpointnya tidak menunggu; yang menunggu hanya `adapters/local/rapor-berkas/templat.ts` |
 | Kredensial AWS untuk mengukur render 30 PDF di Lambda 1024 MB arm64 | [API.md §13.3](./API.md) | Penutupan gerbang A7. Angka pembanding lokal sudah ada |
 | Retensi dan pencadangan data | **V6** · [Techstack.md §9](./Techstack.md) butir 3 | Tidak menghambat |
+| Status kelayakan free tier RDS pada akun AWS tim | [Techstack.md §9](./Techstack.md) butir 7 | Tidak menghambat — menentukan $32,41 atau $11,40 per bulan |
 
 ## 4. Temuan yang masih terbuka
 
@@ -96,6 +97,7 @@ Dicatat di sini hanya **judul dan tempatnya**. Isinya tidak disalin.
 
 | Tanggal | Perubahan |
 |---|---|
+| 11 Agustus 2026 | Gerbang biaya [Techstack §8.2](./Techstack.md) ditutup: tarif `ap-southeast-3` diverifikasi terhadap AWS Price List API, total $32,41 per bulan atau $11,40 dengan free tier RDS. Jalur B dapat dimulai |
 | 11 Agustus 2026 | A7 Rapor dikerjakan pada backend `743b86d` di branch `fitur/a7-rapor` dan dibuka sebagai PR #7: enam endpoint [API §8](./API.md), salinan beku `rapor_mapel`, perenderan PDF pada saat finalisasi beserta anggaran lunak 20 detik, dan unduh per siswa maupun sekelas. Ditandai **sebagian** karena tata letak PDF menunggu V5 dan pengukuran render Lambda menunggu Jalur B. Temuan **A-07** dan **A-08** dibuka |
 | 11 Agustus 2026 | A6 Nilai dan presensi ditandai selesai pada backend `8a2d93f` di branch `fitur/a6-nilai-presensi` dan dibuka sebagai PR #6; 40 berkas / 514 tes lulus pada gabungan suite unit dan DB |
 | 10 Agustus 2026 | A5 Administrasi ditandai selesai pada backend `4a553f7` di branch `fitur/a5-administrasi`; tabel gerbang diperbarui dari angka A4 ke angka A5 dan utang cakupan global dihapus |
