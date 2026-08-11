@@ -27,7 +27,7 @@
 | **A5** | Administrasi | ✅ Selesai | `4a553f7` · branch `fitur/a5-administrasi` · PR #5 |
 | **A6** | Nilai dan presensi | ✅ Selesai | `8a2d93f` · branch `fitur/a6-nilai-presensi` · PR #6 |
 | **A7** | Rapor | 🟨 Sebagian | `743b86d`, `f3cdce0` · PR #7 **sudah masuk `main`** (`d022a43`). Seluruh enam endpoint [API §8](./API.md) beserta gerbangnya lulus. Templat sudah selaras dengan [ARCHITECTURE §11.3](./ARCHITECTURE.md). **Satu hal belum tuntas dan memang tidak dapat lokal:** pengukuran render di Lambda — **dikerjakan sebagai bagian Jalur B**, bukan sebagai pekerjaan A7 tersendiri |
-| **A8** | Jalur AI | ✅ Selesai | branch `fitur/a8-jalur-ai` · **PR #8**. `POST /api/saya/suggestion` beserta port, adapter, konteks `app_ro`, dan pembatas laju. **AC-18 dan AC-31 dibuktikan terhadap Gemini 3.6 Flash sungguhan** lewat `npm run uji:saran` |
+| **A8** | Jalur AI | ✅ Selesai | branch `fitur/a8-jalur-ai` · PR #8 **sudah masuk `main`** (`863f40b`). `POST /api/saya/suggestion` beserta port, adapter, konteks `app_ro`, dan pembatas laju. **AC-18 dan AC-31 dibuktikan terhadap Gemini 3.6 Flash sungguhan** lewat `npm run uji:saran` |
 
 **Angka gerbang pada saat A8 ditutup.** Diperbarui hanya ketika satu tahap selesai, bukan setiap commit.
 
@@ -63,7 +63,7 @@
 | **B6** | `pr.yml` dan `deploy.yml` | ✅ Selesai | `pr.yml` menyala; `deploy.yml` ditulis pada backend `5e061e0`, dua belas langkah [DEPLOYMENT §3.3](./DEPLOYMENT.md) masing-masing menyebut nomornya. **Penyalaannya menunggu B5** |
 | **B7** | Pengukuran render 30 PDF di Lambda | 🟨 Sebagian | Prosedur beserta skripnya ditulis — `infra/ukur-render/`. Menutup gerbang **A7** yang tersisa ([API.md §13.3](./API.md)). **Pengukurannya menunggu B6 menyala** |
 
-**Butir 0 — sambungan dua lingkungan.** Prasyarat seluruh Jalur B, dan **selesai** pada backend branch `fitur/b0-sambungan-dua-lingkungan` (`4669ed3`…`5e061e0`). Port `Rahasia`, adapter AWS untuk Secrets Manager, SSM, dan S3, serta pemilihan adapter lewat satu variabel `LINGKUNGAN`. Seluruh adapter AWS diuji dengan klien tiruan; tidak ada satu pun panggilan sungguhan ke AWS.
+**Butir 0 — sambungan dua lingkungan.** Prasyarat seluruh Jalur B, dan **selesai** pada backend branch `fitur/b0-sambungan-dua-lingkungan`, dibuka sebagai **PR #9** (`df4b069`…`b3918f3`). Port `Rahasia`, adapter AWS untuk Secrets Manager, SSM, dan S3, serta pemilihan adapter lewat satu variabel `LINGKUNGAN`. Seluruh adapter AWS diuji dengan klien tiruan; tidak ada satu pun panggilan sungguhan ke AWS.
 
 ---
 
