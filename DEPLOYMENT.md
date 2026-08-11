@@ -206,8 +206,10 @@ permissions:
 | 8 | `aws lambda wait function-updated` | **Wajib** |
 | 9 | `publish-version` | Menghasilkan version bernomor |
 | 10 | `update-alias live` → version baru | **Momen rilis sesungguhnya** |
-| 11 | `GET /healthz` lewat CloudFront | Menguji jalur nyata, bukan hanya fungsinya |
+| 11 | `GET /api/healthz` lewat CloudFront | Menguji jalur nyata, bukan hanya fungsinya |
 | 12 | Gagal → `update-alias live` → version sebelumnya | Rollback dalam hitungan detik |
+
+**Alamatnya `/api/healthz`, bukan `/healthz`.** CloudFront hanya meneruskan `/api/*` ke Lambda ([ARCHITECTURE.md Pasal 3](ARCHITECTURE.md)); `/healthz` di akar akan dilayani bucket frontend, dan jawabannya `200` berisi `index.html` — pemeriksaan yang selalu lulus dan karenanya tidak memeriksa apa pun. Jalur `/healthz` tetap ada dan tetap dipakai readiness check Lambda Web Adapter, yang memanggilnya dari dalam container dan tidak melewati CloudFront sama sekali.
 
 **Langkah 5 dan 8 paling mudah terlupa.** `update-function-code` mengembalikan jawaban sebelum AWS selesai memasang image. Menerbitkan version terlalu cepat menghasilkan version yang membeku pada image **lama**, dan gejalanya berupa rilis yang tampak berhasil tetapi tidak mengubah apa pun.
 
@@ -825,6 +827,7 @@ Variabel lingkungan tidak memiliki persoalan itu: image `:bootstrap` mengabaikan
 
 | Tanggal | Perubahan |
 |---|---|
+| 11 Agustus 2026 | §3.3 langkah 11 dikoreksi dari `/healthz` menjadi `/api/healthz`. CloudFront hanya meneruskan `/api/*` ke Lambda, sehingga bentuk semula dilayani bucket frontend dan selalu lulus tanpa memeriksa apa pun. Ditemukan saat `infra/` dikodekan |
 | 11 Agustus 2026 | **CK-D-08** — kedua fungsi menjalankan image dan perintah yang sama persis; yang membedakannya variabel lingkungan `PERAN`. Lambda Web Adapter menuntut aplikasi yang mendengarkan HTTP, sehingga perintah migrasi yang berjalan sekali lalu keluar tidak dapat dipasang sebagai fungsi. `image_config` juga tidak dapat dipakai karena ia bagian dari cangkang yang berlaku bagi image `:bootstrap` sekalipun |
 | 11 Agustus 2026 | **CK-D-07** — nilai awal `function_version` pada alias `live` diamandemen dari `"1"` menjadi `"$LATEST"`. Keduanya tidak dapat berlaku bersamaan dengan `publish = false`, karena fungsi yang baru dibuat tidak memiliki version bernomor untuk ditunjuk. §2.2 disesuaikan |
 | 11 Agustus 2026 | **CK-D-06** — kata sandi master RDS dikelola RDS sendiri lewat `manage_master_user_password`, sehingga rahasia yang dibuat manusia berkurang menjadi dua dan nama `edutrack/db/owner` gugur. §5.1 dan §9.5 disesuaikan. Sebabnya urutan: kata sandi master adalah masukan pembuatan instance, bukan sesuatu yang disetel sesudahnya, sehingga §5.1 sebagaimana ditulis semula tidak pernah dapat berjalan tanpa melanggar [Techstack §7](Techstack.md) butir 1 |
