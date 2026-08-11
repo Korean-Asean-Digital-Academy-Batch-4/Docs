@@ -227,16 +227,18 @@ Konsekuensinya: variabel lingkungan dijaga tetap sedikit — hanya ARN rahasia, 
 
 ### 5.1 Pengisian rahasia
 
-Keempat rahasia beserta tempat penyimpanannya ditetapkan [Techstack.md §7](Techstack.md). Yang ditetapkan di sini adalah **namanya, bentuk nilainya, dan cara memasukkannya** — CK-D-05.
+Keempat rahasia beserta tempat penyimpanannya ditetapkan [Techstack.md §7](Techstack.md). Yang ditetapkan di sini adalah **namanya, bentuk nilainya, dan cara memasukkannya** — CK-D-05, sebagaimana diamandemen **CK-D-06**.
 
-| Rahasia | Layanan | Nama |
-|---|---|---|
-| Kredensial `edutrack_owner` | Secrets Manager | `edutrack/db/owner` |
-| Kredensial `app_rw` | Secrets Manager | `edutrack/db/app_rw` |
-| Kredensial `app_ro` | Secrets Manager | `edutrack/db/app_ro` |
-| Kunci API Elice | SSM Parameter Store, `SecureString` | `/edutrack/ai/elice-api-key` |
+| Rahasia | Layanan | Nama | Dibuat oleh |
+|---|---|---|---|
+| Kredensial `edutrack_owner` | Secrets Manager | dibangkitkan RDS, berbentuk `rds!db-…` | **RDS sendiri** — CK-D-06 |
+| Kredensial `app_rw` | Secrets Manager | `edutrack/db/app_rw` | Manusia |
+| Kredensial `app_ro` | Secrets Manager | `edutrack/db/app_ro` | Manusia |
+| Kunci API Elice | SSM Parameter Store, `SecureString` | `/edutrack/ai/elice-api-key` | Manusia |
 
 Bentuk penamaannya berbeda karena layanannya berbeda: SSM menuntut garis miring di depan untuk membentuk hierarki, Secrets Manager tidak.
+
+**Rahasia `edutrack_owner` tidak memiliki nama yang dapat disepakati di muka**, karena ia dibangkitkan RDS beserta akhiran acak. Fungsi `migrate` karenanya menerima **ARN**-nya, bukan namanya; ARN itu dibaca Terraform lewat `master_user_secret` dan diteruskan sebagai variabel lingkungan (CK-D-06). Kedua rahasia yang dibuat manusia tetap diteruskan sebagai nama.
 
 Ketiga kredensial basis data memakai bentuk nilai baku RDS, sehingga rotasi terjadwal pada Pasal 8 kelak tidak menuntut penulisan ulang:
 
@@ -290,6 +292,8 @@ Penggantian kunci memakai perintah yang sama dengan `--overwrite`; versinya naik
 
 #### Kredensial basis data — Secrets Manager
 
+Berlaku bagi **`app_rw` dan `app_ro` saja**. Kredensial `edutrack_owner` tidak dibuat dengan cara ini — ia dibangkitkan RDS sendiri (CK-D-06), dan justru kredensial itulah yang dipakai untuk menyambung ke PostgreSQL guna membuat kedua role di bawah.
+
 Dijalankan **sesudah** RDS menyala dan kata sandinya disetel pada PostgreSQL. Urutannya: bangkitkan kata sandi, setel pada basis data, baru simpan.
 
 ```bash
@@ -306,15 +310,16 @@ aws secretsmanager create-secret --name edutrack/db/app_rw --secret-string "file
 
 Kata sandi yang sama disetel pada PostgreSQL lewat `ALTER ROLE`, juga tanpa melewati baris perintah — `psql` membacanya dari berkas yang sama. Sesudah keduanya selesai, `rm -f "$tmp"`.
 
-Diulang untuk `app_ro` dan `owner`. Pemisahan siapa boleh membaca yang mana ditegakkan IAM (§9.5), bukan oleh penamaan.
+Diulang untuk `app_ro`. Pemisahan siapa boleh membaca yang mana ditegakkan IAM (§9.5), bukan oleh penamaan.
 
 #### Pembagian dengan Terraform
 
 | Yang dibuat Terraform | Yang dibuat manusia |
 |---|---|
-| `aws_secretsmanager_secret` — **wadahnya saja** | Isi wadah itu, lewat perintah di atas |
+| `aws_secretsmanager_secret` untuk `app_rw` dan `app_ro` — **wadahnya saja** | Isi kedua wadah itu, lewat perintah di atas |
+| `manage_master_user_password = true` pada RDS — wadah **beserta isinya** dibuat RDS, bukan Terraform (CK-D-06) | — |
 | Kebijakan IAM yang memberi izin baca per ARN | — |
-| Variabel lingkungan Lambda berisi **nama** rahasia | — |
+| Variabel lingkungan Lambda berisi **nama** kedua rahasia buatan manusia, dan **ARN** rahasia terkelola RDS | — |
 
 **`aws_secretsmanager_secret_version` tidak pernah dipakai**, karena resource itulah yang akan menaruh kata sandi ke dalam state.
 
@@ -558,7 +563,7 @@ Satu OIDC provider per akun, dipakai bersama kedua role.
 | Role | Fungsi | Izin |
 |---|---|---|
 | `edutrack-lambda-api` | `api` | ENI VPC · CloudWatch Logs · `secretsmanager:GetSecretValue` pada dua rahasia `app_rw` dan `app_ro` · `ssm:GetParameter` beserta `kms:Decrypt` untuk kunci API Elice · `s3:GetObject/PutObject/DeleteObject` pada bucket rapor |
-| `edutrack-lambda-migrate` | `migrate` | ENI VPC · CloudWatch Logs · `secretsmanager:GetSecretValue` **hanya** pada rahasia `edutrack_owner` |
+| `edutrack-lambda-migrate` | `migrate` | ENI VPC · CloudWatch Logs · `secretsmanager:GetSecretValue` **hanya** pada rahasia `edutrack_owner`, yaitu rahasia terkelola RDS yang ARN-nya dibaca dari `master_user_secret` (CK-D-06) |
 | `edutrack-nat` | NAT instance | `AmazonSSMManagedInstanceCore`, sehingga tidak diperlukan kunci SSH |
 
 **Kedua fungsi memakai image yang sama tetapi role yang berbeda, dan pemisahan itu menentukan.** Fungsi `migrate` menjalankan DDL sehingga membutuhkan kredensial `edutrack_owner`; fungsi `api` melayani request dan tidak boleh dapat membacanya. Tanpa pemisahan ini, satu kekeliruan kode pada jalur permintaan dapat mengambil kredensial pemilik dan melewati seluruh pemisahan `app_rw` dan `app_ro` yang dibangun CK-08.
@@ -633,14 +638,17 @@ Keluarannya wajib memuat `assumed-role/edutrack-terraform/...`, **bukan** `user/
 
 Sesudahnya: periksa **Credential report**, pastikan user `admin` bawaan tidak memiliki access key aktif, lalu hapus.
 
-### 9.9 Keadaan pada 6 Agustus 2026
+### 9.9 Keadaan pada 11 Agustus 2026
 
 | Sudah ada | Belum ada |
 |---|---|
-| Grup `Edutrack-dev` | Role `edutrack-terraform` dan `edutrack-readonly` |
+| Grup `Edutrack-dev` | Role `edutrack-readonly` |
 | `EdutrackAssumeRoles`, `EdutrackSelfManageCredentials` | Pendaftaran MFA |
-| User `Andreas`, sudah masuk grup | Kedua role OIDC dan ketiga role eksekusi |
-| — | Penghapusan user `admin` bawaan |
+| User `Andreas`, sudah masuk grup | Ketiga role eksekusi Lambda dan NAT — dibuat `infra/` pada B3 |
+| Role `edutrack-terraform` — terbukti oleh `terraform apply` pada `bootstrap/` (B1) | Role `edutrack-gha-frontend` |
+| OIDC provider beserta role `edutrack-gha-backend` — terbukti oleh jabat tangan [Gitaction.md](Gitaction.md) (B0.5) | Penghapusan user `admin` bawaan |
+
+**Role `edutrack-gha-backend` dibuat dengan tangan lewat konsol pada B0.5**, sebelum `infra/` ada. Ia karenanya **di-`import`** ke dalam state Terraform pada B5, bukan dibuat ulang — membuat ulang berarti menghapus role yang sedang dipercaya OIDC provider, dan jabat tangan yang sudah terbukti akan putus.
 
 ---
 
@@ -747,12 +755,36 @@ Secrets Manager berbeda: `aws_secretsmanager_secret` dan `aws_secretsmanager_sec
 
 **Konsekuensi yang diterima.** Satu langkah manual pada penaikan pertama dan pada setiap penggantian kunci. Ditukar dengan jaminan bahwa berkas state — yang disalin, dicadangkan, dan dibaca lebih banyak orang daripada yang disadari — tidak pernah memuat satu pun kata sandi.
 
+### CK-D-06 · 11 Agustus 2026 · Kata sandi master RDS dikelola RDS sendiri — mengamandemen CK-D-05 dan §5.1
+
+**Diputuskan.** Instance RDS memakai `manage_master_user_password = true` dengan nama pengguna master `edutrack_owner`. RDS membangkitkan kata sandinya, menyimpannya sendiri di Secrets Manager, dan merotasinya setiap 7 hari; Terraform hanya membaca ARN-nya lewat atribut `master_user_secret`. Akibatnya **rahasia yang dibuat manusia berkurang menjadi dua** — `edutrack/db/app_rw` dan `edutrack/db/app_ro` — dan nama `edutrack/db/owner` pada §5.1 gugur.
+
+**Alasan.** CK-D-05 menetapkan ketiga kredensial basis data dibuat manusia di luar Terraform. Untuk `app_rw` dan `app_ro` itu dapat berjalan: keduanya adalah role PostgreSQL biasa yang dibuat dengan `CREATE ROLE` sesudah instance menyala, sehingga Terraform memang tidak perlu mengetahui kata sandinya.
+
+**Untuk role master, urutannya tidak dapat dibalik.** Kata sandi master bukan sesuatu yang disetel sesudah instance ada — ia adalah masukan pembuatan instance itu sendiri. Bentuk `aws_db_instance` yang lazim mewajibkan atribut `password`, sehingga satu-satunya cara memenuhi §5.1 apa adanya adalah menaruh kata sandi pemilik seluruh objek ke dalam berkas state. Itu persis yang dilarang [Techstack §7](Techstack.md) butir 1, dan pada kredensial yang **paling berat akibat kebocorannya** — pemegangnya dapat menjatuhkan seluruh tabel.
+
+`manage_master_user_password` membalik keadaan itu tanpa melemahkan satu pun ketentuan: nilainya tidak pernah melewati Terraform, tidak pernah melewati mesin siapa pun, dan tidak pernah muncul pada baris perintah maupun riwayat shell. Tiga aturan pemasukan pada §5.1 karenanya terpenuhi secara mutlak pada rahasia ini, bukan sekadar dipatuhi.
+
+**Rotasi tujuh hari adalah tambahan, bukan biaya.** [Techstack §7](Techstack.md) sudah menghendaki rotasi terjadwal bagi ketiga kredensial basis data dan menempatkannya pada Pasal 8. Untuk `edutrack_owner`, Pasal 8 kini tidak perlu menuliskan apa pun. Yang membuatnya aman adalah rahasia dibaca pada saat container menyala ([ARCHITECTURE §12.1](ARCHITECTURE.md)): fungsi `migrate` yang dipanggil enam puluh kali setahun selalu membaca versi yang berlaku saat itu, dan tidak pernah memegang kata sandi lama.
+
+**Alternatif yang ditolak.**
+
+*Master berupa role antara, `edutrack_owner` dibuat manusia lewat SQL.* Mempertahankan daftar tiga rahasia §5.1 apa adanya. Ditolak karena menambah satu role PostgreSQL yang tidak dipakai siapa pun kecuali untuk membuat ketiga role lain, satu rahasia lagi yang harus dirotasi Pasal 8, dan satu langkah manual lagi pada penaikan pertama — seluruhnya demi mempertahankan sebuah nama.
+
+*`random_password` pada Terraform.* Sudah ditolak CK-D-05 dengan alasan yang sama, dan tetap ditolak di sini.
+
+*Kata sandi master sementara yang segera diganti manusia.* Nilai pertamanya tetap masuk ke state, dan state menyimpan riwayat. Mengganti kata sandi sesudahnya tidak menghapus apa yang sudah tercatat.
+
+**Konsekuensi yang diterima.** Nama rahasia `edutrack_owner` tidak lagi dapat disepakati di muka; ia berbentuk `rds!db-…` beserta akhiran acak, sehingga fungsi `migrate` menerima ARN-nya alih-alih namanya (§5.1). Kunci KMS-nya juga bukan `aws/secretsmanager` melainkan kunci terkelola RDS, sehingga kebijakan IAM `edutrack-lambda-migrate` menyebut ARN rahasia itu apa adanya dan tidak dapat ditulis sebagai pola nama.
+
 ---
 
 ## Riwayat
 
 | Tanggal | Perubahan |
 |---|---|
+| 11 Agustus 2026 | **CK-D-06** — kata sandi master RDS dikelola RDS sendiri lewat `manage_master_user_password`, sehingga rahasia yang dibuat manusia berkurang menjadi dua dan nama `edutrack/db/owner` gugur. §5.1 dan §9.5 disesuaikan. Sebabnya urutan: kata sandi master adalah masukan pembuatan instance, bukan sesuatu yang disetel sesudahnya, sehingga §5.1 sebagaimana ditulis semula tidak pernah dapat berjalan tanpa melanggar [Techstack §7](Techstack.md) butir 1 |
+| 11 Agustus 2026 | §9.9 diperbarui dari keadaan 6 Agustus. Role `edutrack-terraform` dan jalur OIDC terbukti ada; dicatat pula bahwa `edutrack-gha-backend` dibuat dengan tangan sehingga wajib di-`import` pada B5, bukan dibuat ulang |
 | 11 Agustus 2026 | **§5.1 dan CK-D-05** — nama keempat rahasia, bentuk nilainya, dan prosedur pengisiannya ditetapkan. Parameter SSM dinyatakan berada di luar Terraform seluruhnya, karena `aws_ssm_parameter` mewajibkan `value` sehingga tidak ada cara membuatnya tanpa nilainya masuk ke state |
 | 11 Agustus 2026 | §9.6 dikoreksi. Baris `AWS_PROFILE=edutrack terraform apply` **tidak pernah dapat berjalan**: profil ber-`mfa_serial` menuntut prompt yang tidak dimiliki Terraform. Digantikan `aws configure export-credentials`, beserta penjelasan sebabnya. Ditemukan saat `terraform apply` pertama pada `bootstrap/` |
 | 11 Agustus 2026 | **CK-D-04** — penguncian state berpindah ke mekanisme bawaan S3 (`use_lockfile`), tabel DynamoDB tidak dibuat. §2.3 disesuaikan. Ditulis sebelum `bootstrap/` dikodekan, karena `dynamodb_table` sudah usang sejak Terraform 1.11 |
