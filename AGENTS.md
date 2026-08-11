@@ -422,6 +422,9 @@ A8  jalur AI                                  ▼
 
 ### 8.1 Jalur A — dikerjakan agen, tanpa menyentuh AWS
 
+**Jalur A seluruhnya backend.** Frontend tidak memiliki tahap di sini dan **berada di luar cakupan agen ini** — layarnya ditetapkan [ATURAN-DAN-KRITERIA §3](../context/ATURAN-DAN-KRITERIA.md) dan bentuknya [ARCHITECTURE Pasal 4](../context/ARCHITECTURE.md), tetapi pengerjaannya milik pihak lain. Aturan ECC `web/` dan §4.3 dokumen ini tetap berlaku apabila kelak dikerjakan di repositori yang sama. "Seluruh fitur berjalan lokal" karenanya berarti **seluruh endpoint terbukti lewat suite tes**, bukan lewat layar.
+
+
 | # | Tahap | Isi | Gerbang selesai |
 |:--:|---|---|---|
 | **A0** | Kerangka repositori | `package.json`, `tsconfig` strict, eslint beserta **penegakan batas modul**, prettier, vitest, struktur `src/` sesuai [ARCHITECTURE §5.1](ARCHITECTURE.md), linter migrasi | `npm run periksa` bersih |
@@ -632,6 +635,7 @@ Tahap yang menambah lapisan baru — rute, tabel, adapter — mengubah bentuk gr
 
 | Tanggal | Perubahan |
 |---|---|
+| 11 Agustus 2026 | §8.1 — dinyatakan bahwa Jalur A seluruhnya backend dan **frontend berada di luar cakupan agen**. Sebelumnya hal ini tidak tertulis di mana pun, sehingga peta tahapan tampak lengkap padahal tidak memuat frontend sama sekali |
 | 11 Agustus 2026 | §8 — **urutan berubah menjadi lokal lebih dahulu.** Jalur B ditahan setelah B1 sampai seluruh fitur Jalur A berjalan setempat. Dicatat pula bahwa gerbang pengukuran render A7 tidak dapat ditutup tanpa Lambda |
 | 6 Agustus 2026 | Dokumen dibuat. Menetapkan alur kerja agen ECC di atas rantai penguncian EduTrack: peta baca per jenis tugas, prosedur ketika kode dan dokumen bertentangan, dua belas larangan mutlak, tiga tingkat pengujian termasuk pembuktian penegakan oleh basis data, konvensi penamaan lintas lapisan, serta delapan tahap implementasi beserta gerbang selesainya |
 | 7 Agustus 2026 | §5.3 diperluas: lima aturan migrasi dinyatakan lengkap, ditambah header klasifikasi wajib, konvensi penamaan `expand`/`contract`, kewajiban `grep` sebelum `contract`, dan kewajiban lolos `squawk`. Mengikuti [DEPLOYMENT.md §6.5](DEPLOYMENT.md) dan CK-D-03 |
