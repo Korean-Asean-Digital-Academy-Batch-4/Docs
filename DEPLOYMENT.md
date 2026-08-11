@@ -221,6 +221,107 @@ Karena variabel lingkungan dimiliki Terraform (§2.1), rilis yang memperkenalkan
 
 Konsekuensinya: variabel lingkungan dijaga tetap sedikit — hanya ARN rahasia, `PORT`, dan pengaturan Lambda Web Adapter. Konfigurasi aplikasi yang berubah bersama kode ditempatkan **di dalam image**, bukan di variabel lingkungan.
 
+## 5. Urutan penaikan pertama
+
+**Belum ditulis seluruhnya.** Yang sudah ditetapkan hanya §5.1; sisanya — pembuktian penandatanganan OAC, penerbitan sertifikat ACM di `us-east-1`, dan kedua record CNAME — ditulis ketika `infra/` dikerjakan.
+
+### 5.1 Pengisian rahasia
+
+Keempat rahasia beserta tempat penyimpanannya ditetapkan [Techstack.md §7](Techstack.md). Yang ditetapkan di sini adalah **namanya, bentuk nilainya, dan cara memasukkannya** — CK-D-05.
+
+| Rahasia | Layanan | Nama |
+|---|---|---|
+| Kredensial `edutrack_owner` | Secrets Manager | `edutrack/db/owner` |
+| Kredensial `app_rw` | Secrets Manager | `edutrack/db/app_rw` |
+| Kredensial `app_ro` | Secrets Manager | `edutrack/db/app_ro` |
+| Kunci API Elice | SSM Parameter Store, `SecureString` | `/edutrack/ai/elice-api-key` |
+
+Bentuk penamaannya berbeda karena layanannya berbeda: SSM menuntut garis miring di depan untuk membentuk hierarki, Secrets Manager tidak.
+
+Ketiga kredensial basis data memakai bentuk nilai baku RDS, sehingga rotasi terjadwal pada Pasal 8 kelak tidak menuntut penulisan ulang:
+
+```json
+{ "username": "app_rw", "password": "…" }
+```
+
+#### Tiga aturan yang mengikat cara memasukkannya
+
+**1. Nilai tidak pernah muncul pada baris perintah.** Argumen perintah terbaca seluruh pengguna mesin lewat `ps`, dan tersimpan pada riwayat shell. Nilainya diserahkan lewat berkas sementara berizin ketat, lalu berkasnya dihapus.
+
+**2. Berkas sementara dibuat dengan `umask 077`.** Tanpa itu, berkas rahasia lahir dengan izin yang dapat dibaca pengguna lain pada mesin yang sama.
+
+**3. Verifikasi tidak pernah mendekripsi.** Yang diperiksa keberadaan dan versinya, bukan isinya.
+
+#### Kunci Elice — SSM Parameter Store
+
+```bash
+umask 077 && tmp=$(mktemp)
+```
+
+Tulis berkas permintaannya, lalu tempelkan kuncinya sebagai nilai `Value`:
+
+```bash
+cat > "$tmp" <<'JSON'
+{
+  "Name": "/edutrack/ai/elice-api-key",
+  "Type": "SecureString",
+  "Value": "TEMPELKAN_KUNCI_DI_SINI",
+  "Description": "Kunci API Elice AI Cloud - Techstack sec 6",
+  "Tier": "Standard"
+}
+JSON
+```
+
+```bash
+aws ssm put-parameter --cli-input-json "file://$tmp" --region ap-southeast-3 && rm -f "$tmp"
+```
+
+`--cli-input-json` dipilih alih-alih `--value` karena bentuknya tidak menyisakan keraguan: nilainya berada di dalam berkas, bukan di dalam perintah.
+
+**Kunci KMS dibiarkan bawaan** (`alias/aws/ssm`). Kunci yang dikelola sendiri menambah sekitar $1 per bulan tanpa menambah jaminan apa pun pada susunan satu akun ini, dan tier `Standard` menjadikan parameternya tidak berbiaya ([Techstack §8.2](Techstack.md)).
+
+Verifikasi tanpa mendekripsi:
+
+```bash
+aws ssm get-parameter --name /edutrack/ai/elice-api-key --region ap-southeast-3 --query 'Parameter.{Type:Type,Version:Version,Diubah:LastModifiedDate}'
+```
+
+Penggantian kunci memakai perintah yang sama dengan `--overwrite`; versinya naik, dan versi lama tetap dapat dilihat untuk penelusuran.
+
+#### Kredensial basis data — Secrets Manager
+
+Dijalankan **sesudah** RDS menyala dan kata sandinya disetel pada PostgreSQL. Urutannya: bangkitkan kata sandi, setel pada basis data, baru simpan.
+
+```bash
+umask 077 && tmp=$(mktemp)
+```
+
+```bash
+printf '{"username":"app_rw","password":"%s"}' "$(openssl rand -base64 24 | tr -d '\n=/+')" > "$tmp"
+```
+
+```bash
+aws secretsmanager create-secret --name edutrack/db/app_rw --secret-string "file://$tmp" --region ap-southeast-3
+```
+
+Kata sandi yang sama disetel pada PostgreSQL lewat `ALTER ROLE`, juga tanpa melewati baris perintah — `psql` membacanya dari berkas yang sama. Sesudah keduanya selesai, `rm -f "$tmp"`.
+
+Diulang untuk `app_ro` dan `owner`. Pemisahan siapa boleh membaca yang mana ditegakkan IAM (§9.5), bukan oleh penamaan.
+
+#### Pembagian dengan Terraform
+
+| Yang dibuat Terraform | Yang dibuat manusia |
+|---|---|
+| `aws_secretsmanager_secret` — **wadahnya saja** | Isi wadah itu, lewat perintah di atas |
+| Kebijakan IAM yang memberi izin baca per ARN | — |
+| Variabel lingkungan Lambda berisi **nama** rahasia | — |
+
+**`aws_secretsmanager_secret_version` tidak pernah dipakai**, karena resource itulah yang akan menaruh kata sandi ke dalam state.
+
+**Parameter SSM tidak dikelola Terraform sama sekali.** Resource `aws_ssm_parameter` mewajibkan atribut `value`, sehingga tidak ada cara membuatnya lewat Terraform tanpa nilainya masuk ke state — dan `ignore_changes` tidak menolong, karena ia hanya mengabaikan perubahan sesudah nilai pertama tertulis. Terraform karenanya hanya menyusun ARN-nya dari nama yang sudah disepakati di atas, dan tidak pernah membacanya.
+
+**Fungsi Lambda menerima nama, bukan nilai.** Pembacaannya terjadi saat container menyala, lewat interface `Secrets` di `ports/` ([ARCHITECTURE §12.1](ARCHITECTURE.md)).
+
 ---
 
 ## 6. Rollback
@@ -632,12 +733,27 @@ Yang menentukan bukan penghematan biayanya, melainkan bahwa argumen backend-nya 
 
 **Konsekuensi yang diterima.** Terraform yang dipakai wajib **1.10 atau lebih baru**; `required_version` pada `bootstrap/` dan `infra/` mematoknya. Penguncian menjadi bergantung pada operasi bersyarat S3, yang sudah bersifat konsisten kuat sejak 2020.
 
+### CK-D-05 · 11 Agustus 2026 · Nama rahasia ditetapkan, dan parameter SSM berada di luar Terraform seluruhnya
+
+**Diputuskan.** Keempat rahasia memakai nama pada §5.1. Kredensial basis data disimpan sebagai JSON `{username, password}`. Terraform membuat **wadah** rahasia Secrets Manager tetapi tidak pernah isinya, dan **tidak menyentuh parameter SSM sama sekali**.
+
+**Alasan.** [Techstack §7](Techstack.md) sudah menetapkan nilai rahasia dibuat di luar Terraform sehingga hanya ARN yang masuk ke state. Yang belum ditetapkan adalah caranya, dan pada SSM caranya ternyata tidak dapat setengah-setengah: resource `aws_ssm_parameter` **mewajibkan** atribut `value`. Tidak ada bentuk penulisan yang membuatnya lahir tanpa nilai. `ignore_changes = [value]` sering diusulkan sebagai jalan keluar, tetapi ia hanya mengabaikan perubahan **sesudah** nilai pertama tertulis — nilai pertama itu sendiri tetap masuk ke state.
+
+Secrets Manager berbeda: `aws_secretsmanager_secret` dan `aws_secretsmanager_secret_version` adalah dua resource terpisah, sehingga wadahnya dapat dikelola Terraform sementara isinya tidak pernah disentuh.
+
+**Bentuk JSON `{username, password}` dipilih** karena itulah bentuk yang diharapkan rotasi terjadwal Secrets Manager, yang direncanakan Pasal 8. Menyimpan kata sandi telanjang berarti menulis ulang bentuknya ketika rotasi dinyalakan.
+
+**Alternatif yang ditolak.** *Menaruh kunci Elice di Secrets Manager bersama ketiga kredensial basis data.* Menyeragamkan satu layanan, tetapi menambah $0,40 per bulan untuk rahasia yang paling ringan akibat kebocorannya, sedangkan SSM tier Standard tidak berbiaya. Pembedaan tempat penyimpanan pada [Techstack §7](Techstack.md) memang mengikuti akibat kebocoran, bukan kenyamanan. *Membangkitkan kata sandi basis data dari Terraform lewat `random_password`.* Ditolak: nilainya masuk ke state, yang persis dilarang.
+
+**Konsekuensi yang diterima.** Satu langkah manual pada penaikan pertama dan pada setiap penggantian kunci. Ditukar dengan jaminan bahwa berkas state — yang disalin, dicadangkan, dan dibaca lebih banyak orang daripada yang disadari — tidak pernah memuat satu pun kata sandi.
+
 ---
 
 ## Riwayat
 
 | Tanggal | Perubahan |
 |---|---|
+| 11 Agustus 2026 | **§5.1 dan CK-D-05** — nama keempat rahasia, bentuk nilainya, dan prosedur pengisiannya ditetapkan. Parameter SSM dinyatakan berada di luar Terraform seluruhnya, karena `aws_ssm_parameter` mewajibkan `value` sehingga tidak ada cara membuatnya tanpa nilainya masuk ke state |
 | 11 Agustus 2026 | §9.6 dikoreksi. Baris `AWS_PROFILE=edutrack terraform apply` **tidak pernah dapat berjalan**: profil ber-`mfa_serial` menuntut prompt yang tidak dimiliki Terraform. Digantikan `aws configure export-credentials`, beserta penjelasan sebabnya. Ditemukan saat `terraform apply` pertama pada `bootstrap/` |
 | 11 Agustus 2026 | **CK-D-04** — penguncian state berpindah ke mekanisme bawaan S3 (`use_lockfile`), tabel DynamoDB tidak dibuat. §2.3 disesuaikan. Ditulis sebelum `bootstrap/` dikodekan, karena `dynamodb_table` sudah usang sejak Terraform 1.11 |
 | 6 Agustus 2026 | Kerangka dibuat sebagai bagian dari pemecahan `Techstack.md` menjadi tiga dokumen. Isi belum ditulis |
