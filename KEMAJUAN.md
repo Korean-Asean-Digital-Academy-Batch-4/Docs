@@ -26,8 +26,8 @@
 | **A4** | Auth dan sesi | ✅ Selesai | `474d789`, `57b7e91`, `0f4135c` · PR #3 |
 | **A5** | Administrasi | ✅ Selesai | `4a553f7` · branch `fitur/a5-administrasi` · PR #5 |
 | **A6** | Nilai dan presensi | ✅ Selesai | `8a2d93f` · branch `fitur/a6-nilai-presensi` · PR #6 |
-| **A7** | Rapor | 🟨 Sebagian | `743b86d`, `f3cdce0` · PR #7 **sudah masuk `main`** (`d022a43`). Seluruh enam endpoint [API §8](./API.md) beserta gerbangnya lulus. Templat sudah selaras dengan [ARCHITECTURE §11.3](./ARCHITECTURE.md). **Satu hal belum tuntas dan memang tidak dapat lokal:** pengukuran render di Lambda |
-| **A8** | Jalur AI | ✅ Selesai | branch `fitur/a8-jalur-ai`. `POST /api/saya/suggestion` beserta port, adapter, konteks `app_ro`, dan pembatas laju. **AC-18 dan AC-31 dibuktikan terhadap Gemini 3.6 Flash sungguhan** lewat `npm run uji:saran` |
+| **A7** | Rapor | 🟨 Sebagian | `743b86d`, `f3cdce0` · PR #7 **sudah masuk `main`** (`d022a43`). Seluruh enam endpoint [API §8](./API.md) beserta gerbangnya lulus. Templat sudah selaras dengan [ARCHITECTURE §11.3](./ARCHITECTURE.md). **Satu hal belum tuntas dan memang tidak dapat lokal:** pengukuran render di Lambda — **dikerjakan sebagai bagian Jalur B**, bukan sebagai pekerjaan A7 tersendiri |
+| **A8** | Jalur AI | ✅ Selesai | branch `fitur/a8-jalur-ai` · **PR #8**. `POST /api/saya/suggestion` beserta port, adapter, konteks `app_ro`, dan pembatas laju. **AC-18 dan AC-31 dibuktikan terhadap Gemini 3.6 Flash sungguhan** lewat `npm run uji:saran` |
 
 **Angka gerbang pada saat A8 ditutup.** Diperbarui hanya ketika satu tahap selesai, bukan setiap commit.
 
@@ -59,6 +59,7 @@
 | **B4** | Pembuktian penandatanganan OAC | ⏸️ Ditahan | Menunggu B3 |
 | **B5** | Izin ECR dan Lambda pada role OIDC | ⏸️ Ditahan | Menunggu B3 |
 | **B6** | `pr.yml` dan `deploy.yml` | 🟨 Sebagian | `pr.yml` menyala; `deploy.yml` menunggu B5 |
+| **B7** | Pengukuran render 30 PDF di Lambda | ⏸️ Ditahan | Menutup gerbang **A7** yang tersisa — [API.md §13.3](./API.md). Menunggu B6 |
 
 ---
 
@@ -103,6 +104,7 @@ Dicatat di sini hanya **judul dan tempatnya**. Isinya tidak disalin.
 
 | Tanggal | Perubahan |
 |---|---|
+| 11 Agustus 2026 | A8 dibuka sebagai **PR #8**. Pengukuran render Lambda dipindahkan menjadi butir **B7** pada Jalur B — ia memang pekerjaan infrastruktur, bukan sisa pekerjaan A7 |
 | 11 Agustus 2026 | **A8 selesai.** AC-18 dan AC-31 dibuktikan terhadap Gemini 3.6 Flash sungguhan lewat `npm run uji:saran`; sapaan pada prompt dipatok supaya keluarannya tidak berganti-ganti. **Seluruh tahap Jalur A yang dapat dikerjakan lokal kini tuntas** |
 | 11 Agustus 2026 | **A8 dikerjakan** pada `9c2fae6`: tombol Suggestion beserta port `AiAdvisor`, adapter OpenAI-compatible, konteks `app_ro`, dan pembatas laju 5 per jam. Ditandai sebagian karena AC-18 dan AC-31 menuntut model sungguhan. Utang pemisahan `app_rw`/`app_ro` **ditutup** |
 | 11 Agustus 2026 | PR #7 digabungkan ke `main` (`d022a43`). Seluruh bagian A7 yang dapat dikerjakan lokal **sudah selesai**; yang menahan statusnya tetap sebagian hanyalah pengukuran render di Lambda |
