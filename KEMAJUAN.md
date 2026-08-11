@@ -23,20 +23,21 @@
 | **A4** | Auth dan sesi | ✅ Selesai | `474d789`, `57b7e91`, `0f4135c` · PR #3 |
 | **A5** | Administrasi | ✅ Selesai | `4a553f7` · branch `fitur/a5-administrasi` · PR #5 |
 | **A6** | Nilai dan presensi | ✅ Selesai | `8a2d93f` · branch `fitur/a6-nilai-presensi` · PR #6 |
-| **A7** | Rapor | ⬜ Belum | — |
+| **A7** | Rapor | 🟨 Sebagian | `HEAD` pada branch `fitur/a7-rapor`. Seluruh enam endpoint [API §8](./API.md) beserta gerbangnya lulus. **Dua hal belum tuntas:** tata letak PDF masih sementara sampai **V5** turun, dan pengukuran render belum dijalankan di Lambda |
 | **A8** | Jalur AI | ⬜ Belum | — |
 
-**Angka gerbang pada saat A6 ditutup.** Diperbarui hanya ketika satu tahap selesai, bukan setiap commit.
+**Angka gerbang pada saat A7 dikerjakan.** Diperbarui hanya ketika satu tahap selesai, bukan setiap commit.
 
 | Perintah | Hasil |
 |---|---|
-| `npm run periksa` | keluar 0 · unit 19 berkas / 172 tes lulus · DB coverage suite 21 berkas / 342 tes lulus |
-| `npm run test:db` | keluar 0 · 21 berkas / 342 tes lulus |
+| `npm run periksa` | keluar 0 · unit 21 berkas / 206 tes lulus · DB coverage suite 22 berkas / 386 tes lulus |
+| `npm run test:db` | keluar 0 · 22 berkas / 386 tes lulus |
 | `npm run lint:migrations` | 0 temuan pada 10 berkas |
-| `npm run coverage:global` | keluar 0 · statements 92,17% · branches 88,58% · functions 85,90% · lines 92,17% |
+| `npm run coverage:global` | keluar 0 · statements 92,38% · branches 88,15% · functions 88,14% · lines 92,38% |
 | `npm audit --omit=dev` | 0 kerentanan produksi |
 | `git diff --check` | keluar 0 |
 | Cakupan `src/domain` | statements 100% · branches 100% · functions 100% · lines 100% |
+| `npm run ukur:render` | 30 berkas dalam 598 ms pada mesin pengembang — **bukan** angka Lambda yang dituntut [API §13.3](./API.md) |
 
 ---
 
@@ -64,7 +65,8 @@ Dicatat di sini hanya **judul dan tempatnya**. Isinya tidak disalin.
 | Nama domain dan pembeliannya | [Techstack.md §9](./Techstack.md) butir 4 · [AGENTS.md §10](./AGENTS.md) | Penerapan CK-17. **Sengaja dikerjakan paling akhir** |
 | Kredensial AWS, `terraform apply`, pembuatan rahasia | [AGENTS.md §10](./AGENTS.md) | Seluruh Jalur B |
 | Validasi komponen dan bobot templat | **V1** pada [ATURAN-DAN-KRITERIA.md §5](./ATURAN-DAN-KRITERIA.md) | Tidak menghambat — hanya data |
-| Format rapor resmi sekolah | **V5** · [Techstack.md §9](./Techstack.md) butir 2 | A7 |
+| Format rapor resmi sekolah | **V5** · [Techstack.md §9](./Techstack.md) butir 2 | Tata letak PDF A7. Isi dan seluruh endpointnya tidak menunggu; yang menunggu hanya `adapters/local/rapor-berkas/templat.ts` |
+| Kredensial AWS untuk mengukur render 30 PDF di Lambda 1024 MB arm64 | [API.md §13.3](./API.md) | Penutupan gerbang A7. Angka pembanding lokal sudah ada |
 | Retensi dan pencadangan data | **V6** · [Techstack.md §9](./Techstack.md) butir 3 | Tidak menghambat |
 
 ## 4. Temuan yang masih terbuka
@@ -72,7 +74,7 @@ Dicatat di sini hanya **judul dan tempatnya**. Isinya tidak disalin.
 | # | Tercatat pada |
 |---|---|
 | S-01, S-07 | [SCHEMA.md §12](./SCHEMA.md) |
-| A-04 | [API.md §13.1](./API.md) |
+| A-04, A-07, A-08 | [API.md §13.1](./API.md) |
 | T-01, T-04, T-05, T-06 | [RFC-001 §10](./RFC-001-model-data-konseptual.md) |
 
 **Yang ditutup sepanjang 7–8 Agustus 2026:** S-02, S-03, S-04, S-05, S-06 · T-02, T-03 · A-05, A-06. Rinciannya pada dokumen masing-masing.
@@ -85,7 +87,8 @@ Dicatat di sini hanya **judul dan tempatnya**. Isinya tidak disalin.
 |---|---|---|
 | Kerentanan `npm audit` pada `devDependencies` | Kapan saja — nol pada jalur produksi | — |
 | Lapis 4 dan 5 penjagaan migrasi | Sebelum data sekolah dimuat | [DEPLOYMENT.md §6.5](./DEPLOYMENT.md) |
-| Pengukuran lama render tiga puluh PDF | A7 | [API.md §13.3](./API.md) |
+| Pengukuran lama render tiga puluh PDF **di Lambda** | Sebelum rilis pertama | [API.md §13.3](./API.md) |
+| Adapter penyimpanan S3 (`adapters/aws/`) | Sebelum rilis pertama | A7 memakai adapter disk lokal; tautan `file://` bukan tautan bertanda tangan |
 
 ---
 
@@ -93,6 +96,7 @@ Dicatat di sini hanya **judul dan tempatnya**. Isinya tidak disalin.
 
 | Tanggal | Perubahan |
 |---|---|
+| 11 Agustus 2026 | A7 Rapor dikerjakan pada branch `fitur/a7-rapor`: enam endpoint [API §8](./API.md), salinan beku `rapor_mapel`, perenderan PDF pada saat finalisasi beserta anggaran lunak 20 detik, dan unduh per siswa maupun sekelas. Ditandai **sebagian** karena tata letak PDF menunggu V5 dan pengukuran render Lambda menunggu Jalur B. Temuan **A-07** dan **A-08** dibuka |
 | 11 Agustus 2026 | A6 Nilai dan presensi ditandai selesai pada backend `8a2d93f` di branch `fitur/a6-nilai-presensi` dan dibuka sebagai PR #6; 40 berkas / 514 tes lulus pada gabungan suite unit dan DB |
 | 10 Agustus 2026 | A5 Administrasi ditandai selesai pada backend `4a553f7` di branch `fitur/a5-administrasi`; tabel gerbang diperbarui dari angka A4 ke angka A5 dan utang cakupan global dihapus |
 | 10 Agustus 2026 | A-03 dikeluarkan dari daftar temuan terbuka setelah AC-26 diselaraskan dengan kontrak unggah tolak-seluruhnya pada API |
