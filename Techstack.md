@@ -263,7 +263,6 @@ Dua tuas yang tersisa, keduanya perlu diperiksa lebih dahulu, bukan diasumsikan 
 
 | # | Item | Menunggu | Dampak apabila berubah |
 |---|---|---|---|
-| 1 | **Teks prompt sistem** — modelnya sendiri sudah dipilih (§6) | Uji keluaran terhadap AC-18 dan AC-31 terhadap model sungguhan | Hanya isi satu konstanta pada adapter. Tidak menyentuh arsitektur |
 | 3 | Kebijakan penyimpanan dan pencadangan data | V6 | Menentukan lama retensi cadangan RDS, aturan daur hidup bucket rapor, dan jadwal pencadangan on-prem |
 | 4 | **Nama domain yang sesungguhnya beserta pembeliannya**, dan penerbitan sertifikat ACM di atasnya | Pihak sekolah dan pembelian domain | **Bentuknya sudah ditetapkan CK-17**; yang tersisa hanya namanya. Menentukan modul `frontend` pada Terraform, nilai record CNAME, dan subdomain per sekolah. **Dikerjakan paling akhir dengan sengaja** — seluruh susunan CK-17 dapat ditulis dan ditinjau tanpa domain, dan hanya penerapannya yang menunggu |
 | 5 | Apakah `dev` memerlukan RDS tersendiri atau cukup PostgreSQL lokal | Keputusan tim | Menentukan biaya lingkungan `dev` |
@@ -550,6 +549,7 @@ Sebelum ketiganya, jalur naik yang lebih murah adalah menaikkan kelas instance: 
 
 | Tanggal | Perubahan |
 |---|---|
+| 11 Agustus 2026 | Butir 1 pada §9 **ditutup** — teks prompt sistem sudah diuji terhadap Gemini 3.6 Flash dan lulus AC-18 beserta AC-31 |
 | 11 Agustus 2026 | §6 merujuk **[payload.md](payload.md)** sebagai kontrak permintaan yang sudah diverifikasi terhadap endpoint, beserta tiga ketentuan yang mengikat adapter: `max_tokens` minimal 2000, `finish_reason: "length"` sebagai kegagalan, dan dua bentuk galat |
 | 11 Agustus 2026 | §6 — model ditetapkan **Gemini 3.6 Flash** lewat endpoint khusus Elice, bahasa keluaran ditetapkan **Bahasa Indonesia**, dan bentuk endpointnya diperjelas: satu endpoint satu model. Butir 1 pada §9 menyempit menjadi teks prompt sistem saja |
 | 11 Agustus 2026 | **CK-18** — RDS Proxy ditolak beserta tiga pemicu peninjauan ulangnya. Ditambahkan ke daftar "yang sengaja tidak dipakai" pada §2 |
