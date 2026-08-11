@@ -143,6 +143,16 @@ Kesetaraan dengan antarmuka OpenAI inilah yang membuat pilihan ini tidak mengika
 
 **Identitas siswa tidak pernah dikirim.** Prompt hanya memuat nama mata pelajaran, nilai per komponen, KKM, kelengkapan, topik, dan persentase kehadiran. Nama dan NIS tidak disertakan. Ini menyempitkan cakupan **V6** pada [ATURAN-DAN-KRITERIA §5](ATURAN-DAN-KRITERIA.md), yang mensyaratkan penggunaan data nyata untuk AI divalidasi dengan sekolah.
 
+**Bentuk permintaannya ditetapkan [payload.md](payload.md)**, yang diverifikasi langsung terhadap endpoint pada 11 Agustus 2026. Tiga ketentuannya mengikat adapter:
+
+| Ketentuan | Sebab |
+|---|---|
+| `max_tokens` **minimal 2000** | Gemini 3.6 Flash adalah model penalaran, dan token penalaran dihitung terhadap anggaran yang sama dengan token jawaban. Anggaran 100 menghasilkan jawaban terpenggal menjadi tiga huruf |
+| `finish_reason: "length"` diperlakukan sebagai **kegagalan**, bukan jawaban sah | Jawaban terpotong di tengah kalimat tidak boleh sampai ke siswa sebagai rekomendasi |
+| Dua bentuk galat ditangani | Gateway Elice menjawab `{"error":{…}}`; Google menjawab larik `[{"error":{…}}]`. Field yang tidak dikenal gateway diteruskan apa adanya ke Google |
+
+`reasoning_effort: "low"` dipakai sebagai setelan bawaan — sekitar 220 token penalaran, cukup bagi permintaan sebentuk ini. Nilai `"none"` diterima tanpa galat tetapi diabaikan, sehingga tidak boleh diandalkan untuk mematikan penalaran.
+
 Alur pemanggilan, penanganan kegagalan, dan susunan prompt berada pada [ARCHITECTURE.md](ARCHITECTURE.md).
 
 ---
@@ -540,6 +550,7 @@ Sebelum ketiganya, jalur naik yang lebih murah adalah menaikkan kelas instance: 
 
 | Tanggal | Perubahan |
 |---|---|
+| 11 Agustus 2026 | §6 merujuk **[payload.md](payload.md)** sebagai kontrak permintaan yang sudah diverifikasi terhadap endpoint, beserta tiga ketentuan yang mengikat adapter: `max_tokens` minimal 2000, `finish_reason: "length"` sebagai kegagalan, dan dua bentuk galat |
 | 11 Agustus 2026 | §6 — model ditetapkan **Gemini 3.6 Flash** lewat endpoint khusus Elice, bahasa keluaran ditetapkan **Bahasa Indonesia**, dan bentuk endpointnya diperjelas: satu endpoint satu model. Butir 1 pada §9 menyempit menjadi teks prompt sistem saja |
 | 11 Agustus 2026 | **CK-18** — RDS Proxy ditolak beserta tiga pemicu peninjauan ulangnya. Ditambahkan ke daftar "yang sengaja tidak dipakai" pada §2 |
 | 11 Agustus 2026 | Butir 2 pada §9 ditutup — format rapor resmi sekolah terjawab, dan bentuknya ditetapkan [ARCHITECTURE §11.3](ARCHITECTURE.md) beserta CK-A-10. Tata letaknya sederhana, sehingga peninjauan ulang CK-09 yang dikhawatirkan butir itu tidak diperlukan |
