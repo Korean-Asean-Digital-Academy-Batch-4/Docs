@@ -93,6 +93,7 @@ Dicatat di sini hanya **judul dan tempatnya**. Isinya tidak disalin.
 | Kerentanan `npm audit` pada `devDependencies` | Kapan saja — nol pada jalur produksi | — |
 | Lapis 4 dan 5 penjagaan migrasi | Sebelum data sekolah dimuat | [DEPLOYMENT.md §6.5](./DEPLOYMENT.md) |
 | Pengukuran lama render tiga puluh PDF **di Lambda** | Sebelum rilis pertama | [API.md §13.3](./API.md) |
+| **Aplikasi menyambung sebagai `edutrack_owner`, bukan `app_rw`** | **A8** | [ARCHITECTURE §8](./ARCHITECTURE.md) menetapkan aplikasi memakai `app_rw` dan jalur AI memakai `app_ro`. Kenyataannya `docker-compose.yml` dan `.env.example` sejak A1 memakai `edutrack_owner`, yaitu role yang boleh DDL. Tidak terlihat selama ini karena suite penegakan basis data menyambung sebagai `app_ro` sendiri, sehingga I-23 tetap terbukti sementara aplikasinya berjalan dengan hak berlebih. Ditutup bersama A8, yang memang menuntut koneksi kedua |
 | **Sambungan dua lingkungan**: `ports/Secrets`, `adapters/aws/` (S3 + Secrets Manager + SSM), dan pemilihan adapter pada `entry/server.ts` | Sebelum Jalur B dilanjutkan | Janji "satu image, dua lingkungan" [ARCHITECTURE Pasal 13](./ARCHITECTURE.md) belum pernah dibuktikan. Hari ini `entry/server.ts` memilih adapter lokal secara tetap, dan `config.ts` membaca `DATABASE_URL` langsung dari lingkungan tanpa melewati port |
 
 ---
@@ -101,6 +102,7 @@ Dicatat di sini hanya **judul dan tempatnya**. Isinya tidak disalin.
 
 | Tanggal | Perubahan |
 |---|---|
+| 11 Agustus 2026 | Tercatat bahwa aplikasi menyambung sebagai `edutrack_owner` alih-alih `app_rw` sejak A1 — celah yang tertutup dari pandangan karena suite penegakan basis data memakai `app_ro` sendiri. Ditutup bersama A8 |
 | 11 Agustus 2026 | **A7-a selesai** — templat rapor diselaraskan ke [ARCHITECTURE §11.3](./ARCHITECTURE.md) beserta tesnya. `KomponenCetak` dan tanggal finalisasi dikeluarkan dari port, karena port seharusnya menggambarkan persis apa yang tercetak. Render 30 berkas turun 598 → 431 ms |
 | 11 Agustus 2026 | **Urutan berubah: lokal lebih dahulu.** Jalur B ditahan setelah B1; Jalur A diselesaikan sampai seluruh fiturnya berjalan setempat. Utang "sambungan dua lingkungan" dicatat menggantikan butir adapter S3, karena persoalannya lebih luas daripada satu adapter |
 | 11 Agustus 2026 | **B1 selesai** — `terraform apply` pada `bootstrap/` menambahkan 7 sumber daya. Jalur B menyala untuk pertama kalinya. **CK-18** menolak RDS Proxy |
