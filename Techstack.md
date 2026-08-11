@@ -132,7 +132,9 @@ Tombol Suggestion (PRD §8.5) dilayani **Elice AI Cloud** melalui program KADA.
 | Aspek | Pilihan |
 |---|---|
 | Antarmuka | **Setara OpenAI** — `POST /v1/chat/completions`, otorisasi `Bearer` |
-| Alamat | Dedicated endpoint dengan jalur OpenAI di belakangnya: `https://mlapi.run/{endpoint-id}/v1/chat/completions` |
+| Model | **Gemini 3.6 Flash**, dipilih dari Model Library Elice (11 Agustus 2026) |
+| Alamat | Dedicated endpoint dengan jalur OpenAI di belakangnya: `https://mlapi.run/{endpoint-id}/v1/chat/completions`. Satu endpoint melayani **satu model**; `{endpoint-id}` itulah yang membedakannya. Jalur lain yang tersedia pada endpoint yang sama: `GET /v1/models`, `GET /v1/models/{model_id}`, dan `POST /v1/responses` — tidak satu pun dipakai selain `/v1/models` untuk memastikan nilai bidang `model` |
+| Bahasa keluaran | **Bahasa Indonesia**, sejalan dengan seluruh pesan sistem ([API.md §2.2](API.md)). [PRD §8.5](PRD.md) menetapkan gayanya profesional tetapi tidak menyebut bahasanya |
 | Kunci API | SSM Parameter Store (SecureString) di AWS; berkas `.env` di on-prem dan pengembangan. Rinciannya pada §7 |
 | Bentuk pemanggilan | Sinkron, sekali jalan, hanya membaca. Tidak ada antrean dan tidak ada penyimpanan keluaran (I-24, NG14) |
 | Biaya | Kredit program KADA, **di luar tagihan AWS** |
@@ -251,7 +253,7 @@ Dua tuas yang tersisa, keduanya perlu diperiksa lebih dahulu, bukan diasumsikan 
 
 | # | Item | Menunggu | Dampak apabila berubah |
 |---|---|---|---|
-| 1 | Model yang dipilih dari Model Library Elice beserta prompt sistemnya | Uji keluaran terhadap AC-18 dan AC-31 | Hanya isi adapter. Tidak menyentuh arsitektur |
+| 1 | **Teks prompt sistem** — modelnya sendiri sudah dipilih (§6) | Uji keluaran terhadap AC-18 dan AC-31 terhadap model sungguhan | Hanya isi satu konstanta pada adapter. Tidak menyentuh arsitektur |
 | 3 | Kebijakan penyimpanan dan pencadangan data | V6 | Menentukan lama retensi cadangan RDS, aturan daur hidup bucket rapor, dan jadwal pencadangan on-prem |
 | 4 | **Nama domain yang sesungguhnya beserta pembeliannya**, dan penerbitan sertifikat ACM di atasnya | Pihak sekolah dan pembelian domain | **Bentuknya sudah ditetapkan CK-17**; yang tersisa hanya namanya. Menentukan modul `frontend` pada Terraform, nilai record CNAME, dan subdomain per sekolah. **Dikerjakan paling akhir dengan sengaja** — seluruh susunan CK-17 dapat ditulis dan ditinjau tanpa domain, dan hanya penerapannya yang menunggu |
 | 5 | Apakah `dev` memerlukan RDS tersendiri atau cukup PostgreSQL lokal | Keputusan tim | Menentukan biaya lingkungan `dev` |
@@ -538,6 +540,7 @@ Sebelum ketiganya, jalur naik yang lebih murah adalah menaikkan kelas instance: 
 
 | Tanggal | Perubahan |
 |---|---|
+| 11 Agustus 2026 | §6 — model ditetapkan **Gemini 3.6 Flash** lewat endpoint khusus Elice, bahasa keluaran ditetapkan **Bahasa Indonesia**, dan bentuk endpointnya diperjelas: satu endpoint satu model. Butir 1 pada §9 menyempit menjadi teks prompt sistem saja |
 | 11 Agustus 2026 | **CK-18** — RDS Proxy ditolak beserta tiga pemicu peninjauan ulangnya. Ditambahkan ke daftar "yang sengaja tidak dipakai" pada §2 |
 | 11 Agustus 2026 | Butir 2 pada §9 ditutup — format rapor resmi sekolah terjawab, dan bentuknya ditetapkan [ARCHITECTURE §11.3](ARCHITECTURE.md) beserta CK-A-10. Tata letaknya sederhana, sehingga peninjauan ulang CK-09 yang dikhawatirkan butir itu tidak diperlukan |
 | 11 Agustus 2026 | §8.2 dan §8.3 ditulis ulang dengan tarif `ap-southeast-3` yang **diverifikasi terhadap AWS Price List API**, menggantikan perkiraan `ap-southeast-1` yang belum pernah diuji. Total $32,41 per bulan, atau $11,40 dengan free tier RDS. Butir 9 pada §9 ditutup |

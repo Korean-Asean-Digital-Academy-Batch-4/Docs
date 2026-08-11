@@ -367,7 +367,7 @@ Hal ini menutup temuan **T-03** pada [RFC-001 §10](RFC-001-model-data-konseptua
 Tombol Suggestion (PRD §8.5) dilayani melalui satu endpoint sinkron yang hanya membaca.
 
 ```
-POST /api/me/suggestion
+POST /api/saya/suggestion
   → baca data siswa penekan tombol lewat koneksi app_ro
   → hitung kelengkapan dan persentase kehadiran di domain/
   → susun prompt tanpa identitas
@@ -594,7 +594,7 @@ body: [ { siswa_ref, komponen_ref, nilai }, ... ]     nilai boleh null
 Satu penekanan tombol **Suggestion** oleh Siswa pada halamannya sendiri.
 
 ```
-POST /api/me/suggestion
+POST /api/saya/suggestion
 body: kosong
 ```
 
@@ -753,6 +753,7 @@ Rincian komponen ditinggalkan karena rapor adalah dokumen ringkas yang dibaca or
 
 | Tanggal | Perubahan |
 |---|---|
+| 11 Agustus 2026 | §10 — alamat tombol Suggestion dikoreksi dari `/api/me/suggestion` menjadi **`/api/saya/suggestion`**, sesuai [API.md §9.1](API.md) dan konvensi alamat berbahasa Indonesia pada AGENTS §5.1. `/api/saya/nilai` sudah memakai bentuk itu sejak A6 |
 | 11 Agustus 2026 | **§11.3 dan CK-A-10** — isi berkas rapor ditetapkan menjawab V5: kepala, satu tabel No/Mata Pelajaran/KKM/Nilai Akhir/Kehadiran, dan catatan wali kelas. Seluruh bidangnya sudah ada pada model data, sehingga tidak ada amandemen SCHEMA maupun API. Empat hal yang lazim ada pada rapor SMA dicatat sebagai sengaja tidak dimuat beserta sebabnya |
 | 6 Agustus 2026 | Kerangka dibuat sebagai bagian dari pemecahan `Techstack.md` menjadi tiga dokumen. Isi belum ditulis. Menggantikan `ARCHITECTURE.md` versi 2 Agustus 2026, yang diturunkan menjadi arsip dengan nama `ARCHITECTURE-2026-08-02.md` |
 | 6 Agustus 2026 | **Versi 1.0 — isi ditulis.** Pasal 1 sampai 13 memindahkan isi yang sudah tervalidasi pada `Techstack.md` versi 1, dengan empat penyesuaian terhadap keadaan terbaru: adapter AI mengikuti CK-14, penyimpanan rahasia mengikuti `Techstack.md` §7, alamat endpoint Elice mengikuti `Techstack.md` §6, dan susunan jaringan mengikuti CK-13. Pasal 9 diperkaya dengan penerjemahan matriks kewenangan `aktor-role.md` menjadi dua lapis pemeriksaan. **Pasal 14 Alur request ditulis baru.** Ditetapkan pula lima angka yang sebelumnya belum pernah ditentukan: umur sesi 12 jam, umur presigned URL 5 menit, tiga batas laju, dan batas ukuran unggahan 2 MB. Lampiran Catatan Keputusan dibuka dengan **CK-A-01** sampai **CK-A-06** |

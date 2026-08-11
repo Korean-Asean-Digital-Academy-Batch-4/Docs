@@ -798,6 +798,21 @@ Kegagalan bersifat **lunak**:
 
 Kegagalan ini tidak menghambat apa pun. Nilai, presensi, finalisasi, dan distribusi tetap berjalan (AC-21, [PRD §8.6](PRD.md) butir 7).
 
+**Data kosong dijawab tanpa memanggil AI** (CK-API-19). Apabila siswa belum memiliki satu pun nilai pada semester berjalan, endpoint menjawab `200` dengan teks tetap dan penanda tersendiri:
+
+```jsonc
+// 200
+{ "data": {
+    "teks": "Belum ada nilai yang tercatat pada semester ini, sehingga rekomendasi belum dapat disusun.",
+    "periode_nama": "2026/2027 Ganjil",
+    "data_sementara": true,
+    "cukup_data": false,
+    "dibuat_pada": "2026-08-06T14:30:00+07:00"
+} }
+```
+
+`cukup_data` selalu disertakan — `true` pada jawaban biasa — sehingga halaman dapat membedakan "belum ada data" dari "rekomendasi kosong" tanpa membaca isi teksnya.
+
 ---
 
 ## 10. Katalog kesalahan
@@ -1121,12 +1136,27 @@ Pembuatan massal juga membuat I-19 ditegakkan sejak awal: `uq_rapor_siswa_period
 
 **Alternatif yang ditolak.** *Mengandalkan 2 MiB saja.* Tidak membatasi zip bomb. *Memotong baris setelah batas.* Menghasilkan unggahan berhasil sebagian yang dilarang AC-26. *Menerima worksheet tambahan dan membaca yang pertama.* Menyembunyikan data yang dikira Administrator ikut diproses.
 
+### CK-API-19 · 11 Agustus 2026 · Data kosong dijawab tanpa memanggil AI
+
+**Diputuskan.** Apabila siswa belum memiliki satu pun nilai pada semester berjalan, `POST /api/saya/suggestion` menjawab `200` dengan teks tetap dan `cukup_data: false`. **Layanan AI tidak dipanggil sama sekali.**
+
+**Alasan.** Jawabannya sudah pasti sebelum siapa pun bertanya, dan memanggil model untuk memperolehnya menghabiskan kredit KADA yang jumlahnya terbatas. Menahan diri juga sejalan dengan [PRD §8.6](PRD.md) butir 5, yang sudah melarang menampilkan rata-rata final ketika data belum lengkap.
+
+Yang kedua, dan lebih menentukan: keluaran model pada prompt kosong **tidak dapat diramalkan**. Model yang diminta menyusun rekomendasi tanpa data cenderung mengarang — persis bentuk kegagalan yang paling berbahaya pada dokumen akademik.
+
+**Bentuknya `200`, bukan `204` maupun galat.** Permintaannya sah dan jawabannya lengkap; yang berbeda hanya isinya. `cukup_data` disertakan pada **setiap** jawaban, bukan hanya yang kosong, supaya halaman tidak perlu menyimpulkan keadaan dari teks yang susunannya bebas — alasan yang sama dengan `data_sementara` pada CK-API-01.
+
+**Alternatif yang ditolak.** *Tetap memanggil AI dan membiarkan model menyusun kalimatnya.* Lebih sedikit cabang kode, tetapi membakar kredit untuk pertanyaan yang jawabannya tetap, dan hasilnya tidak dapat diramalkan. *Menjawab `404` atau `409`.* Keliru: tidak ada yang hilang dan tidak ada yang bertentangan.
+
+**Ambang "cukup".** Untuk MVP, ambangnya adalah **tidak ada satu pun baris `nilai`** pada semester berjalan. Data yang ada tetapi belum lengkap **tetap dikirim** ke AI — kelengkapan memang bagian dari konteks yang dibacanya ([PRD §8.5](PRD.md)), dan justru di situ rekomendasinya berguna.
+
 ---
 
 ## Riwayat
 
 | Tanggal | Perubahan |
 |---|---|
+| 11 Agustus 2026 | §9.1 dan **CK-API-19** — data kosong dijawab `200` beserta `cukup_data: false` tanpa memanggil AI. Bidang `cukup_data` disertakan pada setiap jawaban |
 | 6 Agustus 2026 | **Versi 1.0 — dokumen dibuat.** Menetapkan tiga puluh endpoint di atas [SCHEMA.md](SCHEMA.md) v1.0 dan [ARCHITECTURE.md](ARCHITECTURE.md) v1.0. Membuka enam keputusan yang belum ditetapkan dokumen mana pun: sesi presensi ditulis saat dibuka (**CK-API-05**), unggah bersifat tolak seluruhnya (**CK-API-02**), pembuatan kelas atomik dengan pratinjau (**CK-API-03**), kata sandi awal berupa berkas CSV sekali unduh (**CK-API-04**), penggantian kata sandi mandiri tersedia (**CK-API-06**), dan baris rapor dibuat massal saat kelas dibuat (**CK-API-07**). Ditetapkan pula amplop respons, katalog lima belas kesalahan beserta tiga teks yang diwajibkan PRD, ketiadaan versi dan paginasi, serta daftar empat belas hal yang sengaja tidak memiliki endpoint. Menutup **T-01** lewat CK-API-08 dan **S-05** lewat §6.3. Diajukan lima temuan **A-01** sampai **A-05** |
 | 6 Agustus 2026 | Sesi presensi berpindah dari ditulis-saat-dibuka menjadi ditulis oleh transaksi Simpan Presensi (**CK-API-11**, mengamandemen CK-API-05). Perpindahan ini menutup **A-01**: pertentangan yang dilaporkannya berasal dari CK-API-05, bukan dari dokumen sumber, dan tidak ada usulan perubahan bagi PRD. Ditambahkan `GET /api/penugasan/:id/siswa` |
 | 6 Agustus 2026 | Berkas rapor dirender pada saat finalisasi dengan anggaran lunak 20 detik, dan ditambahkan `GET /api/kelas/:id/rapor/berkas` yang mengembalikan arsip ZIP sekelas (**CK-API-12**, mengamandemen CK-API-10 dan CK-09). Jalur render-saat-unduh tetap ada dan tidak berubah, karena CK-A-05 menuntutnya. Ditambahkan §13.3 yang mewajibkan pengukuran lama render sebelum keputusan ini dianggap terbukti |
