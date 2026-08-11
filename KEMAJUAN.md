@@ -23,7 +23,7 @@
 | **A4** | Auth dan sesi | ✅ Selesai | `474d789`, `57b7e91`, `0f4135c` · PR #3 |
 | **A5** | Administrasi | ✅ Selesai | `4a553f7` · branch `fitur/a5-administrasi` · PR #5 |
 | **A6** | Nilai dan presensi | ✅ Selesai | `8a2d93f` · branch `fitur/a6-nilai-presensi` · PR #6 |
-| **A7** | Rapor | 🟨 Sebagian | `HEAD` pada branch `fitur/a7-rapor`. Seluruh enam endpoint [API §8](./API.md) beserta gerbangnya lulus. **Dua hal belum tuntas:** tata letak PDF masih sementara sampai **V5** turun, dan pengukuran render belum dijalankan di Lambda |
+| **A7** | Rapor | 🟨 Sebagian | `743b86d` · branch `fitur/a7-rapor` · PR #7. Seluruh enam endpoint [API §8](./API.md) beserta gerbangnya lulus. **Dua hal belum tuntas:** tata letak PDF masih sementara sampai **V5** turun, dan pengukuran render belum dijalankan di Lambda |
 | **A8** | Jalur AI | ⬜ Belum | — |
 
 **Angka gerbang pada saat A7 dikerjakan.** Diperbarui hanya ketika satu tahap selesai, bukan setiap commit.
@@ -96,7 +96,7 @@ Dicatat di sini hanya **judul dan tempatnya**. Isinya tidak disalin.
 
 | Tanggal | Perubahan |
 |---|---|
-| 11 Agustus 2026 | A7 Rapor dikerjakan pada branch `fitur/a7-rapor`: enam endpoint [API §8](./API.md), salinan beku `rapor_mapel`, perenderan PDF pada saat finalisasi beserta anggaran lunak 20 detik, dan unduh per siswa maupun sekelas. Ditandai **sebagian** karena tata letak PDF menunggu V5 dan pengukuran render Lambda menunggu Jalur B. Temuan **A-07** dan **A-08** dibuka |
+| 11 Agustus 2026 | A7 Rapor dikerjakan pada backend `743b86d` di branch `fitur/a7-rapor` dan dibuka sebagai PR #7: enam endpoint [API §8](./API.md), salinan beku `rapor_mapel`, perenderan PDF pada saat finalisasi beserta anggaran lunak 20 detik, dan unduh per siswa maupun sekelas. Ditandai **sebagian** karena tata letak PDF menunggu V5 dan pengukuran render Lambda menunggu Jalur B. Temuan **A-07** dan **A-08** dibuka |
 | 11 Agustus 2026 | A6 Nilai dan presensi ditandai selesai pada backend `8a2d93f` di branch `fitur/a6-nilai-presensi` dan dibuka sebagai PR #6; 40 berkas / 514 tes lulus pada gabungan suite unit dan DB |
 | 10 Agustus 2026 | A5 Administrasi ditandai selesai pada backend `4a553f7` di branch `fitur/a5-administrasi`; tabel gerbang diperbarui dari angka A4 ke angka A5 dan utang cakupan global dihapus |
 | 10 Agustus 2026 | A-03 dikeluarkan dari daftar temuan terbuka setelah AC-26 diselaraskan dengan kontrak unggah tolak-seluruhnya pada API |
