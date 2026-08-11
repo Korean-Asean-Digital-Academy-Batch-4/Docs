@@ -47,19 +47,23 @@
 
 ## 2. Jalur B — infrastruktur
 
-> **Ditahan setelah B1** sampai Jalur A selesai secara lokal. Bukan karena terhambat, melainkan karena RDS menagih sejak menyala dan sambungan `adapters/aws/` belum ada.
+> **Penahanan setelah B1 dicabut 11 Agustus 2026.** Jalur A sudah selesai secara lokal, dan sambungan `adapters/aws/` sudah ada. Sejak itu seluruh tahap B2–B7 **sudah ditulis dan digerbang**; yang tersisa pada masing-masing adalah tindakan yang menuntut kredensial AWS.
+>
+> Pembacaan tabel di bawah: **🟨 pada B2–B5 dan B7 berarti "kode dan prosedurnya lengkap, menunggu manusia menjalankannya"** — bukan berarti pekerjaannya belum dikerjakan.
 
 | # | Tahap | Keadaan | Bukti |
 |:--:|---|:--:|---|
-| **B0** | IAM: user, grup, role | 🟨 Sebagian | [DEPLOYMENT.md §9.9](./DEPLOYMENT.md) — **bertanggal 6 Agustus dan belum diperbarui**. Keberhasilan B0.5 membuktikan role OIDC sudah ada, tetapi §9.9 masih mendaftarnya sebagai belum ada |
+| **B0** | IAM: user, grup, role | 🟨 Sebagian | [DEPLOYMENT.md §9.9](./DEPLOYMENT.md), diperbarui 11 Agustus. Yang tersisa **hanya pekerjaan manusia**: role `edutrack-readonly`, pendaftaran MFA, dan penghapusan user `admin` bawaan |
 | **B0.5** | OIDC provider, role, jabat tangan | ✅ Selesai | [Gitaction.md](./Gitaction.md) · workflow `oidc-smoke.yml` |
 | **B1** | `terraform apply` pada `bootstrap/` | ✅ Selesai | Repositori **`infra`** `b925880`. `apply` bersih, **7 sumber daya dibuat**: bucket state beserta versioning, enkripsi, blok akses publik, dan kebijakan TLS; ECR `edutrack` beserta aturan daur hidupnya |
-| **B2** | Push image bootstrap ke ECR | ⏸️ Ditahan | Menunggu Jalur A selesai secara lokal |
-| **B3** | `terraform apply` pada `infra/` | ⏸️ Ditahan | Menunggu B2 |
-| **B4** | Pembuktian penandatanganan OAC | ⏸️ Ditahan | Menunggu B3 |
-| **B5** | Izin ECR dan Lambda pada role OIDC | ⏸️ Ditahan | Menunggu B3 |
-| **B6** | `pr.yml` dan `deploy.yml` | 🟨 Sebagian | `pr.yml` menyala; `deploy.yml` menunggu B5 |
-| **B7** | Pengukuran render 30 PDF di Lambda | ⏸️ Ditahan | Menutup gerbang **A7** yang tersisa — [API.md §13.3](./API.md). Menunggu B6 |
+| **B2** | Push image bootstrap ke ECR | 🟨 Sebagian | Image **ditulis dan diuji setempat** — `infra` `dcfe3f6`, `infra/bootstrap-image/`. **Pendorongan ke ECR menunggu manusia** |
+| **B3** | `terraform apply` pada `infra/` | 🟨 Sebagian | `infra/` **ditulis lengkap** — `infra` `5b2bb43`. `terraform fmt -check` dan `terraform validate` bersih. **`apply` menunggu manusia**, dan menunggu B2 |
+| **B4** | Pembuktian penandatanganan OAC | 🟨 Sebagian | Prosedur beserta skripnya ditulis — `infra/uji-oac/`. Skripnya diuji terhadap image bootstrap yang berjalan setempat: 4 lulus, 0 gagal. **Pelaksanaan terhadap AWS menunggu B3** |
+| **B5** | Izin ECR dan Lambda pada role OIDC | 🟨 Sebagian | `infra/iam-oidc.tf` ditulis. Role `edutrack-gha-backend` **wajib di-`import`**, bukan dibuat ulang. **`apply` menunggu manusia** |
+| **B6** | `pr.yml` dan `deploy.yml` | ✅ Selesai | `pr.yml` menyala; `deploy.yml` ditulis pada backend `5e061e0`, dua belas langkah [DEPLOYMENT §3.3](./DEPLOYMENT.md) masing-masing menyebut nomornya. **Penyalaannya menunggu B5** |
+| **B7** | Pengukuran render 30 PDF di Lambda | 🟨 Sebagian | Prosedur beserta skripnya ditulis — `infra/ukur-render/`. Menutup gerbang **A7** yang tersisa ([API.md §13.3](./API.md)). **Pengukurannya menunggu B6 menyala** |
+
+**Butir 0 — sambungan dua lingkungan.** Prasyarat seluruh Jalur B, dan **selesai** pada backend branch `fitur/b0-sambungan-dua-lingkungan` (`4669ed3`…`5e061e0`). Port `Rahasia`, adapter AWS untuk Secrets Manager, SSM, dan S3, serta pemilihan adapter lewat satu variabel `LINGKUNGAN`. Seluruh adapter AWS diuji dengan klien tiruan; tidak ada satu pun panggilan sungguhan ke AWS.
 
 ---
 
@@ -69,6 +73,11 @@ Dicatat di sini hanya **judul dan tempatnya**. Isinya tidak disalin.
 
 | Yang ditunggu | Tercatat pada | Menghambat |
 |---|---|---|
+| Sisa **B0**: role `edutrack-readonly`, pendaftaran MFA, penghapusan user `admin` bawaan | [DEPLOYMENT.md §9.8 dan §9.9](./DEPLOYMENT.md) | Tidak menghambat B2–B7, tetapi menahan §9.8 |
+| **B2** — pendorongan image `:bootstrap` ke ECR | `infra/bootstrap-image/README.md` | B3 |
+| **B3 dan B5** — `terraform import` role OIDC lalu `terraform apply` pada `infra/` | `infra/infra/README.md` | B4, B6, B7 |
+| **Pengisian kedua rahasia dan parameter SSM** | [DEPLOYMENT.md §5.1](./DEPLOYMENT.md) | Rilis pertama |
+| Setelan `AWS_ROLE_ARN` dan `ALAMAT_PUBLIK` pada repositori backend | `backend/.github/workflows/deploy.yml` | B6 menyala |
 | Nama domain dan pembeliannya | [Techstack.md §9](./Techstack.md) butir 4 · [AGENTS.md §10](./AGENTS.md) | Penerapan CK-17. **Sengaja dikerjakan paling akhir** |
 | Kredensial AWS, `terraform apply`, pembuatan rahasia | [AGENTS.md §10](./AGENTS.md) | Seluruh Jalur B |
 | Validasi komponen dan bobot templat | **V1** pada [ATURAN-DAN-KRITERIA.md §5](./ATURAN-DAN-KRITERIA.md) | Tidak menghambat — hanya data |
@@ -96,7 +105,7 @@ Dicatat di sini hanya **judul dan tempatnya**. Isinya tidak disalin.
 | Lapis 4 dan 5 penjagaan migrasi | Sebelum data sekolah dimuat | [DEPLOYMENT.md §6.5](./DEPLOYMENT.md) |
 | Pengukuran lama render tiga puluh PDF **di Lambda** | Sebelum rilis pertama | [API.md §13.3](./API.md) |
 | ~~Aplikasi menyambung sebagai `edutrack_owner`~~ — **ditutup A8** | — | [ARCHITECTURE §8](./ARCHITECTURE.md) menetapkan aplikasi memakai `app_rw` dan jalur AI memakai `app_ro`. Kenyataannya `docker-compose.yml` dan `.env.example` sejak A1 memakai `edutrack_owner`, yaitu role yang boleh DDL. Tidak terlihat selama ini karena suite penegakan basis data menyambung sebagai `app_ro` sendiri, sehingga I-23 tetap terbukti sementara aplikasinya berjalan dengan hak berlebih. Ditutup bersama A8, yang memang menuntut koneksi kedua |
-| **Sambungan dua lingkungan**: `ports/Secrets`, `adapters/aws/` (S3 + Secrets Manager + SSM), dan pemilihan adapter pada `entry/server.ts` | Sebelum Jalur B dilanjutkan | Janji "satu image, dua lingkungan" [ARCHITECTURE Pasal 13](./ARCHITECTURE.md) belum pernah dibuktikan. Hari ini `entry/server.ts` memilih adapter lokal secara tetap, dan `config.ts` membaca `DATABASE_URL` langsung dari lingkungan tanpa melewati port |
+| ~~**Sambungan dua lingkungan**~~ — **ditutup 11 Agustus 2026** | — | Port `Rahasia` beserta adapter lokal dan AWS, adapter S3, dan pemilihan adapter lewat `LINGKUNGAN` pada `entry/`. Branch `fitur/b0-sambungan-dua-lingkungan` |
 
 ---
 
@@ -104,6 +113,9 @@ Dicatat di sini hanya **judul dan tempatnya**. Isinya tidak disalin.
 
 | Tanggal | Perubahan |
 |---|---|
+| 11 Agustus 2026 | **Jalur B ditulis sampai tuntas, B2 sampai B7.** Image `:bootstrap` tersendiri beserta alat ukur body, `infra/` lengkap, prosedur pembuktian OAC, izin OIDC, `deploy.yml`, dan prosedur pengukuran render Lambda. Seluruhnya digerbang — `terraform fmt -check` dan `terraform validate` bersih, `npm run periksa` keluar 0. Yang tersisa pada setiap tahap adalah tindakan yang menuntut kredensial AWS |
+| 11 Agustus 2026 | **Utang sambungan dua lingkungan ditutup.** Port `Rahasia`, adapter AWS untuk Secrets Manager, SSM, dan S3, serta pemilihan adapter lewat satu variabel `LINGKUNGAN`. Janji "satu image, dua lingkungan" [ARCHITECTURE Pasal 13](./ARCHITECTURE.md) kini memiliki penerapannya |
+| 11 Agustus 2026 | Empat keputusan baru pada [DEPLOYMENT.md](./DEPLOYMENT.md): **CK-D-06** kata sandi master RDS dikelola RDS sendiri, **CK-D-07** alias `live` lahir menunjuk `$LATEST`, **CK-D-08** fungsi `migrate` dipilih variabel lingkungan `PERAN`. Ketiganya lahir dari pertentangan antara dokumen dan apa yang benar-benar dapat berjalan, dan ketiganya ditulis mendahului kodenya. §3.3 langkah 11 dikoreksi menjadi `/api/healthz` |
 | 11 Agustus 2026 | A8 dibuka sebagai **PR #8**. Pengukuran render Lambda dipindahkan menjadi butir **B7** pada Jalur B — ia memang pekerjaan infrastruktur, bukan sisa pekerjaan A7 |
 | 11 Agustus 2026 | **A8 selesai.** AC-18 dan AC-31 dibuktikan terhadap Gemini 3.6 Flash sungguhan lewat `npm run uji:saran`; sapaan pada prompt dipatok supaya keluarannya tidak berganti-ganti. **Seluruh tahap Jalur A yang dapat dikerjakan lokal kini tuntas** |
 | 11 Agustus 2026 | **A8 dikerjakan** pada `9c2fae6`: tombol Suggestion beserta port `AiAdvisor`, adapter OpenAI-compatible, konteks `app_ro`, dan pembatas laju 5 per jam. Ditandai sebagian karena AC-18 dan AC-31 menuntut model sungguhan. Utang pemisahan `app_rw`/`app_ro` **ditutup** |
