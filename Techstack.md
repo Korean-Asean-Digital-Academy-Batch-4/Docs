@@ -85,7 +85,7 @@ C-07 adalah pencabutan terbesar terhadap rancangan 2 Agustus 2026. Antrean pada 
 
 ### 4.1 Mesin — PostgreSQL
 
-PostgreSQL 17 di Amazon RDS, `db.t4g.micro`, Single-AZ, terenkripsi at-rest, dengan pencadangan otomatis 7 hari.
+PostgreSQL 17 di Amazon RDS, `db.t4g.micro`, Single-AZ, terenkripsi at-rest, dengan pencadangan otomatis ~~7 hari~~ **1 hari — diamandemen CK-19**, dilengkapi snapshot manual sebelum tindakan berisiko.
 
 Empat kemampuan PostgreSQL menjadi penentu pemilihan, dan seluruhnya berasal dari invarian RFC-001 §6:
 
@@ -215,7 +215,7 @@ Diturunkan dari volume RFC-001 §8.1 — 360 siswa, 18 guru, 1 administrator.
 | Function URL | — | $0 |
 | RDS `db.t4g.micro` Single-AZ PostgreSQL | $0,025 per jam | $18,25 |
 | RDS penyimpanan gp3 20 GB | $0,138 per GB-bulan | $2,76 |
-| NAT instance `t4g.nano` | $0,0053 per jam | $3,87 |
+| NAT instance `t4g.micro` — **diamandemen CK-19**, semula `t4g.nano` | $0,0106 per jam † | $7,74 † |
 | NAT — EBS gp3 8 GB | $0,096 per GB-bulan | $0,77 |
 | NAT — satu alamat IPv4 publik | $0,005 per jam | $3,65 |
 | Secrets Manager — tiga rahasia | $0,40 per rahasia | $1,20 |
@@ -225,16 +225,22 @@ Diturunkan dari volume RFC-001 §8.1 — 360 siswa, 18 guru, 1 administrator.
 | CloudFront — 15 GB keluar, 500 rb request | di bawah free tier tetap 1 TB dan 10 juta request | $0 |
 | SSM Parameter Store standar · S3 gateway endpoint | — | $0 |
 | Elice AI Cloud — ~1.400 panggilan tombol Suggestion | kredit program KADA | $0, di luar tagihan AWS |
-| **Total** | | **$32,41** |
+| **Total** | | **$36,28** † |
 
-Empat keadaan yang mungkin, bergantung pada dua hal yang belum diperiksa:
+† **Baris NAT belum diverifikasi terhadap Price List API.** Tarifnya diturunkan secara aritmetika sebagai dua kali tarif `t4g.nano` yang sudah diverifikasi, mengikuti pola harga keluarga `t4g`. Seluruh baris lain tetap sebagaimana diverifikasi 11 Agustus 2026. Verifikasinya menuntut kredensial dan karenanya menunggu manusia — sampai itu terjadi, angka ini **perkiraan, bukan hasil pembacaan**.
+
+Empat keadaan yang mungkin:
 
 | Keadaan | Per bulan |
 |---|--:|
-| Tanpa free tier apa pun | **$32,41** |
-| Dengan free tier RDS 12 bulan | **$11,40** |
+| Tanpa free tier apa pun | **$36,28** † |
+| Dengan free tier RDS 12 bulan | **$15,27** † |
 | NAT instance digantikan Egress-only Internet Gateway | $24,12 |
 | Keduanya | **$3,11** |
+
+**Keadaan yang sesungguhnya berlaku tidak ada pada tabel di atas.** Akun berjalan pada **Free Plan** (CK-19), dan di sana RDS `db.t4g.micro`, EC2 `t4g.micro`, serta 750 jam alamat IPv4 publik per bulan seluruhnya tercakup selama 12 bulan pertama. Yang tersisa hanyalah Secrets Manager dua rahasia (~$0,80), ECR, dan S3 — dan ketiganya menggerus kredit Free Plan alih-alih menagih.
+
+**Yang perlu diwaspadai justru bulan ke-13.** Ketika cakupan 12 bulan habis, tagihan melompat dari nol ke angka penuh di atas sekaligus. Itu bukan alasan mengubah rancangan sekarang, tetapi alasan memasang AWS Budgets sebelum bulan itu tiba — tercatat pada Pasal 8 [DEPLOYMENT.md](DEPLOYMENT.md).
 
 **Perkiraan lama ternyata tidak meleset.** Angka $28–36 yang disusun untuk `ap-southeast-1` melingkupi $32,41 di Jakarta; yang berbeda hanya angka free tier, yang seharusnya $11,40 alih-alih $13–21. Kekhawatiran bahwa Jakarta jauh lebih mahal daripada Singapura tidak terbukti pada bauran layanan ini.
 
@@ -267,7 +273,7 @@ Dua tuas yang tersisa, keduanya perlu diperiksa lebih dahulu, bukan diasumsikan 
 | 4 | **Nama domain yang sesungguhnya beserta pembeliannya**, dan penerbitan sertifikat ACM di atasnya | Pihak sekolah dan pembelian domain | **Bentuknya sudah ditetapkan CK-17**; yang tersisa hanya namanya. Menentukan modul `frontend` pada Terraform, nilai record CNAME, dan subdomain per sekolah. **Dikerjakan paling akhir dengan sengaja** — seluruh susunan CK-17 dapat ditulis dan ditinjau tanpa domain, dan hanya penerapannya yang menunggu |
 | 5 | Apakah `dev` memerlukan RDS tersendiri atau cukup PostgreSQL lokal | Keputusan tim | Menentukan biaya lingkungan `dev` |
 | 6 | Apakah `mlapi.run` dapat dihubungi lewat IPv6, sehingga NAT instance dapat digantikan Egress-only Internet Gateway | Uji jaringan saat infrastruktur naik | Menghemat $8,29 per bulan, yaitu 26% tagihan (§8.3) |
-| 7 | Status kelayakan free tier akun AWS tim **pada `ap-southeast-3`** | Pemeriksaan akun | Menentukan apakah tagihan $32,41 atau $11,40 per bulan (§8.2) |
+| ~~7~~ | ~~Status kelayakan free tier akun AWS tim~~ — **terjawab 11 Agustus 2026, CK-19** | — | Akun berada pada **Free Plan** yang membatasi, bukan memberi potongan. Pertanyaannya ternyata bukan "berapa tagihannya" melainkan "apa yang boleh dibuat" |
 | 8 | Apakah cold start ~0,8–1,5 detik dapat diterima pengguna | UAT | Apabila tidak, jalur naiknya provisioned concurrency atau ECS Fargate memakai image yang sama (CK-13) |
 
 Temuan RFC-001 §10 yang masih terbuka — T-01, T-02, T-04, T-05, dan T-06 — bersifat produk dan tidak dipengaruhi pilihan teknologi mana pun pada dokumen ini. T-03 ditutup oleh §5.
@@ -543,12 +549,47 @@ Bernomor dan bertanggal. Entri tidak disunting; perubahan keputusan ditulis seba
 
 Sebelum ketiganya, jalur naik yang lebih murah adalah menaikkan kelas instance: `db.t4g.micro` → `db.t4g.small` memberi ~212 koneksi dengan biaya di bawah harga proxy.
 
+### CK-19 · 11 Agustus 2026 · Akun bertahan pada Free Plan; rancangan disesuaikan agar seluruhnya eligible — mengamandemen §4.1 dan §8.2
+
+**Diputuskan.** Akun AWS tetap pada **Free Plan** dan tidak dinaikkan ke Paid Plan. Dua tetapan disesuaikan supaya seluruh sumber daya masuk daftar free tier `ap-southeast-3`:
+
+| Tetapan | Semula | Menjadi |
+|---|---|---|
+| NAT instance | `t4g.nano` | **`t4g.micro`** |
+| Retensi cadangan otomatis RDS | 7 hari | **1 hari** — 0 apabila 1 pun ditolak |
+
+Cadangan yang sesungguhnya berpindah ke **snapshot manual** yang dijalankan manusia sebelum tindakan berisiko.
+
+**Alasan.** Free Plan bukan potongan harga, melainkan pagar: pembuatan sumber daya di luar daftar free tier **ditolak API**, bukan ditagih. Dua penolakan pada `terraform apply` pertama membuktikannya — `FreeTierRestrictionError` pada retensi cadangan, dan `InvalidParameterCombination` pada tipe instance.
+
+Yang menentukan bentuk penyesuaiannya adalah daftar tipe yang eligible di region ini: `c7i-flex.large`, `t4g.small`, **`t4g.micro`**, `t3.micro`, `t3.small`, `m7i-flex.large`. Keberadaan `t4g.micro` di dalamnya menghapus seluruh perubahan yang semula diperkirakan perlu — **arsitektur arm64 tetap**, AMI tidak berganti, dan tidak ada satu baris kode pun yang berubah selain nilai bawaan dua variabel.
+
+**Kelayakannya ternyata luas, dan itu berlawanan dengan dugaan awal.** Bukti dari `apply` yang sama: VPC beserta seluruh isinya, gateway endpoint S3, kedua bucket, role IAM, log group, dan **wadah Secrets Manager** semuanya lolos — padahal Secrets Manager bukan layanan free tier. Free Plan karenanya hanya memblokir hal tertentu dan menggerus kredit untuk sisanya. **Tidak ada satu layanan pun pada rancangan ini yang menuntut akun berbayar.**
+
+**Alternatif yang ditolak.**
+
+*Naik ke Paid Plan.* Membuat rancangan berjalan apa adanya tanpa satu perubahan pun, dan kredit yang ada umumnya ikut terbawa. Ditolak pemilik akun — keputusan uang, bukan keputusan teknis, dan bukan milik dokumen ini.
+
+*Pindah ke `t3.micro`.* Juga eligible, tetapi x86 — menuntut AMI berganti arsitektur dan meninggalkan arm64 tanpa satu pun alasan teknis, karena `t4g.micro` sudah eligible.
+
+*Menurunkan retensi langsung ke 0.* Pasti diterima, tetapi menghapus point-in-time recovery seluruhnya. Galat AWS menyebut "melampaui maksimum" tanpa menyebut angkanya, sehingga 1 patut dicoba lebih dahulu; kegagalannya murah dan muncul seketika.
+
+*NAT Gateway terkelola.* Menghapus persoalan tipe instance, tetapi berbiaya sekitar $30 lebih mahal per bulan dan tidak termasuk free tier sama sekali.
+
+**Konsekuensi yang diterima.**
+
+1. **Jendela pemulihan menyusut dari 7 hari menjadi 1.** Kekeliruan yang baru disadari lusa tidak lagi dapat dikembalikan otomatis. Ini menaikkan bobot **V6** pada [ATURAN-DAN-KRITERIA §5](ATURAN-DAN-KRITERIA.md), yang masih terbuka, dari "menentukan angka retensi" menjadi "menentukan apakah angka ini memadai bagi data sekolah".
+2. **Cadangan bersandar pada disiplin manusia**, yaitu snapshot manual sebelum migrasi maupun koreksi massal. Snapshot manual tidak dibatasi retensi otomatis dan ikut kuota 20 GB penyimpanan cadangan free tier.
+3. **NAT menjadi dua kali lebih mahal sesudah bulan ke-12** — `t4g.micro` kira-kira dua kali tarif `t4g.nano`. Selama 12 bulan pertama selisihnya nol, karena 750 jam per bulan sudah menutup satu instance yang menyala terus.
+4. **Bulan ke-13 melompat sekaligus.** Cakupan 12 bulan berakhir bersamaan untuk RDS, EC2, dan alamat IPv4, sehingga tagihan berpindah dari nol ke angka penuh §8.2 dalam satu siklus.
+
 ---
 
 ## Riwayat
 
 | Tanggal | Perubahan |
 |---|---|
+| 11 Agustus 2026 | **CK-19** — akun bertahan pada **Free Plan**, dan rancangan disesuaikan agar seluruh sumber daya eligible: NAT `t4g.nano` → `t4g.micro`, retensi cadangan 7 → 1 hari. Butir 7 pada §9 **terjawab**, tetapi bukan sebagaimana ditanyakan: Free Plan membatasi apa yang boleh dibuat, bukan memberi potongan. §4.1 dan §8.2 disesuaikan. Dicatat bahwa **tidak ada satu layanan pun** pada rancangan ini yang menuntut akun berbayar |
 | 11 Agustus 2026 | Butir 1 pada §9 **ditutup** — teks prompt sistem sudah diuji terhadap Gemini 3.6 Flash dan lulus AC-18 beserta AC-31 |
 | 11 Agustus 2026 | §6 merujuk **[payload.md](payload.md)** sebagai kontrak permintaan yang sudah diverifikasi terhadap endpoint, beserta tiga ketentuan yang mengikat adapter: `max_tokens` minimal 2000, `finish_reason: "length"` sebagai kegagalan, dan dua bentuk galat |
 | 11 Agustus 2026 | §6 — model ditetapkan **Gemini 3.6 Flash** lewat endpoint khusus Elice, bahasa keluaran ditetapkan **Bahasa Indonesia**, dan bentuk endpointnya diperjelas: satu endpoint satu model. Butir 1 pada §9 menyempit menjadi teks prompt sistem saja |
