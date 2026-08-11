@@ -47,7 +47,7 @@
 |:--:|---|:--:|---|
 | **B0** | IAM: user, grup, role | 🟨 Sebagian | [DEPLOYMENT.md §9.9](./DEPLOYMENT.md) — **bertanggal 6 Agustus dan belum diperbarui**. Keberhasilan B0.5 membuktikan role OIDC sudah ada, tetapi §9.9 masih mendaftarnya sebagai belum ada |
 | **B0.5** | OIDC provider, role, jabat tangan | ✅ Selesai | [Gitaction.md](./Gitaction.md) · workflow `oidc-smoke.yml` |
-| **B1** | `terraform apply` pada `bootstrap/` | 🟨 Sebagian | Kodenya siap pada repositori **`infra`** `b925880` — `bootstrap/` beserta READMEnya. `terraform fmt` dan `validate` bersih. **`apply` menunggu manusia** (kode MFA) |
+| **B1** | `terraform apply` pada `bootstrap/` | ✅ Selesai | Repositori **`infra`** `b925880`. `apply` bersih, **7 sumber daya dibuat**: bucket state beserta versioning, enkripsi, blok akses publik, dan kebijakan TLS; ECR `edutrack` beserta aturan daur hidupnya |
 | **B2** | Push image bootstrap ke ECR | ⬜ Belum | — |
 | **B3** | `terraform apply` pada `infra/` | ⬜ Belum | — |
 | **B4** | Pembuktian penandatanganan OAC | ⬜ Belum | — |
@@ -97,6 +97,7 @@ Dicatat di sini hanya **judul dan tempatnya**. Isinya tidak disalin.
 
 | Tanggal | Perubahan |
 |---|---|
+| 11 Agustus 2026 | **B1 selesai** — `terraform apply` pada `bootstrap/` menambahkan 7 sumber daya. Jalur B menyala untuk pertama kalinya. **CK-18** menolak RDS Proxy |
 | 11 Agustus 2026 | **V5 terjawab.** Isi berkas rapor ditetapkan [ARCHITECTURE §11.3](./ARCHITECTURE.md) beserta CK-A-10, mengikuti rapor resmi yang dipakai sekolah. Seluruh bidangnya sudah ada pada model data, sehingga tidak ada amandemen SCHEMA maupun API. Temuan **A-09** dibuka untuk identitas sekolah |
 | 11 Agustus 2026 | Repositori ketiga **`infra`** dibuat berisi Terraform Jalur B. `bootstrap/` selesai ditulis: bucket state, penguncian bawaan S3 (CK-D-04), dan ECR `edutrack` |
 | 11 Agustus 2026 | Gerbang biaya [Techstack §8.2](./Techstack.md) ditutup: tarif `ap-southeast-3` diverifikasi terhadap AWS Price List API, total $32,41 per bulan atau $11,40 dengan free tier RDS. Jalur B dapat dimulai |

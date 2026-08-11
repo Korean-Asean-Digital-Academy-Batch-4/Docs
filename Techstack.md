@@ -57,7 +57,7 @@ Prinsip keempat — bahwa yang dapat dijamin basis data tidak diserahkan kepada 
 | **Jalan masuk on-prem** | Cloudflare Tunnel (`cloudflared`) — CK-17 | — |
 | **Region** | **ap-southeast-3 (Jakarta)** — CK-16. Sertifikat ACM untuk CloudFront tetap `us-east-1` | — |
 
-**Yang sengaja tidak dipakai:** API Gateway, Application Load Balancer, ECS, SQS, Cognito, Bedrock, dan Ansible. Alasan masing-masing tercatat pada Lampiran Catatan Keputusan.
+**Yang sengaja tidak dipakai:** API Gateway, Application Load Balancer, ECS, SQS, Cognito, Bedrock, RDS Proxy, dan Ansible. Alasan masing-masing tercatat pada Lampiran Catatan Keputusan.
 
 **Catatan bentuk artefak.** Backend berjalan di Lambda, tetapi yang di-deploy tetap **image Docker berisi Express yang mendengarkan di sebuah port** — bukan fungsi bergaya Lambda. Aplikasi tidak mengetahui keberadaan Lambda, dan image yang sama dijalankan di laptop, di ECS Fargate, maupun di server sekolah tanpa perubahan. Mekanismenya diuraikan pada [ARCHITECTURE.md](ARCHITECTURE.md).
 
@@ -505,12 +505,40 @@ Bernomor dan bertanggal. Entri tidak disunting; perubahan keputusan ditulis seba
 2. **Zona DNS menjadi milik tim, bukan sekolah.** Setiap pemasangan baru menuntut satu record dibuat tim lebih dahulu, sehingga `install.sh` tidak sepenuhnya mandiri.
 3. **Satu pihak ketiga berada di jalur masuk on-prem.** Tunnel yang putus membuat sekolah tidak dapat dijangkau dari luar, meski jaringan lokalnya tetap berjalan.
 
+### CK-18 · 11 Agustus 2026 · Tanpa RDS Proxy
+
+**Diputuskan.** Fungsi Lambda menghubungi RDS secara langsung. **RDS Proxy tidak dipakai.** Perlindungan terhadap kehabisan koneksi tetap berupa `max: 1` pada pool dan reserved concurrency 40 ([ARCHITECTURE §6](ARCHITECTURE.md)).
+
+**Alasan.** RDS Proxy adalah jawaban baku bagi persoalan Lambda dan RDS, dan persoalannya nyata — tetapi tidak pada volume ini. Kriteria AWS sendiri dihadapkan pada angka EduTrack:
+
+| Kriteria kandidat menurut AWS | Keadaan EduTrack |
+|---|---|
+| Menemui galat *too many connections* | Plafon 40 koneksi terhadap ~106 tersedia; tidak pernah mendekat |
+| Kelas kecil T2/T3 **saat menangani koneksi dalam jumlah besar** | Concurrency 0,08 rata-rata; ~1,7 pada lonjakan dua puluh kali lipat |
+| Fungsi Lambda dengan koneksi pendek yang sering | Benar sebagian — tetapi pada 0,7 request/detik container tetap hangat dan koneksinya dipakai ulang |
+| Failover Multi-AZ hingga 66% lebih cepat | **Tidak berlaku.** Susunan ini Single-AZ |
+
+**Biayanya melampaui yang dilindunginya.** $0,018 per vCPU-jam di `ap-southeast-3` × 2 vCPU × 730 jam = **$26,28 per bulan**, sedangkan RDS yang dilindunginya berbiaya $21,01. Tagihan naik 81% (§8.2) untuk menutup keadaan yang belum pernah terjadi.
+
+**Dua hal yang menguranginya lebih jauh.** Jalur terberat sistem ini — finalisasi sekelas dan Simpan Nilai yang mengunci baris rapor — berjalan di dalam transaksi, dan selama transaksi berlangsung koneksinya tidak dapat dibagi. Multiplexing berkurang tepat di tempat ia paling diinginkan. Selain itu setiap query memperoleh satu lompatan jaringan tambahan.
+
+**Alternatif yang ditolak.** *Memasang RDS Proxy sekarang sebagai pencegahan.* Ditolak dengan alasan di atas. *Menaikkan reserved concurrency tanpa proxy.* Ditolak karena justru menghapus rem yang membuat proxy tidak diperlukan.
+
+**Tiga pemicu peninjauan ulang.** Keputusan ini **bukan "tidak pernah"**, melainkan "belum". Ia ditinjau ulang apabila salah satu terjadi:
+
+1. Reserved concurrency perlu melampaui ~90, yaitu trafik tumbuh sekitar lima puluh kali lipat atau satu sistem melayani banyak sekolah.
+2. Basis data berpindah ke Multi-AZ — sejak saat itu failover cepat menjadi manfaat yang nyata.
+3. CloudWatch menunjukkan `DatabaseConnections` merayap naik atau `ConnectionAttempts` melonjak.
+
+Sebelum ketiganya, jalur naik yang lebih murah adalah menaikkan kelas instance: `db.t4g.micro` → `db.t4g.small` memberi ~212 koneksi dengan biaya di bawah harga proxy.
+
 ---
 
 ## Riwayat
 
 | Tanggal | Perubahan |
 |---|---|
+| 11 Agustus 2026 | **CK-18** — RDS Proxy ditolak beserta tiga pemicu peninjauan ulangnya. Ditambahkan ke daftar "yang sengaja tidak dipakai" pada §2 |
 | 11 Agustus 2026 | Butir 2 pada §9 ditutup — format rapor resmi sekolah terjawab, dan bentuknya ditetapkan [ARCHITECTURE §11.3](ARCHITECTURE.md) beserta CK-A-10. Tata letaknya sederhana, sehingga peninjauan ulang CK-09 yang dikhawatirkan butir itu tidak diperlukan |
 | 11 Agustus 2026 | §8.2 dan §8.3 ditulis ulang dengan tarif `ap-southeast-3` yang **diverifikasi terhadap AWS Price List API**, menggantikan perkiraan `ap-southeast-1` yang belum pernah diuji. Total $32,41 per bulan, atau $11,40 dengan free tier RDS. Butir 9 pada §9 ditutup |
 | 6 Agustus 2026 | Dokumen dibuat. Menetapkan stack di atas PRD v3.0 dan RFC-001. Menggantikan bagian stack pada `ARCHITECTURE.md` versi 2 Agustus 2026. Menutup K-01 dan K-02 pada RFC-001 §9, serta menutup temuan T-03 |
