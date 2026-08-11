@@ -488,8 +488,29 @@ mfa_serial     = arn:aws:iam::<ID-AKUN>:mfa/Andreas
 
 ```bash
 AWS_PROFILE=edutrack-ro  aws sts get-caller-identity   # sehari-hari
-AWS_PROFILE=edutrack     terraform apply               # saat mengubah infrastruktur
 ```
+
+**Terraform tidak dapat memakai `AWS_PROFILE` di sini, dan ini bukan salah konfigurasi.** Profil `edutrack` memuat `mfa_serial`, sehingga peminjaman role menuntut kode enam angka. AWS CLI menanyakannya lewat prompt lalu menyimpan sesi hasilnya di `~/.aws/cli/cache/`. Terraform memakai AWS SDK for Go: ia membaca `~/.aws/config` yang sama, melihat `mfa_serial`, tetapi **tidak memiliki jalan untuk bertanya** — `terraform apply` bukan sesi interaktif, dan cache CLI tidak dibacanya. Yang muncul:
+
+```
+Error: assume role with MFA enabled, but AssumeRoleTokenProvider session option not set.
+```
+
+Jalan keluarnya bukan melemahkan MFA, melainkan **menyerahkan sesi yang sudah dipinjam CLI** kepada Terraform sebagai variabel lingkungan:
+
+```bash
+eval "$(aws configure export-credentials --profile edutrack --format env)"
+```
+
+```bash
+terraform -chdir=bootstrap apply
+```
+
+Perintah pertama meminta kode MFA sekali — atau langsung memakai sesi yang masih hidup — lalu mengekspor `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, dan `AWS_SESSION_TOKEN` ke shell. Terraform kemudian memakai kredensial sementara itu apa adanya dan **tidak meminjam role sama sekali**, sehingga tidak pernah menyentuh MFA.
+
+`AWS_PROFILE` sengaja **tidak** disertakan pada perintah kedua. Menyetel keduanya sekaligus membuat sumber kredensial menjadi ambigu bagi pembaca berikutnya, meskipun SDK memang mendahulukan variabel lingkungan.
+
+Sesinya berumur `duration_seconds` di atas, yaitu **4 jam**. Sesudah itu `eval` diulang. Membutuhkan AWS CLI **2.9 atau lebih baru**.
 
 Bekerja dengan `edutrack-ro` sebagai kebiasaan **bukan tembok** — orang yang sama tetap dapat meminjam keduanya. Gunanya membuat jalur berbahaya menjadi jalur yang dipilih secara sadar, bukan jalur bawaan.
 
@@ -617,6 +638,7 @@ Yang menentukan bukan penghematan biayanya, melainkan bahwa argumen backend-nya 
 
 | Tanggal | Perubahan |
 |---|---|
+| 11 Agustus 2026 | §9.6 dikoreksi. Baris `AWS_PROFILE=edutrack terraform apply` **tidak pernah dapat berjalan**: profil ber-`mfa_serial` menuntut prompt yang tidak dimiliki Terraform. Digantikan `aws configure export-credentials`, beserta penjelasan sebabnya. Ditemukan saat `terraform apply` pertama pada `bootstrap/` |
 | 11 Agustus 2026 | **CK-D-04** — penguncian state berpindah ke mekanisme bawaan S3 (`use_lockfile`), tabel DynamoDB tidak dibuat. §2.3 disesuaikan. Ditulis sebelum `bootstrap/` dikodekan, karena `dynamodb_table` sudah usang sejak Terraform 1.11 |
 | 6 Agustus 2026 | Kerangka dibuat sebagai bagian dari pemecahan `Techstack.md` menjadi tiga dokumen. Isi belum ditulis |
 | 6 Agustus 2026 | **Versi 0.2 — Pasal 9 Identitas dan akses ditulis.** Ditetapkan dua IAM user bernama orang, satu grup `Edutrack-dev` dengan dua customer managed policy, dan tujuh role: dua dipinjam manusia, dua dipinjam GitHub Actions lewat OIDC, dan tiga untuk fungsi Lambda serta NAT instance. Seluruh jalur mesin tanpa access key. Pasal ini ditulis mendahului pasal lain karena Terraform tidak dapat dijalankan tanpanya. Lampiran Catatan Keputusan dibuka dengan **CK-D-01**. Dicatat pula keadaan penerapan per 6 Agustus 2026 pada §9.9 |
