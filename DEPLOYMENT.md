@@ -85,7 +85,7 @@ resource "aws_lambda_function" "api" {
 resource "aws_lambda_alias" "live" {
   name             = "live"
   function_name    = aws_lambda_function.api.function_name
-  function_version = "1"                 # hanya dipakai saat pembuatan pertama
+  function_version = "$LATEST"           # hanya dipakai saat pembuatan pertama — CK-D-07
 
   lifecycle {
     # ke mana alias menunjuk dimiliki CI. Ini tindakan rilis itu sendiri.
@@ -93,6 +93,8 @@ resource "aws_lambda_alias" "live" {
   }
 }
 ```
+
+> Nilai awal `function_version` **diamandemen CK-D-07** dari `"1"` menjadi `"$LATEST"`. Keduanya tidak dapat berlaku bersamaan dengan `publish = false`: fungsi yang baru dibuat hanya memiliki `$LATEST`, dan version bernomor 1 tidak pernah ada untuk ditunjuk.
 
 **Dua `ignore_changes`, bukan satu.** Melupakan yang kedua menghasilkan kegagalan yang lebih buruk daripada melupakan yang pertama: `terraform apply` untuk urusan yang tidak berhubungan akan mengembalikan alias ke version 1, yaitu image bootstrap yang hanya memuat `GET /healthz`. Seluruh aplikasi lenyap, dan penyebabnya adalah perintah yang tampaknya tidak menyentuh aplikasi sama sekali.
 
@@ -777,12 +779,54 @@ Secrets Manager berbeda: `aws_secretsmanager_secret` dan `aws_secretsmanager_sec
 
 **Konsekuensi yang diterima.** Nama rahasia `edutrack_owner` tidak lagi dapat disepakati di muka; ia berbentuk `rds!db-…` beserta akhiran acak, sehingga fungsi `migrate` menerima ARN-nya alih-alih namanya (§5.1). Kunci KMS-nya juga bukan `aws/secretsmanager` melainkan kunci terkelola RDS, sehingga kebijakan IAM `edutrack-lambda-migrate` menyebut ARN rahasia itu apa adanya dan tidak dapat ditulis sebagai pola nama.
 
+### CK-D-07 · 11 Agustus 2026 · Alias `live` lahir menunjuk `$LATEST` — mengamandemen §2.2
+
+**Diputuskan.** Pada pembuatan pertama, `aws_lambda_alias.live` menunjuk `$LATEST`. Nilai `"1"` pada §2.2 diganti. `ignore_changes = [function_version]` dan `publish = false` tetap berlaku tanpa perubahan.
+
+**Alasan.** Kedua ketentuan §2.2 tidak dapat berlaku bersamaan. `publish = false` berarti Terraform tidak pernah menerbitkan version, sehingga fungsi yang baru dibuat hanya memiliki `$LATEST` — version bernomor 1 tidak pernah ada. `terraform apply` gagal pada pembuatan alias dengan keluhan bahwa versionnya tidak ditemukan, yaitu pada langkah 3 [§2.3](#23-pemisahan-bootstrap) tepat ketika seluruh infrastruktur lain sudah terlanjur dibuat.
+
+Kekeliruannya berasal dari penyusunan §2.2 yang menuliskan kedua atribut dari sudut pandang keadaan **sesudah** rilis pertama, ketika version 1 memang sudah ada.
+
+**Alternatif yang ditolak.**
+
+*`publish = true` pada pembuatan pertama saja.* Tidak dapat dinyatakan: Terraform tidak mengenal atribut yang hanya berlaku sekali. Menyalakannya secara tetap membuat penomoran version menjadi rebutan dua sistem, yang justru dilarang §2.2.
+
+*Menerbitkan version pertama dengan `aws_lambda_function_version` tersendiri.* Menambah satu sumber daya yang dimiliki Terraform di wilayah yang sengaja diserahkan kepada CI (CK-D-02), demi angka yang akan segera ditinggalkan rilis pertama.
+
+**Konsekuensi yang diterima.** Di antara `terraform apply` dan rilis pertama, alias `live` menunjuk `$LATEST` — sehingga `update-function-code` mengubah apa yang dilayani alias seketika, tanpa menunggu `update-alias`. Jendela itu berumur satu kali jalan pipeline dan hanya ada sekali seumur lingkungan: sejak rilis pertama, alias menunjuk version bernomor dan tidak pernah kembali.
+
+### CK-D-08 · 11 Agustus 2026 · Fungsi `migrate` dipilih variabel lingkungan `PERAN`, bukan penggantian perintah image
+
+**Diputuskan.** Kedua fungsi menjalankan image dan perintah yang **sama persis**. Yang membedakannya satu variabel lingkungan, `PERAN`, bernilai `api` (bawaan) atau `migrasi`. `image_config` pada Terraform dibiarkan kosong. Ketika `PERAN=migrasi`, proses menyajikan satu jalur HTTP yang menerapkan migrasi dan melaporkan hasilnya, alih-alih menyalakan aplikasi.
+
+**Alasan.** Lambda Web Adapter menuntut **aplikasi yang mendengarkan HTTP**. Ia berjalan sebagai extension, mengambil alih perulangan invocation, lalu meneruskannya sebagai request ke `127.0.0.1:8080` — dan tidak mengalirkan trafik sebelum readiness check `GET /healthz` lulus ([ARCHITECTURE.md Pasal 6](ARCHITECTURE.md)).
+
+Perintah migrasi yang lazim — berjalan sekali lalu keluar — karenanya tidak dapat dipasang sebagai fungsi Lambda pada image ini. Ia tidak pernah mendengarkan, readiness tidak pernah lulus, dan prosesnya keluar sehingga Lambda melaporkan runtime yang berhenti tanpa alasan. Gejalanya muncul pada langkah 6 §3.3, yaitu tepat ketika pipeline seharusnya menerapkan skema.
+
+**Mengganti perintah image lewat `image_config` juga tidak dapat dipakai**, dan sebabnya lebih halus: `image_config` adalah bagian dari **cangkang** yang dimiliki Terraform (§2.1), sehingga nilainya berlaku bagi image mana pun yang sedang terpasang — termasuk image `:bootstrap` yang dipakai saat fungsi dibuat. Perintah yang menunjuk berkas milik image aplikasi membuat fungsi `migrate` gagal menyala pada `terraform apply` pertama, sebelum ada satu pun rilis.
+
+Variabel lingkungan tidak memiliki persoalan itu: image `:bootstrap` mengabaikannya, dan image aplikasi membacanya.
+
+**Bahwa jalur migrasi berada di dalam image yang sama dengan jalur request bukan pelonggaran pemisahan.** Yang memisahkan keduanya tidak pernah berupa berkas yang berbeda, melainkan **kredensial**: fungsi `api` tidak dapat membaca rahasia `edutrack_owner` sekalipun kodenya mencoba, karena IAM menolaknya (§9.5). Pemisahan itu tetap utuh, dan justru inilah bentuk yang dirancang [Techstack §7](Techstack.md) ketika menempatkan kolom "dibaca oleh" sebagai bagian yang menentukan.
+
+**Alternatif yang ditolak.**
+
+*Entry point kedua khusus AWS.* Bertentangan langsung dengan [ARCHITECTURE.md §5.1](ARCHITECTURE.md), yang menyatakan `entry/` tidak memiliki entry point terpisah untuk AWS karena AWS menjalankan container yang sama dengan on-prem.
+
+*Image kedua khusus migrasi.* Membatalkan janji satu image dua lingkungan, menggandakan pipeline build, dan memunculkan pertanyaan baru yang tidak punya jawaban baik: image mana yang di-tag git SHA.
+
+*Menyingkirkan Lambda Web Adapter dari fungsi `migrate`.* Adapter berada di dalam image, bukan pada konfigurasi fungsi. Menyingkirkannya berarti image kedua.
+
+**Konsekuensi yang diterima.** Fungsi `migrate` menyala sebagai server HTTP berumur pendek, dan penerapan migrasi terjadi ketika ia menerima invocation — bukan ketika ia menyala. Pemanggilannya sinkron (§3.3 langkah 6), sehingga hasilnya tetap terbaca pipeline apa adanya. Batas waktu fungsi `migrate` disetel lebih longgar daripada fungsi `api`, karena yang dibatasi keduanya adalah hal yang berbeda.
+
 ---
 
 ## Riwayat
 
 | Tanggal | Perubahan |
 |---|---|
+| 11 Agustus 2026 | **CK-D-08** — kedua fungsi menjalankan image dan perintah yang sama persis; yang membedakannya variabel lingkungan `PERAN`. Lambda Web Adapter menuntut aplikasi yang mendengarkan HTTP, sehingga perintah migrasi yang berjalan sekali lalu keluar tidak dapat dipasang sebagai fungsi. `image_config` juga tidak dapat dipakai karena ia bagian dari cangkang yang berlaku bagi image `:bootstrap` sekalipun |
+| 11 Agustus 2026 | **CK-D-07** — nilai awal `function_version` pada alias `live` diamandemen dari `"1"` menjadi `"$LATEST"`. Keduanya tidak dapat berlaku bersamaan dengan `publish = false`, karena fungsi yang baru dibuat tidak memiliki version bernomor untuk ditunjuk. §2.2 disesuaikan |
 | 11 Agustus 2026 | **CK-D-06** — kata sandi master RDS dikelola RDS sendiri lewat `manage_master_user_password`, sehingga rahasia yang dibuat manusia berkurang menjadi dua dan nama `edutrack/db/owner` gugur. §5.1 dan §9.5 disesuaikan. Sebabnya urutan: kata sandi master adalah masukan pembuatan instance, bukan sesuatu yang disetel sesudahnya, sehingga §5.1 sebagaimana ditulis semula tidak pernah dapat berjalan tanpa melanggar [Techstack §7](Techstack.md) butir 1 |
 | 11 Agustus 2026 | §9.9 diperbarui dari keadaan 6 Agustus. Role `edutrack-terraform` dan jalur OIDC terbukti ada; dicatat pula bahwa `edutrack-gha-backend` dibuat dengan tangan sehingga wajib di-`import` pada B5, bukan dibuat ulang |
 | 11 Agustus 2026 | **§5.1 dan CK-D-05** — nama keempat rahasia, bentuk nilainya, dan prosedur pengisiannya ditetapkan. Parameter SSM dinyatakan berada di luar Terraform seluruhnya, karena `aws_ssm_parameter` mewajibkan `value` sehingga tidak ada cara membuatnya tanpa nilainya masuk ke state |
