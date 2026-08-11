@@ -106,8 +106,10 @@ Fungsi Lambda tidak dapat dibuat tanpa image, sedangkan image tidak dapat didoro
 
 | Konfigurasi | Isi | Dijalankan |
 |---|---|---|
-| `bootstrap/` | Bucket state, tabel penguncian, repositori ECR | Sekali, di awal |
+| `bootstrap/` | Bucket state beserta penguncian bawaannya, repositori ECR | Sekali, di awal |
 | `infra/` | Seluruh sisanya | Setiap kali infrastruktur berubah |
+
+Penguncian state **tidak lagi memakai tabel DynamoDB tersendiri** — lihat **CK-D-04**.
 
 ```
 1  terraform apply pada bootstrap/     → ECR dan penyimpanan state
@@ -597,12 +599,25 @@ Tiga lapis berasal dari peninjauan `schema-evolution-and-contract-migrations` da
 
 **Konsekuensi yang diterima.** Satu dependensi pengembangan baru (`squawk`), satu job CI tambahan, dan satu sesi latihan rollback. Lapis 4 dan 5 baru wajib sebelum data sekolah sungguhan dimuat — batas yang sama dengan V1 pada [ATURAN-DAN-KRITERIA §5](ATURAN-DAN-KRITERIA.md).
 
+### CK-D-04 · 11 Agustus 2026 · Penguncian state memakai mekanisme bawaan S3 — mengamandemen CK-D-02 dan §2.3
+
+**Diputuskan.** Bucket state memakai penguncian bawaan S3 lewat `use_lockfile = true` pada blok backend. **Tabel DynamoDB penguncian tidak dibuat.**
+
+**Alasan.** Ketika §2.3 ditulis, satu-satunya cara mengunci state S3 memang tabel DynamoDB terpisah. Terraform 1.10 menambahkan penguncian berbasis berkas kunci di dalam bucket yang sama, dan Terraform 1.11 **menandai `dynamodb_table` sebagai usang**. Mempertahankan tabel berarti menambah satu sumber daya, satu izin IAM, dan satu tempat lagi yang dapat menyimpang — untuk memperoleh persis jaminan yang sama.
+
+Yang menentukan bukan penghematan biayanya, melainkan bahwa argumen backend-nya sedang dalam jalur penghapusan. Konfigurasi yang dibangun di atas argumen usang akan berhenti bekerja pada peningkatan Terraform berikutnya, dan kegagalannya muncul pada saat paling buruk: ketika seseorang menjalankan `terraform init` untuk memperbaiki hal lain.
+
+**Alternatif yang ditolak.** *Tetap memakai tabel DynamoDB sesuai §2.3 apa adanya.* Sesuai dokumen, tetapi memilih mekanisme yang sudah diumumkan akan dihapus. *Memakai keduanya.* Terraform memang mengizinkannya sebagai jalur perpindahan, tetapi mempertahankan dua mekanisme untuk satu jaminan adalah bentuk yang paling mudah ditinggalkan setengah jalan.
+
+**Konsekuensi yang diterima.** Terraform yang dipakai wajib **1.10 atau lebih baru**; `required_version` pada `bootstrap/` dan `infra/` mematoknya. Penguncian menjadi bergantung pada operasi bersyarat S3, yang sudah bersifat konsisten kuat sejak 2020.
+
 ---
 
 ## Riwayat
 
 | Tanggal | Perubahan |
 |---|---|
+| 11 Agustus 2026 | **CK-D-04** — penguncian state berpindah ke mekanisme bawaan S3 (`use_lockfile`), tabel DynamoDB tidak dibuat. §2.3 disesuaikan. Ditulis sebelum `bootstrap/` dikodekan, karena `dynamodb_table` sudah usang sejak Terraform 1.11 |
 | 6 Agustus 2026 | Kerangka dibuat sebagai bagian dari pemecahan `Techstack.md` menjadi tiga dokumen. Isi belum ditulis |
 | 6 Agustus 2026 | **Versi 0.2 — Pasal 9 Identitas dan akses ditulis.** Ditetapkan dua IAM user bernama orang, satu grup `Edutrack-dev` dengan dua customer managed policy, dan tujuh role: dua dipinjam manusia, dua dipinjam GitHub Actions lewat OIDC, dan tiga untuk fungsi Lambda serta NAT instance. Seluruh jalur mesin tanpa access key. Pasal ini ditulis mendahului pasal lain karena Terraform tidak dapat dijalankan tanpanya. Lampiran Catatan Keputusan dibuka dengan **CK-D-01**. Dicatat pula keadaan penerapan per 6 Agustus 2026 pada §9.9 |
 | 7 Agustus 2026 | **Versi 0.3 — Pasal 2, 3, dan 6 ditulis.** Ditetapkan **skema B** (**CK-D-02**): Terraform memiliki cangkang fungsi, CI memiliki isinya, dan `ignore_changes` dipasang di **dua** tempat — `image_uri` pada fungsi dan `function_version` pada alias. Yang kedua ditemukan belakangan dan lebih berbahaya, karena memindahkan alias adalah tindakan rilis itu sendiri. Ditolak: tag `:latest`, skema A, dan pemecahan Terraform menjadi `app/`. Dicatat delapan lubang yang diketahui beserta penutupnya. Pasal 6 menetapkan lima aturan migrasi kompatibel mundur, yang wajib berlaku sebelum migrasi 0001 ditulis. Nama repositori pada §9.4 dikoreksi menjadi `Korean-Asean-Digital-Academy-Batch-4/backend` |
