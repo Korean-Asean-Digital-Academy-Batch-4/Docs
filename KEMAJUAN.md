@@ -2,7 +2,7 @@
 
 | Keterangan | Isi |
 |---|---|
-| **Tanggal** | 10 Agustus 2026 |
+| **Tanggal** | 11 Agustus 2026 |
 | **Kedudukan** | Mencatat **tahap mana sudah selesai dan apa buktinya**. Berada di luar rantai penguncian dan tidak menetapkan apa pun |
 | **Tahapnya sendiri** | [AGENTS.md §8](./AGENTS.md) — dokumen ini tidak mengulang isi maupun gerbangnya |
 
@@ -22,21 +22,21 @@
 | **A3** | `domain/` murni | ✅ Selesai | `15365e5`, `a1e357f` · PR #4 |
 | **A4** | Auth dan sesi | ✅ Selesai | `474d789`, `57b7e91`, `0f4135c` · PR #3 |
 | **A5** | Administrasi | ✅ Selesai | `4a553f7` · branch `fitur/a5-administrasi` · PR #5 |
-| **A6** | Nilai dan presensi | ⬜ Belum | — |
+| **A6** | Nilai dan presensi | ✅ Selesai | `8a2d93f` · branch `fitur/a6-nilai-presensi` |
 | **A7** | Rapor | ⬜ Belum | — |
 | **A8** | Jalur AI | ⬜ Belum | — |
 
-**Angka gerbang pada saat A5 ditutup.** Diperbarui hanya ketika satu tahap selesai, bukan setiap commit.
+**Angka gerbang pada saat A6 ditutup.** Diperbarui hanya ketika satu tahap selesai, bukan setiap commit.
 
 | Perintah | Hasil |
 |---|---|
-| `npm run periksa` | keluar 0 · unit 165 lulus · DB coverage suite 269 lulus |
-| `npm run test:db` | 269 lulus |
+| `npm run periksa` | keluar 0 · unit 19 berkas / 172 tes lulus · DB coverage suite 21 berkas / 342 tes lulus |
+| `npm run test:db` | keluar 0 · 21 berkas / 342 tes lulus |
 | `npm run lint:migrations` | 0 temuan pada 10 berkas |
-| `npm run coverage:global` | statements 91,38% · branches 87,69% · functions 84,29% · lines 91,38% |
+| `npm run coverage:global` | keluar 0 · statements 92,17% · branches 88,58% · functions 85,90% · lines 92,17% |
 | `npm audit --omit=dev` | 0 kerentanan produksi |
 | `git diff --check` | keluar 0 |
-| Cakupan `src/domain` | 100% pada keempat metrik tetap terjaga oleh konfigurasi Vitest |
+| Cakupan `src/domain` | statements 100% · branches 100% · functions 100% · lines 100% |
 
 ---
 
@@ -93,6 +93,7 @@ Dicatat di sini hanya **judul dan tempatnya**. Isinya tidak disalin.
 
 | Tanggal | Perubahan |
 |---|---|
+| 11 Agustus 2026 | A6 Nilai dan presensi ditandai selesai pada backend `8a2d93f` di branch `fitur/a6-nilai-presensi`; 40 berkas / 514 tes lulus pada gabungan suite unit dan DB |
 | 10 Agustus 2026 | A5 Administrasi ditandai selesai pada backend `4a553f7` di branch `fitur/a5-administrasi`; tabel gerbang diperbarui dari angka A4 ke angka A5 dan utang cakupan global dihapus |
 | 10 Agustus 2026 | A-03 dikeluarkan dari daftar temuan terbuka setelah AC-26 diselaraskan dengan kontrak unggah tolak-seluruhnya pada API |
 | 8 Agustus 2026 | Bukti A3 diperbaiki dari PR #2 menjadi **PR #4**. PR #2 menggabungkan A3 ke `fitur/a2-skema-migrasi` **sesudah** cabang itu sendiri sudah masuk `main`, sehingga A3 tidak pernah sampai ke `main`; PR #4 yang membawanya |
