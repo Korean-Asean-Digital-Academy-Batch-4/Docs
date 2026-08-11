@@ -27,16 +27,16 @@
 | **A5** | Administrasi | ✅ Selesai | `4a553f7` · branch `fitur/a5-administrasi` · PR #5 |
 | **A6** | Nilai dan presensi | ✅ Selesai | `8a2d93f` · branch `fitur/a6-nilai-presensi` · PR #6 |
 | **A7** | Rapor | 🟨 Sebagian | `743b86d`, `f3cdce0` · PR #7 **sudah masuk `main`** (`d022a43`). Seluruh enam endpoint [API §8](./API.md) beserta gerbangnya lulus. Templat sudah selaras dengan [ARCHITECTURE §11.3](./ARCHITECTURE.md). **Satu hal belum tuntas dan memang tidak dapat lokal:** pengukuran render di Lambda |
-| **A8** | Jalur AI | ⬜ Belum | — |
+| **A8** | Jalur AI | 🟨 Sebagian | `9c2fae6` · branch `fitur/a8-jalur-ai`. `POST /api/saya/suggestion` beserta port, adapter, konteks `app_ro`, dan pembatas laju. **AC-18 dan AC-31 belum diuji** — keduanya menuntut model sungguhan, menunggu kunci Elice |
 
-**Angka gerbang pada saat A7 dikerjakan.** Diperbarui hanya ketika satu tahap selesai, bukan setiap commit.
+**Angka gerbang pada saat A8 dikerjakan.** Diperbarui hanya ketika satu tahap selesai, bukan setiap commit.
 
 | Perintah | Hasil |
 |---|---|
-| `npm run periksa` | keluar 0 · unit 21 berkas / 208 tes lulus · DB coverage suite 22 berkas / 386 tes lulus |
-| `npm run test:db` | keluar 0 · 22 berkas / 386 tes lulus |
+| `npm run periksa` | keluar 0 · unit 22 berkas / 231 tes lulus · DB coverage suite 23 berkas / 407 tes lulus |
+| `npm run test:db` | keluar 0 · 23 berkas / 407 tes lulus |
 | `npm run lint:migrations` | 0 temuan pada 10 berkas |
-| `npm run coverage:global` | keluar 0 · statements 92,33% · branches 88,14% · functions 88,10% · lines 92,33% |
+| `npm run coverage:global` | keluar 0 · statements 91,65% · branches 88,28% · functions 87,98% · lines 91,65% |
 | `npm audit --omit=dev` | 0 kerentanan produksi |
 | `git diff --check` | keluar 0 |
 | Cakupan `src/domain` | statements 100% · branches 100% · functions 100% · lines 100% |
@@ -73,6 +73,7 @@ Dicatat di sini hanya **judul dan tempatnya**. Isinya tidak disalin.
 | Kredensial AWS untuk mengukur render 30 PDF di Lambda 1024 MB arm64 | [API.md §13.3](./API.md) | Penutupan gerbang A7. Angka pembanding lokal sudah ada |
 | Retensi dan pencadangan data | **V6** · [Techstack.md §9](./Techstack.md) butir 3 | Tidak menghambat |
 | Status kelayakan free tier RDS pada akun AWS tim | [Techstack.md §9](./Techstack.md) butir 7 | Tidak menghambat — menentukan $32,41 atau $11,40 per bulan |
+| **Kunci API Elice** beserta pengesahan teks prompt sistem | [Techstack.md §9](./Techstack.md) butir 1 | Penutupan **AC-18 dan AC-31** pada A8. Seluruh kriteria A8 lainnya sudah terbukti tanpa model sungguhan |
 
 ## 4. Temuan yang masih terbuka
 
@@ -93,7 +94,7 @@ Dicatat di sini hanya **judul dan tempatnya**. Isinya tidak disalin.
 | Kerentanan `npm audit` pada `devDependencies` | Kapan saja — nol pada jalur produksi | — |
 | Lapis 4 dan 5 penjagaan migrasi | Sebelum data sekolah dimuat | [DEPLOYMENT.md §6.5](./DEPLOYMENT.md) |
 | Pengukuran lama render tiga puluh PDF **di Lambda** | Sebelum rilis pertama | [API.md §13.3](./API.md) |
-| **Aplikasi menyambung sebagai `edutrack_owner`, bukan `app_rw`** | **A8** | [ARCHITECTURE §8](./ARCHITECTURE.md) menetapkan aplikasi memakai `app_rw` dan jalur AI memakai `app_ro`. Kenyataannya `docker-compose.yml` dan `.env.example` sejak A1 memakai `edutrack_owner`, yaitu role yang boleh DDL. Tidak terlihat selama ini karena suite penegakan basis data menyambung sebagai `app_ro` sendiri, sehingga I-23 tetap terbukti sementara aplikasinya berjalan dengan hak berlebih. Ditutup bersama A8, yang memang menuntut koneksi kedua |
+| ~~Aplikasi menyambung sebagai `edutrack_owner`~~ — **ditutup A8** | — | [ARCHITECTURE §8](./ARCHITECTURE.md) menetapkan aplikasi memakai `app_rw` dan jalur AI memakai `app_ro`. Kenyataannya `docker-compose.yml` dan `.env.example` sejak A1 memakai `edutrack_owner`, yaitu role yang boleh DDL. Tidak terlihat selama ini karena suite penegakan basis data menyambung sebagai `app_ro` sendiri, sehingga I-23 tetap terbukti sementara aplikasinya berjalan dengan hak berlebih. Ditutup bersama A8, yang memang menuntut koneksi kedua |
 | **Sambungan dua lingkungan**: `ports/Secrets`, `adapters/aws/` (S3 + Secrets Manager + SSM), dan pemilihan adapter pada `entry/server.ts` | Sebelum Jalur B dilanjutkan | Janji "satu image, dua lingkungan" [ARCHITECTURE Pasal 13](./ARCHITECTURE.md) belum pernah dibuktikan. Hari ini `entry/server.ts` memilih adapter lokal secara tetap, dan `config.ts` membaca `DATABASE_URL` langsung dari lingkungan tanpa melewati port |
 
 ---
@@ -102,6 +103,7 @@ Dicatat di sini hanya **judul dan tempatnya**. Isinya tidak disalin.
 
 | Tanggal | Perubahan |
 |---|---|
+| 11 Agustus 2026 | **A8 dikerjakan** pada `9c2fae6`: tombol Suggestion beserta port `AiAdvisor`, adapter OpenAI-compatible, konteks `app_ro`, dan pembatas laju 5 per jam. Ditandai sebagian karena AC-18 dan AC-31 menuntut model sungguhan. Utang pemisahan `app_rw`/`app_ro` **ditutup** |
 | 11 Agustus 2026 | PR #7 digabungkan ke `main` (`d022a43`). Seluruh bagian A7 yang dapat dikerjakan lokal **sudah selesai**; yang menahan statusnya tetap sebagian hanyalah pengukuran render di Lambda |
 | 11 Agustus 2026 | Tercatat bahwa aplikasi menyambung sebagai `edutrack_owner` alih-alih `app_rw` sejak A1 — celah yang tertutup dari pandangan karena suite penegakan basis data memakai `app_ro` sendiri. Ditutup bersama A8 |
 | 11 Agustus 2026 | **A7-a selesai** — templat rapor diselaraskan ke [ARCHITECTURE §11.3](./ARCHITECTURE.md) beserta tesnya. `KomponenCetak` dan tanggal finalisasi dikeluarkan dari port, karena port seharusnya menggambarkan persis apa yang tercetak. Render 30 berkas turun 598 → 431 ms |
