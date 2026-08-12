@@ -224,7 +224,7 @@ Versi image adapter **wajib dipatok**. Variabel lingkungan tanpa prefiks `AWS_LW
 | Memori | 1024 MB | Cukup untuk Express, Drizzle, dan render pdfmake. Memori juga menentukan porsi CPU |
 | Batas waktu fungsi | 30 detik | Request terpanjang adalah finalisasi sekelas, yang merender berkas rapor dengan anggaran lunak 20 detik (Pasal 11). Batas keras Function URL sendiri 15 menit |
 | Connection pool | `max: 1` | Satu instance Lambda melayani satu request pada satu waktu. Pool lebih besar hanya meminta koneksi yang tidak akan terpakai |
-| Reserved concurrency | 40 | Rem terakhir. Plafon `db.t4g.micro` sekitar 106 koneksi, sehingga 40 instance serentak tetap aman. Request ke-41 memperoleh `429` yang dapat diulang |
+| Reserved concurrency | ~~40~~ **tidak disetel — diamandemen CK-A-11** | Remnya berpindah ke plafon concurrency akun, yang justru lebih ketat. Plafon `db.t4g.micro` sekitar 106 koneksi; selama plafon akun jauh di bawahnya, pembatas per fungsi tidak menambah jaminan apa pun dan **tidak dapat disetel** |
 | Readiness check | `GET /healthz` — memeriksa proses dan koneksi basis data | Trafik tidak masuk sebelum pool siap |
 | Mode invocation | `buffered` | Respons besar tidak pernah terjadi: berkas rapor dikembalikan sebagai presigned URL, bukan sebagai isi respons (Pasal 11) |
 | Penggantian versi | Perbarui image, lalu pindahkan alias | Tidak ada waktu mati |
@@ -747,12 +747,41 @@ Rincian komponen ditinggalkan karena rapor adalah dokumen ringkas yang dibaca or
 
 **Konsekuensi yang diterima.** Templat pdfmake pada `adapters/local/rapor-berkas/templat.ts` ditulis ulang mengikuti §11.3. Perubahannya terbatas pada satu berkas, sebagaimana memang dirancang.
 
+### CK-A-11 · 11 Agustus 2026 · Reserved concurrency tidak disetel; remnya plafon akun — mengamandemen Pasal 6
+
+**Diputuskan.** Kedua fungsi Lambda **tidak** menyetel `reserved_concurrent_executions`. Angka 40 pada Pasal 6 dan angka 1 pada fungsi `migrate` dicabut. Pembatas laju permintaan menjadi **plafon concurrency akun**.
+
+**Alasan.** Angka itu tidak dapat disetel, bukan tidak diinginkan. AWS menolak setiap reservasi yang menurunkan `UnreservedConcurrentExecution` di bawah 10, dan plafon concurrency akun ini berada **di atau di bawah 10** — terbukti karena reservasi sebesar **1** pada fungsi `migrate` pun ditolak dengan alasan yang sama. Tidak ada nilai yang dapat dipakai; yang tersedia hanya tidak menyetelnya sama sekali.
+
+**Yang dijaga angka 40 tetap terjaga, dan lebih ketat.** Rem itu ada untuk melindungi plafon koneksi `db.t4g.micro` yang sekitar 106. Dengan pool `max: 1`, plafon akun sepuluh berarti paling banyak sekitar sepuluh koneksi dari jalur permintaan ditambah dua dari fungsi `migrate` — seperdelapan dari yang pernah dianggap aman. Rem yang hilang digantikan rem yang lebih pendek.
+
+**Yang benar-benar berubah karena itu adalah letaknya, bukan keberadaannya.** Angka 40 tertulis di dalam Terraform, tercatat pada dokumen, dan berubah hanya lewat `apply`. Plafon akun tidak tertulis di mana pun pada repositori ini, dan **AWS dapat menaikkannya** — atas permintaan, maupun sendiri seiring umur akun. Ketika itu terjadi, remnya melonggar tanpa satu pun commit, tanpa satu pun `apply`, dan tanpa satu pun gejala sampai RDS menolak koneksi.
+
+**Pemicu peninjauan ulang.** Keputusan ini berlaku selama plafon akun tidak memungkinkan reservasi. Segera setelah `aws lambda get-account-settings` menunjukkan `ConcurrentExecutions` **50 atau lebih**, reservasi 40 pada fungsi `api` dipasang kembali — di bawah angka itu, reservasi 40 akan ditolak karena menyisakan kurang dari 10.
+
+**Hubungannya dengan CK-18.** Penolakan RDS Proxy bersandar pada dua hal: pool `max: 1` dan adanya rem concurrency. Yang kedua kini berpindah tempat, bukan lenyap, dan nilainya justru lebih kecil — sehingga tidak ada satu pun dari tiga pemicu peninjauan CK-18 yang terpenuhi. Yang perlu diperhatikan bukan RDS Proxy, melainkan pemicu di atas.
+
+**Alternatif yang ditolak.**
+
+*Meminta kenaikan plafon concurrency akun lewat Service Quotas.* Jalan yang sah dan gratis. Ditolak untuk saat ini karena menyelesaikan persoalan yang tidak ada — plafon sepuluh lebih dari cukup untuk 360 siswa dan 18 guru ([Techstack §8.1](Techstack.md)), dan menaikkannya justru **melonggarkan** rem yang sedang menjadi satu-satunya pembatas.
+
+*Menyetel reservasi hanya pada `migrate` dan membiarkan `api` tanpa reservasi.* Ditolak karena ditolak AWS juga — reservasi 1 pun menyisakan kurang dari 10.
+
+*Menaikkan pool `max` melampaui 1 karena concurrency kini rendah.* Ditolak. Satu instance Lambda melayani satu request pada satu waktu; pool lebih besar hanya meminta koneksi yang tidak akan terpakai, dan itu berlaku terlepas dari plafon.
+
+**Konsekuensi yang diterima.**
+
+1. **Kedua fungsi berbagi plafon yang sama.** Lonjakan permintaan dapat menghabiskan sepuluh slot dan membuat pemanggilan `edutrack-migrate` saat rilis menunggu. Pada sekolah dengan 18 guru, keadaan itu praktis mustahil; kalaupun terjadi, langkah 6 [DEPLOYMENT §3.3](DEPLOYMENT.md) gagal dan pipeline berhenti sebelum menyentuh aplikasi — yaitu perilaku yang memang dikehendaki.
+2. **Migrasi berbarengan tidak lagi ditolak seketika oleh reservasi 1.** Yang mencegahnya kini hanya advisory lock di dalam penerap, sebagaimana memang dirancang sejak awal; yang hilang hanya penolakan cepatnya.
+3. **Request ke-11 memperoleh `429` dari Lambda, bukan dari aplikasi.** Bentuk jawabannya karenanya bukan amplop `kesalahan` [API §2](API.md) melainkan galat Lambda apa adanya. Frontend tetap menampilkannya sebagai kegagalan beralasan (P21), tetapi teksnya tidak berbahasa Indonesia.
+
 ---
 
 ## Riwayat
 
 | Tanggal | Perubahan |
 |---|---|
+| 11 Agustus 2026 | **CK-A-11** — reserved concurrency dicabut dari kedua fungsi; Pasal 6 disesuaikan. Angka 40 tidak dapat disetel, bukan tidak diinginkan: plafon concurrency akun berada di atau di bawah 10, sehingga reservasi sebesar 1 pun ditolak. Remnya berpindah ke plafon akun dan justru lebih ketat, tetapi **tidak lagi tertulis di repositori mana pun** — dicatat pemicu peninjauan ulang ketika plafon mencapai 50 |
 | 11 Agustus 2026 | §10 — alamat tombol Suggestion dikoreksi dari `/api/me/suggestion` menjadi **`/api/saya/suggestion`**, sesuai [API.md §9.1](API.md) dan konvensi alamat berbahasa Indonesia pada AGENTS §5.1. `/api/saya/nilai` sudah memakai bentuk itu sejak A6 |
 | 11 Agustus 2026 | **§11.3 dan CK-A-10** — isi berkas rapor ditetapkan menjawab V5: kepala, satu tabel No/Mata Pelajaran/KKM/Nilai Akhir/Kehadiran, dan catatan wali kelas. Seluruh bidangnya sudah ada pada model data, sehingga tidak ada amandemen SCHEMA maupun API. Empat hal yang lazim ada pada rapor SMA dicatat sebagai sengaja tidak dimuat beserta sebabnya |
 | 6 Agustus 2026 | Kerangka dibuat sebagai bagian dari pemecahan `Techstack.md` menjadi tiga dokumen. Isi belum ditulis. Menggantikan `ARCHITECTURE.md` versi 2 Agustus 2026, yang diturunkan menjadi arsip dengan nama `ARCHITECTURE-2026-08-02.md` |
