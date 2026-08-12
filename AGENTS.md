@@ -587,14 +587,15 @@ engram setup claude-code
 
 `graphify` mengubah repositori ini menjadi graf yang dapat ditanyai, sehingga pertanyaan arsitektur dijawab dari graf alih-alih dengan membaca ulang berkas. Penghematan token datang dari situ.
 
-**Grafnya sudah dibangun.** Keadaan pada 8 Agustus 2026, sesudah A4:
+**Grafnya sudah dibangun.** Keadaan pada 12 Agustus 2026, sesudah Jalur B:
 
 | | |
 |---|---|
-| Simpul | 354 — 309 dari AST, 45 dari penyarian dokumen |
-| Sisi | 600 |
-| Komunitas | 20, seluruhnya sudah berlabel |
-| Korpus | 84 berkas, ~31.000 kata |
+| Simpul | 1.263 |
+| Sisi | 2.582 — 99% hasil ekstraksi, 1% inferensi |
+| Komunitas | 75, dan **hanya sekitar 16 yang berlabel bermakna** |
+| Korpus | 196 berkas, ~122.000 kata |
+| Dibangun dari | commit `f5689ea4` |
 | Keluaran | `graphify-out/graph.html`, `GRAPH_REPORT.md`, `graph.json` |
 
 #### Kewajiban
@@ -612,10 +613,14 @@ Membaca ulang lima berkas untuk menjawab satu pertanyaan hubungan adalah pemboro
 **Perbarui sesudah satu tahap §8.1 selesai**, bukan setiap kali menyimpan berkas:
 
 ```bash
-graphify . --update     # inkremental, hanya berkas yang berubah
+graphify update .       # ekstraksi ulang kode, TANPA kunci LLM
 ```
 
+**Bentuknya `graphify update .`, bukan `graphify . --update`.** Keduanya ada dan berbeda: yang kedua menyarikan dokumen pula, sehingga menuntut kunci LLM dan berhenti dengan `no LLM API key found` sebelum menyentuh satu pun berkas kode.
+
 Tahap yang menambah lapisan baru — rute, tabel, adapter — mengubah bentuk graf secara berarti. Suntingan di dalam satu fungsi tidak.
+
+**Pelabelan komunitas menuntut kunci LLM, dan pengelompokan ulang menghapusnya.** Setiap pembaruan mengelompokkan ulang seluruh graf; komunitas yang bentuknya berubah kehilangan namanya dan kembali menjadi `Community 37`. Menamainya kembali adalah `graphify label .`, yang menuntut kunci — sehingga sesudah pembaruan besar, **navigasi lewat nama komunitas berhenti dapat diandalkan** sementara kueri simpul dan jalur tetap sahih.
 
 #### Batas yang wajib diingat
 
@@ -644,4 +649,5 @@ Tahap yang menambah lapisan baru — rute, tabel, adapter — mengubah bentuk gr
 | 8 Agustus 2026 | **Versi 2.2 — disesuaikan dengan apa yang terbukti pada A2 dan A3.** §2 Fase 4 kini menyebut tiga perintah gerbang secara eksplisit, karena `npm run periksa` sendirian tidak menjalankan linter migrasi maupun bukti penegakan basis data. §4.1 menyatakan ambang `domain/` dipatok pada keempat metrik dan ambang global 80% baru menyala pada A5 beserta alasannya, serta mewajibkan setiap ambang dibuktikan dapat merah sebelum dipercaya. §4.2 menyebut perintah yang menjalankannya beserta alasan tesnya berurutan dan berbenih cadangan. §5.3 diperluas dengan baris `SET LOCAL` batas kunci dan batas pernyataan, konfigurasi `.squawk.toml` yang wajib berawalan titik, dan larangan menyunting migrasi yang sudah diterapkan. §6 menetapkan apa yang dilakukan ketika harness melarang pemanggilan subagen: tinjauan keamanan **berhenti dan melapor**, tidak diganti tinjauan sendiri. §12 langkah 7 dan §13 disesuaikan dengan keadaan yang sebenarnya |
 | 8 Agustus 2026 | §10 disesuaikan. Tiga pertanyaan sekolah — S-04, T-02, dan S-02 — sudah terjawab dan dikeluarkan dari daftar titik henti; barisnya diganti satu paragraf yang mencatat jawabannya. Baris nama domain diperbarui mengikuti **CK-17**: yang belum ada hanya namanya, bentuk DNS-nya sudah ditetapkan, dan penerapannya **sengaja dikerjakan paling akhir** tanpa menahan satu pun tahap Jalur A |
 | 8 Agustus 2026 | §13.2 ditulis ulang sesudah graf benar-benar dibangun: 354 simpul, 600 sisi, 20 komunitas berlabel. Ditetapkan **kewajiban menanyai graf lebih dahulu** untuk pertanyaan hubungan, dan pembaruan diikat pada gerbang tahap §8.1. Dicatat pula tiga batasnya — graf bukan sumber kebenaran, graf boleh usang tanpa memberi tahu, dan 134 sisi berujung menggantung menjadikan **ketiadaan hubungan tidak membuktikan apa-apa** |
+| 12 Agustus 2026 | §13.2 disesuaikan sesudah Jalur B: graf kini 1.263 simpul dan 2.582 sisi dari 196 berkas. Dua koreksi yang menentukan — perintah pembaruannya `graphify update .`, **bukan** `graphify . --update` yang menuntut kunci LLM; dan pengelompokan ulang **menghapus label komunitas**, sehingga hanya sekitar 16 dari 75 yang masih bernama dan navigasi lewat nama komunitas berhenti dapat diandalkan sampai `graphify label .` dijalankan |
 | 10 Agustus 2026 | **Versi 2.3 — delivery-first dan hemat token.** §6 tidak lagi menetapkan kelas model tertentu. Orkestrasi sekarang didasarkan pada artefak, risiko, dan bukti selesai: satu pemilik per irisan RED–GREEN, delegasi hanya untuk kerja berbatas dan independen, maksimal dua reviewer pada gelombang biasa, parallelism bersyarat, re-review terfokus, keluaran ringkas, dan full gate pada milestone terintegrasi serta keadaan final |
