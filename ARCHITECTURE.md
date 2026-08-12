@@ -481,7 +481,7 @@ Identitas sekolah — nama, NPSN, alamat, logo — juga belum dimuat, dengan seb
 | **Pintu masuk** | CloudFront adalah satu-satunya alamat yang dapat dihubungi publik |
 | **Function URL** | Auth type `AWS_IAM`. Hanya menerima request bertanda tangan SigV4 dari distribusi CloudFront yang ditunjuk lewat Origin Access Control |
 | **Fungsi Lambda** | Di dalam VPC, subnet privat, tanpa alamat IP publik |
-| **RDS** | Subnet privat-data, security group hanya mengizinkan security group fungsi Lambda |
+| **RDS** | Subnet privat-data, security group hanya mengizinkan security group fungsi Lambda. Koneksi **wajib TLS dan sertifikatnya diverifikasi** — CK-A-13 |
 | **S3 frontend** | Bucket privat, hanya dapat dibaca CloudFront lewat Origin Access Control |
 | **S3 rapor** | Bucket privat, akses hanya lewat presigned URL berumur 5 menit (Pasal 11.1) |
 | **Jalur keluar** | NAT instance `t4g.nano` untuk menghubungi Elice AI Cloud. S3 lewat gateway endpoint yang tidak berbiaya |
@@ -817,12 +817,37 @@ const sidik = [...new Uint8Array(await crypto.subtle.digest("SHA-256", new TextE
 
 **Konsekuensi yang diterima.** Klien API mana pun di luar frontend — `curl` pada runbook, uji integrasi yang menembak lingkungan sungguhan, alat pihak ketiga — wajib menghitung sidik jari yang sama. Kegagalan lupa menyertakannya berbunyi `403` tanpa keterangan, sehingga bentuknya dicatat di sini agar dapat dikenali dalam hitungan detik alih-alih jam.
 
+### CK-A-13 · 12 Agustus 2026 · Koneksi RDS memverifikasi sertifikat memakai CA yang dibundel ke image — melengkapi Pasal 12
+
+**Diputuskan.** Koneksi aplikasi ke RDS memakai `sslmode=verify-full`, dan sertifikat servernya diverifikasi terhadap **bundel CA Amazon RDS yang disalin ke dalam image** pada `certs/rds-global-bundle.pem`. Bundelnya dipercaya lewat `NODE_EXTRA_CA_CERTS`, yang disetel Terraform sebagai variabel lingkungan kedua fungsi.
+
+**Alasan.** Ditemukan saat rilis pertama: fungsi `migrate` gagal dengan `self-signed certificate in certificate chain`. Sebabnya bukan kekeliruan konfigurasi melainkan hal yang sebaliknya — **verifikasi sudah menyala sejak awal, dan CA-nya yang tidak ada**. `pg-connection-string` memperlakukan `sslmode=require` sebagai `verify-full`, sedangkan CA Amazon RDS tidak termasuk trust store bawaan Node.
+
+Ada dua jalan keluar, dan keduanya benar-benar berbeda. `sslmode=no-verify` menyalakan enkripsi tanpa memeriksa lawan bicara — cukup untuk menghalangi penyadapan pasif, tidak cukup untuk menghalangi seseorang yang sudah berada di dalam VPC dan dapat mengarahkan trafik. Membundel CA-nya menutup keduanya, dan ongkosnya satu berkas 165 KB.
+
+Untuk basis data berisi nilai anak di bawah umur, selisih ongkos itu tidak sebanding dengan selisih jaminannya.
+
+**Nilainya dipatok `verify-full`, bukan dibiarkan `require`.** `pg` memperingatkan bahwa pada versi 9 arti `require` akan berubah mengikuti libpq — yaitu **melemah** menjadi tanpa verifikasi. Konfigurasi yang bersandar pada arti lama akan kehilangan verifikasinya pada peningkatan pustaka, tanpa satu pun gejala. Menuliskan `verify-full` membuat peningkatan itu tidak mengubah apa pun.
+
+**Bundel disalin ke repositori, bukan diunduh saat build.** Unduhan saat build menambah ketergantungan jaringan pada setiap rilis dan satu permukaan rantai pasok yang tidak terlihat pada diff. Bundel yang ter-commit dapat ditinjau ketika berubah.
+
+**Alternatif yang ditolak.**
+
+*`sslmode=no-verify`.* Satu perubahan karakter, dan menghapus separuh jaminan TLS. Ditolak dengan alasan di atas.
+
+*Menyerahkan `ssl: { ca }` langsung ke `pg.Pool` dari kode aplikasi.* Lebih sempit — hanya koneksi basis data yang memercayai CA itu. Ditolak karena menuntut jalur TLS menembus `ports/`, `config`, dan `entry/` hanya untuk memindahkan satu berkas, sementara `NODE_EXTRA_CA_CERTS` menyatakan hal yang sama sebagai konfigurasi. Pelebarannya dapat diabaikan: CA Amazon RDS hanya menandatangani sertifikat RDS.
+
+*Mematikan `rds.force_ssl`.* Tidak pernah dipertimbangkan serius, dan dicatat hanya agar tidak diusulkan kelak sebagai "jalan cepat".
+
+**Konsekuensi yang diterima.** Image bertambah 165 KB. Bundel perlu diperbarui apabila AWS menerbitkan CA baru — jarang, dan bundel global sudah memuat CA yang berlaku sampai 2061. Di on-prem variabelnya tidak disetel, sehingga `adapters/local` tidak terpengaruh sama sekali.
+
 ---
 
 ## Riwayat
 
 | Tanggal | Perubahan |
 |---|---|
+| 12 Agustus 2026 | **CK-A-13** — koneksi RDS memverifikasi sertifikat memakai bundel CA Amazon RDS yang disalin ke image, dipercaya lewat `NODE_EXTRA_CA_CERTS`. Ditemukan saat rilis pertama gagal dengan `self-signed certificate in certificate chain`: verifikasi memang sudah menyala sejak awal, dan CA-nya yang tidak ada. `sslmode` dipatok `verify-full` karena arti `require` akan **melemah** pada pg v9 |
 | 12 Agustus 2026 | **CK-A-12** — peringatan kedua §12.2 **dibuktikan pada B4 dan terbukti benar**. Request ber-body wajib membawa `x-amz-content-sha256`; tanpanya `POST` dan `PATCH` dijawab 403 sementara seluruh jalur `GET` tetap sehat. Kewajiban jatuh pada pengirim, diselesaikan satu pembungkus `fetch` di frontend, dan tidak mengganggu portabilitas on-prem |
 | 11 Agustus 2026 | **CK-A-11** — reserved concurrency dicabut dari kedua fungsi; Pasal 6 disesuaikan. Angka 40 tidak dapat disetel, bukan tidak diinginkan: plafon concurrency akun berada di atau di bawah 10, sehingga reservasi sebesar 1 pun ditolak. Remnya berpindah ke plafon akun dan justru lebih ketat, tetapi **tidak lagi tertulis di repositori mana pun** — dicatat pemicu peninjauan ulang ketika plafon mencapai 50 |
 | 11 Agustus 2026 | §10 — alamat tombol Suggestion dikoreksi dari `/api/me/suggestion` menjadi **`/api/saya/suggestion`**, sesuai [API.md §9.1](API.md) dan konvensi alamat berbahasa Indonesia pada AGENTS §5.1. `/api/saya/nilai` sudah memakai bentuk itu sejak A6 |
