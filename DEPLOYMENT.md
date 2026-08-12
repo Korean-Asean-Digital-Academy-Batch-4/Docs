@@ -932,6 +932,10 @@ Biayanya sendiri bukan alasannya — dump sebesar 5 MB berharga di bawah seperse
 
 **Domain CloudFront berubah setiap pembangunan.** `ALAMAT_PUBLIK` pada repositori backend karenanya diperbarui `naikkan.sh` lewat `gh`. Terlewat, langkah 11 §3.3 tetap lulus sambil menguji alamat yang sudah mati.
 
+**Tunnel SSM menuntut jalan masuk yang dibuka sebentar.** `edutrack-rds` hanya menerima dari security group Lambda, dan NAT instance memakai security group tersendiri. Port forwarding lewatnya karenanya tersambung di sisi lokal — `session-manager-plugin` mendengarkan, `psql` terhubung kepadanya — tetapi tidak pernah sampai ke RDS: paketnya dibuang **tanpa penolakan**, sehingga `psql` menunggu selamanya alih-alih gagal. Gejalanya berupa skrip yang berhenti pada langkah pemeriksaan sidik jari tanpa satu pun pesan.
+
+Kedua skrip karenanya membuka aturan itu sebelum tunnel dan mencabutnya lewat `trap`. Ia sengaja **tidak** dijadikan sumber daya Terraform: jalan masuk yang berdiri tetap melemahkan postur yang justru menjadi maksud subnet privat-data. Aturan yang sudah ada sebelumnya tidak pernah ikut dicabut — mencabut milik orang lain adalah perubahan yang tidak diminta. `connect_timeout=15` dipasang pada seluruh koneksi psql supaya kesunyian semacam ini berubah menjadi kegagalan yang terbaca dalam 15 detik.
+
 **Konsekuensi yang diterima.** Pembongkaran memakan 35–45 menit dan pembangunan 25–35 menit, hampir seluruhnya menunggu CloudFront dan pelepasan ENI Lambda. Nama bucket S3 bersifat global, sehingga membuat ulang bucket state sesaat setelah menghapusnya kadang ditolak sampai propagasinya selesai; `naikkan.sh` mencoba ulang berjeda dan melaporkannya terang-terangan, karena jalan keluarnya hanya menunggu.
 
 ---
