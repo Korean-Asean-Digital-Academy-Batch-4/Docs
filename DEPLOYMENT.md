@@ -145,6 +145,15 @@ Dipasang pada **repositori ECR**, **RDS**, dan **bucket rapor**.
 
 ECR memerlukannya karena Lambda version mengunci digest image: menghapus image yang masih dirujuk sebuah version membuat rollback ke version itu tidak dapat menyala. Aturan daur hidup ECR karenanya juga **tidak boleh menghapus image bertag** — hanya image tanpa tag hasil percobaan yang boleh dibersihkan.
 
+**Diamandemen CK-D-09.** Pengaman di atas berlaku bagi setiap `apply` sehari-hari, tetapi ia bukan lagi pengaman yang tidak berpintu. Pembongkaran lingkungan yang disengaja melewatinya lewat dua mekanisme yang sengaja dibedakan, karena Terraform memperlakukan keduanya secara berbeda:
+
+| Pengaman | Bentuknya | Cara membukanya |
+|---|---|---|
+| `deletion_protection`, `skip_final_snapshot`, `recovery_window_in_days`, `force_destroy` | atribut biasa | variabel `izinkan_hapus`, bawaannya `false` |
+| `prevent_destroy` | blok `lifecycle` | `skrip/izinkan-hapus.patch` pada repositori `infra` |
+
+**Terraform melarang variabel di dalam blok `lifecycle`**, dan tidak ada berkas overlay yang dapat menggantikannya — sebuah resource tidak boleh didefinisikan dua kali. Karena itu `prevent_destroy` hanya dapat dibuka dengan mengubah berkasnya, dan perubahan itu dijadikan patch yang ikut ditinjau alih-alih penyuntingan yang tidak terlihat. `turunkan.sh` menolak berjalan apabila worktree tidak bersih, dan memasang `trap ... EXIT` yang mengembalikan berkasnya pada ketiga jalur keluar — selesai, galat, maupun Ctrl-C.
+
 ### 2.6 Deteksi drift
 
 Terraform berhenti mengawasi `image_uri` dan `function_version` — **bukan berhenti mengawasi sisanya**. Perubahan memori, security group, atau aturan bucket yang dilakukan lewat konsol tetap merupakan drift sungguhan.
@@ -895,10 +904,43 @@ Variabel lingkungan tidak memiliki persoalan itu: image `:bootstrap` mengabaikan
 
 ---
 
+### CK-D-09 · 13 Agustus 2026 · Lingkungan dapat dibongkar dan dibangun kembali dengan dua skrip — mengamandemen §2.5
+
+**Persoalannya biaya, bukan kerapian.** Akun ini ditagih per jam atas sumber daya yang berdiri, dan pembuatannya sendiri tidak berbiaya. Lingkungan yang menganggur karenanya lebih murah dibongkar daripada dibiarkan hidup — asalkan membangunnya kembali dapat dipercaya, sebab pembongkaran yang tidak dapat dibalik bukan penghematan melainkan kehilangan.
+
+Dua skrip pada repositori `infra`: `skrip/turunkan.sh` dan `skrip/naikkan.sh`.
+
+**Yang menahan biaya sesungguhnya hanya dua sumber daya.** RDS `db.t4g.micro` beserta 20 GB gp3 dan NAT instance `t4g.micro` beserta EIP-nya menanggung sekitar 70% dari $32,41 per bulan pada [Techstack §8.2](Techstack.md). CloudFront, Lambda, S3, dan ECR pada trafik sekarang mendekati nol. NAT Gateway — pemborosan terbesar yang lazim — memang tidak pernah dipakai di sini.
+
+**Cadangan berupa `pg_dump`, bukan snapshot akhir.** Keduanya sama-sama menyelamatkan data, tetapi hanya satu yang memenuhi maksud pembongkaran:
+
+| | `pg_dump` | Snapshot RDS |
+|---|---|---|
+| Dapat dipulihkan ke | Postgres mana pun, termasuk Docker setempat | hanya instance RDS baru, di akun dan region yang sama |
+| Biaya sesudah pembongkaran | nol — berkasnya di mesin operator | ~$0,10 per bulan, bertahan sampai dihapus sendiri |
+| Nama | bebas | tetap, sehingga pembongkaran kedua gagal |
+
+Snapshot karenanya justru bertentangan dengan tujuannya: ia adalah sisa yang tetap ditagih. `skip_final_snapshot` disetel `true` bersama `izinkan_hapus`.
+
+**Sidik jari mendahului dump.** Dua dump dari data yang sama tidak menghasilkan berkas yang sama — format `-Fc` terkompresi dan memuat stempel waktu — sehingga membandingkan berkas dump selalu berkata "berubah", dan jawabannya baru diperoleh sesudah datanya terlanjur ditransfer. Yang dibandingkan karenanya **basis datanya**, lewat satu query `count(*)` dan `md5` agregat per tabel yang keluarannya sekitar 200 byte. Hasilnya disimpan berdampingan sebagai `edutrack.sidik`; dump dilewati seluruhnya apabila sidiknya sama.
+
+Biayanya sendiri bukan alasannya — dump sebesar 5 MB berharga di bawah sepersepuluh sen, sedangkan RDS menyala satu jam lebih mahal daripada seribu dump. Yang dihindari adalah pekerjaan yang tidak perlu, bukan tagihannya.
+
+**`pg_dump` tidak membawa role.** `app_rw` dan `app_ro` adalah objek tingkat cluster, dan `edutrack_owner` bukan superuser sehingga tidak dapat mengekspornya. Urutan pemulihan karenanya mengikat: **role dibuat lebih dahulu, dump dipulihkan sesudahnya.** Terbalik, seluruh `GRANT` di dalam dump gagal.
+
+**Tiga hal sengaja tidak ikut dihapus, dan ketiganya berbiaya nol.** OIDC provider GitHub dibaca `iam-oidc.tf` sebagai *data source* — ia dibuat dengan tangan pada B0.5 dan tidak pernah dimiliki Terraform. Menghapusnya membuat `plan` pada pembangunan berikutnya gagal karena data source-nya tidak ditemukan, dan memulihkannya adalah titik henti manusia ([AGENTS §10](AGENTS.md), [RUNBOOK-OIDC.md](RUNBOOK-OIDC.md)). Bersamanya tetap berdiri user `Andreas`, grup `Edutrack-dev`, dan role `edutrack-terraform` — tanpa ketiganya tidak ada yang dapat meminjam apa pun.
+
+**Domain CloudFront berubah setiap pembangunan.** `ALAMAT_PUBLIK` pada repositori backend karenanya diperbarui `naikkan.sh` lewat `gh`. Terlewat, langkah 11 §3.3 tetap lulus sambil menguji alamat yang sudah mati.
+
+**Konsekuensi yang diterima.** Pembongkaran memakan 35–45 menit dan pembangunan 25–35 menit, hampir seluruhnya menunggu CloudFront dan pelepasan ENI Lambda. Nama bucket S3 bersifat global, sehingga membuat ulang bucket state sesaat setelah menghapusnya kadang ditolak sampai propagasinya selesai; `naikkan.sh` mencoba ulang berjeda dan melaporkannya terang-terangan, karena jalan keluarnya hanya menunggu.
+
+---
+
 ## Riwayat
 
 | Tanggal | Perubahan |
 |---|---|
+| 13 Agustus 2026 | **CK-D-09** — lingkungan dapat dibongkar dan dibangun kembali dengan `turunkan.sh` dan `naikkan.sh`. §2.5 diamandemen: `prevent_destroy` kini berpintu, lewat patch yang ditinjau, sedangkan keempat pengaman lain dibuka variabel `izinkan_hapus`. Cadangan berupa `pg_dump` yang didahului perbandingan sidik jari, bukan snapshot akhir |
 | 12 Agustus 2026 | §9.5 menambahkan **`s3:ListBucket`** pada `edutrack-lambda-api`. Aplikasi tidak pernah mendaftar isi bucket; yang menuntutnya adalah perilaku S3 pada objek yang belum ada — tanpa izin itu `HeadObject` menjawab `403` alih-alih `404`, sehingga setiap perenderan gagal sebelum satu pun berkas dibuat. Ditemukan saat B7 dijalankan, dengan gejala `berkas_terender: 0` tanpa satu pun pesan yang menyebut S3 |
 | 12 Agustus 2026 | §9.4 melengkapi izin role OIDC dengan `lambda:GetFunctionConfiguration` dan `lambda:GetAlias`. Keduanya tidak pernah didaftar karena Pasal 9 ditulis mendahului §3.3, sedangkan yang menuntutnya adalah `aws lambda wait function-updated` dan pembacaan version untuk rollback. Ditemukan ketika rilis pertama gagal pada langkah 5 |
 | 12 Agustus 2026 | **§5.1 dikoreksi setelah dijalankan untuk pertama kalinya.** Tiga cacat: contohnya memakai `create-secret` padahal wadahnya sudah dibuat Terraform; kata sandinya dibangkitkan di dalam `printf` sehingga tidak dapat dipakai ulang untuk `ALTER ROLE`; dan `.pgpass` **tidak dapat dipakai** karena kata sandi bangkitan RDS dapat memuat titik dua, yaitu pemisah bidang formatnya. Ditambahkan langkah verifikasi yang benar-benar mencoba masuk, bukan sekadar memeriksa keberadaan versi |
