@@ -26,7 +26,7 @@
 | **A4** | Auth dan sesi | ✅ Selesai | `474d789`, `57b7e91`, `0f4135c` · PR #3 |
 | **A5** | Administrasi | ✅ Selesai | `4a553f7` · branch `fitur/a5-administrasi` · PR #5 |
 | **A6** | Nilai dan presensi | ✅ Selesai | `8a2d93f` · branch `fitur/a6-nilai-presensi` · PR #6 |
-| **A7** | Rapor | 🟨 Sebagian | `743b86d`, `f3cdce0` · PR #7 **sudah masuk `main`** (`d022a43`). Seluruh enam endpoint [API §8](./API.md) beserta gerbangnya lulus. Templat sudah selaras dengan [ARCHITECTURE §11.3](./ARCHITECTURE.md). **Satu hal belum tuntas dan memang tidak dapat lokal:** pengukuran render di Lambda — **dikerjakan sebagai bagian Jalur B**, bukan sebagai pekerjaan A7 tersendiri |
+| **A7** | Rapor | ✅ Selesai | `743b86d`, `f3cdce0` · PR #7 **sudah masuk `main`** (`d022a43`). Seluruh enam endpoint [API §8](./API.md) beserta gerbangnya lulus. Templat sudah selaras dengan [ARCHITECTURE §11.3](./ARCHITECTURE.md). Pengukuran render di Lambda dikerjakan sebagai **B7** dan **sudah selesai** |
 | **A8** | Jalur AI | ✅ Selesai | branch `fitur/a8-jalur-ai` · PR #8 **sudah masuk `main`** (`863f40b`). `POST /api/saya/suggestion` beserta port, adapter, konteks `app_ro`, dan pembatas laju. **AC-18 dan AC-31 dibuktikan terhadap Gemini 3.6 Flash sungguhan** lewat `npm run uji:saran` |
 
 **Angka gerbang pada saat A8 ditutup.** Diperbarui hanya ketika satu tahap selesai, bukan setiap commit.
@@ -47,7 +47,7 @@
 
 ## 2. Jalur B — infrastruktur
 
-> **Infrastruktur berdiri 12 Agustus 2026.** B2 sampai B5 selesai; yang tersisa hanya pengisian rahasia, rilis pertama, dan pengukuran render.
+> **Jalur B selesai seluruhnya 12 Agustus 2026, kecuali sisa B0 yang menuntut konsol.** Aplikasi berjalan di produksi pada `https://d2mw289fm4g0eo.cloudfront.net`.
 >
 > Akun berjalan pada **AWS Free Plan** yang membatasi apa yang boleh dibuat — bukan memberi potongan (**CK-19** [Techstack](./Techstack.md)). Dua tetapan disesuaikan karenanya: NAT `t4g.micro` dan retensi cadangan **1 hari**. Reserved concurrency tidak dapat disetel sama sekali karena plafon akun **10** (**CK-A-11**).
 
@@ -61,7 +61,7 @@
 | **B4** | Pembuktian penandatanganan OAC | ✅ Selesai | **5 lulus, 0 gagal** terhadap infrastruktur sungguhan. Hasilnya **CK-A-12** [ARCHITECTURE §12.2](./ARCHITECTURE.md): request ber-body wajib membawa `x-amz-content-sha256`. Dua jebakan penaikannya pada [DEPLOYMENT §5.2](./DEPLOYMENT.md) |
 | **B5** | Izin ECR dan Lambda pada role OIDC | ✅ Selesai | Role `edutrack-gha-backend` **di-`import`**, bukan dibuat ulang; kebijakannya dikelola Terraform. Role frontend menunggu nilai `sub`-nya |
 | **B6** | `pr.yml` dan `deploy.yml` | ✅ Selesai | **Rilis pertama berhasil 12 Agustus 2026** — run `31570937716`. Kesepuluh migrasi diterapkan, alias `live` menunjuk version 1, dan `GET /api/healthz` lewat CloudFront menjawab `{"proses":"siap","basis_data":"siap"}`. Image bertag git SHA `6298403`, sehingga [§2.7](./DEPLOYMENT.md) terjawab |
-| **B7** | Pengukuran render 30 PDF di Lambda | 🟨 Sebagian | Prosedur beserta skripnya ditulis — `infra/ukur-render/`. Menutup gerbang **A7** yang tersisa ([API.md §13.3](./API.md)). **Pengukurannya menunggu B6 menyala** |
+| **B7** | Pengukuran render 30 PDF di Lambda | ✅ Selesai | **Diukur 12 Agustus 2026: `Duration` 6.896 ms, `berkas_terender` 30 dari 30, memori 279 MB dari 1024 MB.** Anggaran lunak 20 detik terpenuhi dengan margin tiga kali lipat — [API.md §13.3](./API.md). **Gerbang A7 tertutup** |
 
 **Butir 0 — sambungan dua lingkungan.** Prasyarat seluruh Jalur B, dan **selesai** pada backend branch `fitur/b0-sambungan-dua-lingkungan`, dibuka sebagai **PR #9** (`df4b069`…`b3918f3`). Port `Rahasia`, adapter AWS untuk Secrets Manager, SSM, dan S3, serta pemilihan adapter lewat satu variabel `LINGKUNGAN`. Seluruh adapter AWS diuji dengan klien tiruan; tidak ada satu pun panggilan sungguhan ke AWS.
 
@@ -78,11 +78,8 @@ Dicatat di sini hanya **judul dan tempatnya**. Isinya tidak disalin.
 | ~~Setelan `AWS_ROLE_ARN` dan `ALAMAT_PUBLIK`~~ — **selesai 12 Agustus 2026** | `backend/.github/workflows/deploy.yml` | — |
 | **Pembungkus `fetch` frontend** yang menghitung `x-amz-content-sha256` | **CK-A-12** [ARCHITECTURE §12.2](./ARCHITECTURE.md) | Seluruh jalur tulis dari frontend |
 | Nama domain dan pembeliannya | [Techstack.md §9](./Techstack.md) butir 4 · [AGENTS.md §10](./AGENTS.md) | Penerapan CK-17. **Sengaja dikerjakan paling akhir** |
-| Kredensial AWS, `terraform apply`, pembuatan rahasia | [AGENTS.md §10](./AGENTS.md) | Seluruh Jalur B |
 | Validasi komponen dan bobot templat | **V1** pada [ATURAN-DAN-KRITERIA.md §5](./ATURAN-DAN-KRITERIA.md) | Tidak menghambat — hanya data |
-| Kredensial AWS untuk mengukur render 30 PDF di Lambda 1024 MB arm64 | [API.md §13.3](./API.md) | Penutupan gerbang A7. Angka pembanding lokal sudah ada |
 | Retensi dan pencadangan data | **V6** · [Techstack.md §9](./Techstack.md) butir 3 | Tidak menghambat |
-| Status kelayakan free tier RDS pada akun AWS tim | [Techstack.md §9](./Techstack.md) butir 7 | Tidak menghambat — menentukan $32,41 atau $11,40 per bulan |
 
 ## 4. Temuan yang masih terbuka
 
@@ -102,7 +99,8 @@ Dicatat di sini hanya **judul dan tempatnya**. Isinya tidak disalin.
 |---|---|---|
 | Kerentanan `npm audit` pada `devDependencies` | Kapan saja — nol pada jalur produksi | — |
 | Lapis 4 dan 5 penjagaan migrasi | Sebelum data sekolah dimuat | [DEPLOYMENT.md §6.5](./DEPLOYMENT.md) |
-| Pengukuran lama render tiga puluh PDF **di Lambda** | Sebelum rilis pertama | [API.md §13.3](./API.md) |
+| ~~Pengukuran lama render tiga puluh PDF **di Lambda**~~ — **ditutup 12 Agustus 2026** | — | 6.896 ms, sepertiga anggaran lunak — [API.md §13.3](./API.md) |
+| **Data uji B7 berada di basis data produksi** | **Sebelum data sekolah dimuat** | Satu kelas 30 siswa, 10 mata pelajaran, 2.400 nilai, 30 rapor final. Seluruhnya berawalan `b7-` dan ber-UUID `b7000000`. Dicabut dengan `npx tsx scripts/hapus-uji-render.ts` |
 | ~~Aplikasi menyambung sebagai `edutrack_owner`~~ — **ditutup A8** | — | [ARCHITECTURE §8](./ARCHITECTURE.md) menetapkan aplikasi memakai `app_rw` dan jalur AI memakai `app_ro`. Kenyataannya `docker-compose.yml` dan `.env.example` sejak A1 memakai `edutrack_owner`, yaitu role yang boleh DDL. Tidak terlihat selama ini karena suite penegakan basis data menyambung sebagai `app_ro` sendiri, sehingga I-23 tetap terbukti sementara aplikasinya berjalan dengan hak berlebih. Ditutup bersama A8, yang memang menuntut koneksi kedua |
 | ~~**Sambungan dua lingkungan**~~ — **ditutup 11 Agustus 2026** | — | Port `Rahasia` beserta adapter lokal dan AWS, adapter S3, dan pemilihan adapter lewat `LINGKUNGAN` pada `entry/`. Branch `fitur/b0-sambungan-dua-lingkungan` |
 

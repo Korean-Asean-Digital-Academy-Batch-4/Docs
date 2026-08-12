@@ -930,9 +930,26 @@ Temuan yang masih terbuka pada dokumen sebelumnya — T-02, T-04, T-05, dan T-06
 
 ### 13.3 Yang wajib diukur
 
-Satu angka menentukan apakah CK-API-12 bertahan, dan **belum pernah diukur siapa pun**: lama render tiga puluh PDF pdfmake berurutan beserta unggahannya ke S3, di dalam fungsi Lambda 1024 MB arm64.
+Satu angka menentukan apakah CK-API-12 bertahan: lama render tiga puluh PDF pdfmake berurutan beserta unggahannya ke S3, di dalam fungsi Lambda 1024 MB arm64.
 
-Diuji sejak berkas rapor pertama dapat dirender, bukan ditemukan saat Wali Kelas pertama memfinalisasi kelas sungguhan. Apabila melampaui anggaran lunak 20 detik secara konsisten, yang berubah hanya **jumlah berkas yang sempat dirender** — jalur render-saat-unduh tetap menutupinya, dan tidak ada satu pun endpoint yang perlu diubah.
+**Diukur 12 Agustus 2026 — CK-API-12 bertahan.**
+
+| Yang diukur | Nilai |
+|---|--:|
+| `Duration` fungsi `api` | **6.896 ms** |
+| Anggaran lunak [ARCHITECTURE Pasal 11](ARCHITECTURE.md) | 20.000 ms |
+| Batas keras fungsi | 30.000 ms |
+| `Max Memory Used` | 279 MB dari 1024 MB |
+| `berkas_terender` | **30 dari 30** |
+| Lama request dari sisi klien, lewat CloudFront | 7.070 ms |
+
+Bebannya sama dengan pembanding lokal `npm run ukur:render`: 30 rapor × 10 mata pelajaran × 8 komponen. Angka lokalnya **431 ms**, sehingga Lambda kira-kira **enam belas kali lebih lambat** — dan tetap memakai sepertiga anggaran lunak.
+
+**Memori bukan pembatasnya.** 279 MB dari 1024 MB berarti menaikkan memori tidak akan mempercepat apa pun secara berarti, meskipun memori juga menentukan porsi CPU.
+
+**Yang tersisa sebagai peringatan bukan anggaran lunaknya, melainkan batas kerasnya.** Anggaran 20 detik hanya menentukan berapa berkas yang sempat dirender, dan jalur render-saat-unduh menutupi sisanya. Batas keras 30 detik menggagalkan seluruh request. Pada 6,9 detik jaraknya masih empat kali lipat, tetapi kelas yang jauh lebih besar atau mata pelajaran yang jauh lebih banyak akan menggerus jarak itu lebih cepat daripada anggaran lunaknya.
+
+Prosedur beserta skripnya pada repositori `infra` di `ukur-render/`; benih datanya pada `backend/scripts/benih-uji-render.ts`.
 
 ---
 
