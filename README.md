@@ -75,6 +75,7 @@ Kumpulan dokumen sumber kebenaran untuk produk **EduTrack** (Project ID: EDU-202
 | [AGENTS.md](./AGENTS.md) | Bagaimana agen membangun EduTrack: alur kerja, batas yang tidak boleh dilanggar, urutan tahap, dan gerbang selesai |
 | [GLOSARIUM.md](./GLOSARIUM.md) | Setiap singkatan dan istilah teknis yang dipakai di seluruh dokumen |
 | [KEMAJUAN.md](./KEMAJUAN.md) | Tahap mana sudah selesai dan apa buktinya. **Tidak memuat keputusan** — hanya keadaan dan penunjuk |
+| [PANDUAN-INTEGRASI.md](./PANDUAN-INTEGRASI.md) | Cara memanggil API yang sudah berjalan: alamat, kewajiban `x-amz-content-sha256`, autentikasi cookie, katalog kesalahan, dan jebakan. **Tidak menetapkan apa pun** — kontraknya tetap [API.md](./API.md) |
 
 Berbeda dari dokumen di atasnya, `AGENTS.md` **tidak menetapkan apa pun tentang produk**. Ia menetapkan cara bekerja di atas dokumen yang sudah ada, sehingga berada di luar rantai penguncian.
 
