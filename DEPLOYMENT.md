@@ -632,7 +632,7 @@ Satu OIDC provider per akun, dipakai bersama kedua role.
 
 | Role | Fungsi | Izin |
 |---|---|---|
-| `edutrack-lambda-api` | `api` | ENI VPC · CloudWatch Logs · `secretsmanager:GetSecretValue` pada dua rahasia `app_rw` dan `app_ro` · `ssm:GetParameter` beserta `kms:Decrypt` untuk kunci API Elice · `s3:GetObject/PutObject/DeleteObject` pada bucket rapor |
+| `edutrack-lambda-api` | `api` | ENI VPC · CloudWatch Logs · `secretsmanager:GetSecretValue` pada dua rahasia `app_rw` dan `app_ro` · `ssm:GetParameter` beserta `kms:Decrypt` untuk kunci API Elice · `s3:GetObject/PutObject/DeleteObject` pada isi bucket rapor · **`s3:ListBucket`** pada bucket rapor itu sendiri |
 | `edutrack-lambda-migrate` | `migrate` | ENI VPC · CloudWatch Logs · `secretsmanager:GetSecretValue` **hanya** pada rahasia `edutrack_owner`, yaitu rahasia terkelola RDS yang ARN-nya dibaca dari `master_user_secret` (CK-D-06) |
 | `edutrack-nat` | NAT instance | `AmazonSSMManagedInstanceCore`, sehingga tidak diperlukan kunci SSH |
 
@@ -641,6 +641,12 @@ Satu OIDC provider per akun, dipakai bersama kedua role.
 IAM di sini **memperkuat jaminan basis data, bukan mengulanginya**: [SCHEMA.md §7](SCHEMA.md) memisahkan hak di dalam PostgreSQL, dan Pasal ini memastikan kredensial yang paling berkuasa tidak pernah berada dalam jangkauan jalur request.
 
 `s3:DeleteObject` pada `edutrack-lambda-api` bukan kelebihan izin. Ia diperlukan CK-A-05: setiap koreksi Administrator atas data final menghapus berkas rapor terkait dari S3 di dalam transaksi yang sama.
+
+**`s3:ListBucket` juga diperlukan, dan sebabnya tidak terlihat dari daftar tindakannya.** Aplikasi tidak pernah mendaftar isi bucket. Yang menuntutnya adalah perilaku S3 pada objek yang **belum ada**: tanpa `s3:ListBucket`, `HeadObject` menjawab **`403`** alih-alih `404`, karena S3 menolak membocorkan keberadaan objek kepada pemanggil yang tidak boleh mendaftarnya.
+
+Akibatnya persis kebalikan dari yang diinginkan. Jalur render-saat-unduh memeriksa keberadaan berkas lebih dahulu ([API.md §8.4](API.md)); `403` itu bukan "belum ada" melainkan galat sungguhan, sehingga setiap perenderan gagal **sebelum satu pun berkas dibuat**. Gejalanya `berkas_terender: 0` tanpa satu pun pesan yang menyebut S3.
+
+Izinnya dipatok pada bucket itu sendiri — `arn:…:edutrack-rapor-…`, tanpa `/*` — karena `ListBucket` adalah tindakan atas bucket, bukan atas objek. Ditemukan 12 Agustus 2026 saat B7 dijalankan.
 
 ### 9.6 Konfigurasi CLI
 
@@ -893,6 +899,7 @@ Variabel lingkungan tidak memiliki persoalan itu: image `:bootstrap` mengabaikan
 
 | Tanggal | Perubahan |
 |---|---|
+| 12 Agustus 2026 | §9.5 menambahkan **`s3:ListBucket`** pada `edutrack-lambda-api`. Aplikasi tidak pernah mendaftar isi bucket; yang menuntutnya adalah perilaku S3 pada objek yang belum ada — tanpa izin itu `HeadObject` menjawab `403` alih-alih `404`, sehingga setiap perenderan gagal sebelum satu pun berkas dibuat. Ditemukan saat B7 dijalankan, dengan gejala `berkas_terender: 0` tanpa satu pun pesan yang menyebut S3 |
 | 12 Agustus 2026 | §9.4 melengkapi izin role OIDC dengan `lambda:GetFunctionConfiguration` dan `lambda:GetAlias`. Keduanya tidak pernah didaftar karena Pasal 9 ditulis mendahului §3.3, sedangkan yang menuntutnya adalah `aws lambda wait function-updated` dan pembacaan version untuk rollback. Ditemukan ketika rilis pertama gagal pada langkah 5 |
 | 12 Agustus 2026 | **§5.1 dikoreksi setelah dijalankan untuk pertama kalinya.** Tiga cacat: contohnya memakai `create-secret` padahal wadahnya sudah dibuat Terraform; kata sandinya dibangkitkan di dalam `printf` sehingga tidak dapat dipakai ulang untuk `ALTER ROLE`; dan `.pgpass` **tidak dapat dipakai** karena kata sandi bangkitan RDS dapat memuat titik dua, yaitu pemisah bidang formatnya. Ditambahkan langkah verifikasi yang benar-benar mencoba masuk, bukan sekadar memeriksa keberadaan versi |
 | 12 Agustus 2026 | **§5.2 ditulis — B4 selesai.** Penandatanganan OAC atas request ber-body dibuktikan; hasilnya **CK-A-12** pada [ARCHITECTURE.md](ARCHITECTURE.md). Dicatat dua jebakan yang ditemui saat menaikkannya: OAC menuntut **dua** izin Lambda (`InvokeFunctionUrl` **dan** `InvokeFunction`), dan `custom_error_response` berlaku se-distribusi sehingga merusak kontrak amplop `kesalahan` pada `/api/*` |
