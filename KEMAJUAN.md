@@ -47,19 +47,19 @@
 
 ## 2. Jalur B — infrastruktur
 
-> **Penahanan setelah B1 dicabut 11 Agustus 2026.** Jalur A sudah selesai secara lokal, dan sambungan `adapters/aws/` sudah ada. Sejak itu seluruh tahap B2–B7 **sudah ditulis dan digerbang**; yang tersisa pada masing-masing adalah tindakan yang menuntut kredensial AWS.
+> **Infrastruktur berdiri 12 Agustus 2026.** B2 sampai B5 selesai; yang tersisa hanya pengisian rahasia, rilis pertama, dan pengukuran render.
 >
-> Pembacaan tabel di bawah: **🟨 pada B2–B5 dan B7 berarti "kode dan prosedurnya lengkap, menunggu manusia menjalankannya"** — bukan berarti pekerjaannya belum dikerjakan.
+> Akun berjalan pada **AWS Free Plan** yang membatasi apa yang boleh dibuat — bukan memberi potongan (**CK-19** [Techstack](./Techstack.md)). Dua tetapan disesuaikan karenanya: NAT `t4g.micro` dan retensi cadangan **1 hari**. Reserved concurrency tidak dapat disetel sama sekali karena plafon akun **10** (**CK-A-11**).
 
 | # | Tahap | Keadaan | Bukti |
 |:--:|---|:--:|---|
 | **B0** | IAM: user, grup, role | 🟨 Sebagian | [DEPLOYMENT.md §9.9](./DEPLOYMENT.md), diperbarui 11 Agustus. Yang tersisa **hanya pekerjaan manusia**: role `edutrack-readonly`, pendaftaran MFA, dan penghapusan user `admin` bawaan |
 | **B0.5** | OIDC provider, role, jabat tangan | ✅ Selesai | [Gitaction.md](./Gitaction.md) · workflow `oidc-smoke.yml` |
 | **B1** | `terraform apply` pada `bootstrap/` | ✅ Selesai | Repositori **`infra`** `b925880`. `apply` bersih, **7 sumber daya dibuat**: bucket state beserta versioning, enkripsi, blok akses publik, dan kebijakan TLS; ECR `edutrack` beserta aturan daur hidupnya |
-| **B2** | Push image bootstrap ke ECR | 🟨 Sebagian | Image **ditulis dan diuji setempat** — `infra` `dcfe3f6`, `infra/bootstrap-image/`. **Pendorongan ke ECR menunggu manusia** |
-| **B3** | `terraform apply` pada `infra/` | 🟨 Sebagian | `infra/` **ditulis lengkap** — `infra` `5b2bb43`. `terraform fmt -check` dan `terraform validate` bersih. **`apply` menunggu manusia**, dan menunggu B2 |
-| **B4** | Pembuktian penandatanganan OAC | 🟨 Sebagian | Prosedur beserta skripnya ditulis — `infra/uji-oac/`. Skripnya diuji terhadap image bootstrap yang berjalan setempat: 4 lulus, 0 gagal. **Pelaksanaan terhadap AWS menunggu B3** |
-| **B5** | Izin ECR dan Lambda pada role OIDC | 🟨 Sebagian | `infra/iam-oidc.tf` ditulis. Role `edutrack-gha-backend` **wajib di-`import`**, bukan dibuat ulang. **`apply` menunggu manusia** |
+| **B2** | Push image bootstrap ke ECR | ✅ Selesai | Image `edutrack:bootstrap` terpasang pada kedua fungsi dan menjawab `200` lewat CloudFront |
+| **B3** | `terraform apply` pada `infra/` | ✅ Selesai | **Infrastruktur berdiri 12 Agustus 2026** — `infra` `da04e1b`. VPC 2 AZ, NAT `t4g.micro`, RDS PostgreSQL 17, CloudFront `d2mw289fm4g0eo.cloudfront.net`, dua fungsi Lambda beserta alias `live`. `plan -detailed-exitcode` keluar **0** — tanpa drift |
+| **B4** | Pembuktian penandatanganan OAC | ✅ Selesai | **5 lulus, 0 gagal** terhadap infrastruktur sungguhan. Hasilnya **CK-A-12** [ARCHITECTURE §12.2](./ARCHITECTURE.md): request ber-body wajib membawa `x-amz-content-sha256`. Dua jebakan penaikannya pada [DEPLOYMENT §5.2](./DEPLOYMENT.md) |
+| **B5** | Izin ECR dan Lambda pada role OIDC | ✅ Selesai | Role `edutrack-gha-backend` **di-`import`**, bukan dibuat ulang; kebijakannya dikelola Terraform. Role frontend menunggu nilai `sub`-nya |
 | **B6** | `pr.yml` dan `deploy.yml` | ✅ Selesai | `pr.yml` menyala; `deploy.yml` ditulis pada backend `5e061e0`, dua belas langkah [DEPLOYMENT §3.3](./DEPLOYMENT.md) masing-masing menyebut nomornya. **Penyalaannya menunggu B5** |
 | **B7** | Pengukuran render 30 PDF di Lambda | 🟨 Sebagian | Prosedur beserta skripnya ditulis — `infra/ukur-render/`. Menutup gerbang **A7** yang tersisa ([API.md §13.3](./API.md)). **Pengukurannya menunggu B6 menyala** |
 
@@ -73,11 +73,10 @@ Dicatat di sini hanya **judul dan tempatnya**. Isinya tidak disalin.
 
 | Yang ditunggu | Tercatat pada | Menghambat |
 |---|---|---|
-| Sisa **B0**: role `edutrack-readonly`, pendaftaran MFA, penghapusan user `admin` bawaan | [DEPLOYMENT.md §9.8 dan §9.9](./DEPLOYMENT.md) | Tidak menghambat B2–B7, tetapi menahan §9.8 |
-| **B2** — pendorongan image `:bootstrap` ke ECR | `infra/bootstrap-image/README.md` | B3 |
-| **B3 dan B5** — `terraform import` role OIDC lalu `terraform apply` pada `infra/` | `infra/infra/README.md` | B4, B6, B7 |
-| **Pengisian kedua rahasia dan parameter SSM** | [DEPLOYMENT.md §5.1](./DEPLOYMENT.md) | Rilis pertama |
+| Sisa **B0**: role `edutrack-readonly`, pendaftaran MFA, penghapusan user `admin` bawaan | [DEPLOYMENT.md §9.8 dan §9.9](./DEPLOYMENT.md) | Tidak menghambat apa pun, tetapi menahan §9.8 |
+| **Pengisian kedua rahasia dan parameter SSM** — beserta `CREATE ROLE` `app_rw` dan `app_ro` | [DEPLOYMENT.md §5.1](./DEPLOYMENT.md) | Rilis pertama |
 | Setelan `AWS_ROLE_ARN` dan `ALAMAT_PUBLIK` pada repositori backend | `backend/.github/workflows/deploy.yml` | B6 menyala |
+| **Pembungkus `fetch` frontend** yang menghitung `x-amz-content-sha256` | **CK-A-12** [ARCHITECTURE §12.2](./ARCHITECTURE.md) | Seluruh jalur tulis dari frontend |
 | Nama domain dan pembeliannya | [Techstack.md §9](./Techstack.md) butir 4 · [AGENTS.md §10](./AGENTS.md) | Penerapan CK-17. **Sengaja dikerjakan paling akhir** |
 | Kredensial AWS, `terraform apply`, pembuatan rahasia | [AGENTS.md §10](./AGENTS.md) | Seluruh Jalur B |
 | Validasi komponen dan bobot templat | **V1** pada [ATURAN-DAN-KRITERIA.md §5](./ATURAN-DAN-KRITERIA.md) | Tidak menghambat — hanya data |
@@ -113,6 +112,8 @@ Dicatat di sini hanya **judul dan tempatnya**. Isinya tidak disalin.
 
 | Tanggal | Perubahan |
 |---|---|
+| 12 Agustus 2026 | **Infrastruktur berdiri — B2, B3, B4, dan B5 selesai.** `terraform apply` dijalankan agen memakai sesi MFA yang sudah dipinjam manusia; `plan -detailed-exitcode` keluar 0 tanpa drift. **B4 lulus 5 dari 5** dan melahirkan **CK-A-12**: request ber-body wajib membawa `x-amz-content-sha256`, sementara seluruh jalur `GET` sehat tanpanya. Dua jebakan penaikan dicatat [DEPLOYMENT §5.2](./DEPLOYMENT.md) |
+| 12 Agustus 2026 | **CK-19** dan **CK-A-11** — akun ternyata berada pada AWS Free Plan yang membatasi. NAT `t4g.nano` → `t4g.micro`, retensi cadangan 7 → 1 hari, dan reserved concurrency dicabut karena plafon akun 10 menolak reservasi berapa pun |
 | 11 Agustus 2026 | **Jalur B ditulis sampai tuntas, B2 sampai B7.** Image `:bootstrap` tersendiri beserta alat ukur body, `infra/` lengkap, prosedur pembuktian OAC, izin OIDC, `deploy.yml`, dan prosedur pengukuran render Lambda. Seluruhnya digerbang — `terraform fmt -check` dan `terraform validate` bersih, `npm run periksa` keluar 0. Yang tersisa pada setiap tahap adalah tindakan yang menuntut kredensial AWS |
 | 11 Agustus 2026 | **Utang sambungan dua lingkungan ditutup.** Port `Rahasia`, adapter AWS untuk Secrets Manager, SSM, dan S3, serta pemilihan adapter lewat satu variabel `LINGKUNGAN`. Janji "satu image, dua lingkungan" [ARCHITECTURE Pasal 13](./ARCHITECTURE.md) kini memiliki penerapannya |
 | 11 Agustus 2026 | Empat keputusan baru pada [DEPLOYMENT.md](./DEPLOYMENT.md): **CK-D-06** kata sandi master RDS dikelola RDS sendiri, **CK-D-07** alias `live` lahir menunjuk `$LATEST`, **CK-D-08** fungsi `migrate` dipilih variabel lingkungan `PERAN`. Ketiganya lahir dari pertentangan antara dokumen dan apa yang benar-benar dapat berjalan, dan ketiganya ditulis mendahului kodenya. §3.3 langkah 11 dikoreksi menjadi `/api/healthz` |
