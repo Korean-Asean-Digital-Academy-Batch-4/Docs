@@ -300,21 +300,51 @@ Berlaku bagi **`app_rw` dan `app_ro` saja**. Kredensial `edutrack_owner` tidak d
 
 Dijalankan **sesudah** RDS menyala dan kata sandinya disetel pada PostgreSQL. Urutannya: bangkitkan kata sandi, setel pada basis data, baru simpan.
 
+Kata sandi dibangkitkan **sekali** ke dalam variabel shell, lalu ditulis ke **dua** tempat dari variabel yang sama. Membangkitkannya dua kali — sekali untuk basis data, sekali untuk Secrets Manager — menghasilkan dua nilai berbeda, dan kegagalannya baru muncul pada rilis pertama sebagai `password authentication failed`.
+
 ```bash
-umask 077 && tmp=$(mktemp)
+umask 077 && tmp=$(mktemp -d) && SANDI_RW=$(openssl rand -base64 24 | tr -d '\n=/+')
+```
+
+Disetel pada PostgreSQL, lalu disimpan — keduanya tanpa melewati baris perintah:
+
+```bash
+printf "ALTER ROLE app_rw LOGIN PASSWORD '%s';\n" "$SANDI_RW" > "$tmp/role.sql"
 ```
 
 ```bash
-printf '{"username":"app_rw","password":"%s"}' "$(openssl rand -base64 24 | tr -d '\n=/+')" > "$tmp"
+printf '{"username":"app_rw","password":"%s"}' "$SANDI_RW" > "$tmp/app_rw.json"
 ```
+
+**`put-secret-value`, bukan `create-secret`.** Wadahnya sudah dibuat Terraform (CK-D-05); `create-secret` dijawab `ResourceExistsException`.
 
 ```bash
-aws secretsmanager create-secret --name edutrack/db/app_rw --secret-string "file://$tmp" --region ap-southeast-3
+aws secretsmanager put-secret-value --secret-id edutrack/db/app_rw --secret-string "file://$tmp/app_rw.json" --region ap-southeast-3
 ```
 
-Kata sandi yang sama disetel pada PostgreSQL lewat `ALTER ROLE`, juga tanpa melewati baris perintah — `psql` membacanya dari berkas yang sama. Sesudah keduanya selesai, `rm -f "$tmp"`.
+Diulang untuk `app_ro`, lalu `rm -rf "$tmp"` dan `unset`. Pemisahan siapa boleh membaca yang mana ditegakkan IAM (§9.5), bukan oleh penamaan.
 
-Diulang untuk `app_ro`. Pemisahan siapa boleh membaca yang mana ditegakkan IAM (§9.5), bukan oleh penamaan.
+#### ⚠️ `.pgpass` tidak dapat dipakai untuk kredensial pemilik
+
+Menyambung sebagai `edutrack_owner` menuntut kata sandi yang dibangkitkan RDS, dan **kata sandi itu dapat memuat titik dua**. `.pgpass` memakai titik dua sebagai pemisah bidang, sehingga barisnya terurai salah **tanpa satu pun peringatan** — `psql` mengira kata sandinya adalah potongan sebelum titik dua pertama, dan menjawab `password authentication failed for user "edutrack_owner"`. Pesan itu menyesatkan ke arah kredensial yang keliru, padahal formatnya yang rusak.
+
+Dipakai `PGPASSWORD`, yang tidak memiliki format sama sekali. Nilainya diserahkan sebagai lingkungan milik proses `psql` saja, sehingga tidak pernah masuk ke `argv` maupun riwayat shell:
+
+```bash
+PGPASSWORD="$(cat "$tmp/sandi-owner")" psql "host=127.0.0.1 port=15432 dbname=edutrack user=edutrack_owner sslmode=require" -f "$tmp/role.sql"
+```
+
+Ditemukan 12 Agustus 2026 saat prosedur ini dijalankan untuk pertama kalinya.
+
+#### Verifikasi yang sesungguhnya
+
+Memeriksa keberadaan versi rahasia **tidak cukup** — ia tidak membuktikan nilainya cocok dengan yang ada di PostgreSQL. Yang membuktikannya hanya satu: membaca kembali dari Secrets Manager, lalu memakainya untuk masuk.
+
+```bash
+aws secretsmanager get-secret-value --secret-id edutrack/db/app_rw --region ap-southeast-3 --query SecretString --output text | jq -r .password > "$tmp/uji" && PGPASSWORD="$(cat "$tmp/uji")" psql "host=127.0.0.1 port=15432 dbname=edutrack user=app_rw sslmode=require" -qtAc 'SELECT 1'
+```
+
+Tanpa langkah ini, selisih antara kedua tempat baru ketahuan pada langkah 11 §3.3 — yaitu sesudah migrasi terlanjur diterapkan.
 
 #### Pembagian dengan Terraform
 
@@ -854,6 +884,7 @@ Variabel lingkungan tidak memiliki persoalan itu: image `:bootstrap` mengabaikan
 
 | Tanggal | Perubahan |
 |---|---|
+| 12 Agustus 2026 | **§5.1 dikoreksi setelah dijalankan untuk pertama kalinya.** Tiga cacat: contohnya memakai `create-secret` padahal wadahnya sudah dibuat Terraform; kata sandinya dibangkitkan di dalam `printf` sehingga tidak dapat dipakai ulang untuk `ALTER ROLE`; dan `.pgpass` **tidak dapat dipakai** karena kata sandi bangkitan RDS dapat memuat titik dua, yaitu pemisah bidang formatnya. Ditambahkan langkah verifikasi yang benar-benar mencoba masuk, bukan sekadar memeriksa keberadaan versi |
 | 12 Agustus 2026 | **§5.2 ditulis — B4 selesai.** Penandatanganan OAC atas request ber-body dibuktikan; hasilnya **CK-A-12** pada [ARCHITECTURE.md](ARCHITECTURE.md). Dicatat dua jebakan yang ditemui saat menaikkannya: OAC menuntut **dua** izin Lambda (`InvokeFunctionUrl` **dan** `InvokeFunction`), dan `custom_error_response` berlaku se-distribusi sehingga merusak kontrak amplop `kesalahan` pada `/api/*` |
 | 11 Agustus 2026 | §3.3 langkah 11 dikoreksi dari `/healthz` menjadi `/api/healthz`. CloudFront hanya meneruskan `/api/*` ke Lambda, sehingga bentuk semula dilayani bucket frontend dan selalu lulus tanpa memeriksa apa pun. Ditemukan saat `infra/` dikodekan |
 | 11 Agustus 2026 | **CK-D-08** — kedua fungsi menjalankan image dan perintah yang sama persis; yang membedakannya variabel lingkungan `PERAN`. Lambda Web Adapter menuntut aplikasi yang mendengarkan HTTP, sehingga perintah migrasi yang berjalan sekali lalu keluar tidak dapat dipasang sebagai fungsi. `image_config` juga tidak dapat dipakai karena ia bagian dari cangkang yang berlaku bagi image `:bootstrap` sekalipun |

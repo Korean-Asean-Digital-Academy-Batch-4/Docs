@@ -74,8 +74,8 @@ Dicatat di sini hanya **judul dan tempatnya**. Isinya tidak disalin.
 | Yang ditunggu | Tercatat pada | Menghambat |
 |---|---|---|
 | Sisa **B0**: role `edutrack-readonly`, pendaftaran MFA, penghapusan user `admin` bawaan | [DEPLOYMENT.md §9.8 dan §9.9](./DEPLOYMENT.md) | Tidak menghambat apa pun, tetapi menahan §9.8 |
-| **Pengisian kedua rahasia dan parameter SSM** — beserta `CREATE ROLE` `app_rw` dan `app_ro` | [DEPLOYMENT.md §5.1](./DEPLOYMENT.md) | Rilis pertama |
-| Setelan `AWS_ROLE_ARN` dan `ALAMAT_PUBLIK` pada repositori backend | `backend/.github/workflows/deploy.yml` | B6 menyala |
+| ~~Pengisian kedua rahasia dan parameter SSM~~ — **selesai 12 Agustus 2026** | [DEPLOYMENT.md §5.1](./DEPLOYMENT.md) | — |
+| ~~Setelan `AWS_ROLE_ARN` dan `ALAMAT_PUBLIK`~~ — **selesai 12 Agustus 2026** | `backend/.github/workflows/deploy.yml` | — |
 | **Pembungkus `fetch` frontend** yang menghitung `x-amz-content-sha256` | **CK-A-12** [ARCHITECTURE §12.2](./ARCHITECTURE.md) | Seluruh jalur tulis dari frontend |
 | Nama domain dan pembeliannya | [Techstack.md §9](./Techstack.md) butir 4 · [AGENTS.md §10](./AGENTS.md) | Penerapan CK-17. **Sengaja dikerjakan paling akhir** |
 | Kredensial AWS, `terraform apply`, pembuatan rahasia | [AGENTS.md §10](./AGENTS.md) | Seluruh Jalur B |
@@ -112,6 +112,7 @@ Dicatat di sini hanya **judul dan tempatnya**. Isinya tidak disalin.
 
 | Tanggal | Perubahan |
 |---|---|
+| 12 Agustus 2026 | **Rahasia terisi dan terverifikasi.** Kedua role `app_rw` dan `app_ro` disetel pada RDS, kata sandinya disimpan di Secrets Manager, dan kunci Elice masuk ke SSM. Dibuktikan bukan dengan memeriksa keberadaan versi, melainkan dengan **masuk sungguhan ke PostgreSQL memakai kata sandi yang dibaca balik dari Secrets Manager**. Aturan security group sementara dicabut kembali; RDS hanya menerima dari security group Lambda. `AWS_ROLE_ARN` dan `ALAMAT_PUBLIK` disetel pada repositori backend |
 | 12 Agustus 2026 | **Infrastruktur berdiri — B2, B3, B4, dan B5 selesai.** `terraform apply` dijalankan agen memakai sesi MFA yang sudah dipinjam manusia; `plan -detailed-exitcode` keluar 0 tanpa drift. **B4 lulus 5 dari 5** dan melahirkan **CK-A-12**: request ber-body wajib membawa `x-amz-content-sha256`, sementara seluruh jalur `GET` sehat tanpanya. Dua jebakan penaikan dicatat [DEPLOYMENT §5.2](./DEPLOYMENT.md) |
 | 12 Agustus 2026 | **CK-19** dan **CK-A-11** — akun ternyata berada pada AWS Free Plan yang membatasi. NAT `t4g.nano` → `t4g.micro`, retensi cadangan 7 → 1 hari, dan reserved concurrency dicabut karena plafon akun 10 menolak reservasi berapa pun |
 | 11 Agustus 2026 | **Jalur B ditulis sampai tuntas, B2 sampai B7.** Image `:bootstrap` tersendiri beserta alat ukur body, `infra/` lengkap, prosedur pembuktian OAC, izin OIDC, `deploy.yml`, dan prosedur pengukuran render Lambda. Seluruhnya digerbang — `terraform fmt -check` dan `terraform validate` bersih, `npm run periksa` keluar 0. Yang tersisa pada setiap tahap adalah tindakan yang menuntut kredensial AWS |
