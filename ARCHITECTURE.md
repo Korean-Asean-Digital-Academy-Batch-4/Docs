@@ -356,7 +356,7 @@ npm run admin:create -- --nama-pengguna <pengenal> --nama "<nama lengkap>"
 
 **Di AWS `admin:create` menolak berjalan.** Fungsi `migrate` mengalirkan seluruh `stdout` ke CloudWatch Logs, dan itu perilaku runtime Lambda yang tidak dapat dimatikan dari dalam aplikasi. Mencetak kata sandi di sana berarti menyimpannya sebagai teks polos yang bertahan selama retensi log — dapat dibaca siapa pun yang memegang hak baca CloudWatch, tanpa perlu menyentuh basis data. Jaminan "tidak dapat ditampilkan ulang" karenanya **tidak berlaku** di jalur itu, dan perintahnya berhenti dengan pesan alih-alih diam-diam membocorkannya.
 
-Cara membuat Administrator pertama di AWS **belum diputuskan**, dan tercatat sebagai titik henti manusia. Jalur yang paling mungkin: menulis kata sandi ke Secrets Manager berumur pendek lalu mencetak ARN-nya saja ke log, sehingga yang masuk CloudWatch adalah rujukan, bukan rahasianya. Di lingkungan AWS, perintah dijalankan dengan memanggil fungsi Lambda `migrate` yang memakai image yang sama dengan argumen berbeda; di lingkungan on-prem maupun pengembangan, dijalankan langsung di dalam container. Penggantian kata sandi Administrator memakai perintah yang sama dengan sub-perintah berbeda.
+~~Cara membuat Administrator pertama di AWS **belum diputuskan**~~ — **diputuskan 12 Agustus 2026, CK-A-14**: dibuat dari mesin operator lewat terowongan SSM, bukan dari dalam Lambda. Di lingkungan on-prem maupun pengembangan, dijalankan langsung di dalam container. Penggantian kata sandi Administrator memakai perintah yang sama dengan sub-perintah berbeda.
 
 Hal ini menutup temuan **T-03** pada [RFC-001 §10](RFC-001-model-data-konseptual.md), yang mencatat bahwa PRD tidak mengatur cara akun Administrator dibuat.
 
@@ -841,12 +841,37 @@ Untuk basis data berisi nilai anak di bawah umur, selisih ongkos itu tidak seban
 
 **Konsekuensi yang diterima.** Image bertambah 165 KB. Bundel perlu diperbarui apabila AWS menerbitkan CA baru — jarang, dan bundel global sudah memuat CA yang berlaku sampai 2061. Di on-prem variabelnya tidak disetel, sehingga `adapters/local` tidak terpengaruh sama sekali.
 
+### CK-A-14 · 12 Agustus 2026 · Administrator pertama di AWS dibuat dari mesin operator lewat terowongan SSM — menutup titik henti §9.3
+
+**Diputuskan.** Administrator pertama di AWS dibuat dengan menjalankan `npm run seed:admin:aws` **dari mesin operator**, menyambung ke RDS lewat terowongan SSM yang sama dengan pengisian rahasia ([DEPLOYMENT §5.1](DEPLOYMENT.md)). Perintahnya menyisipkan baris `pengguna` lewat SQL berparameter, dan **tidak** melewati lapisan rute maupun `db/administrator.ts`.
+
+**Kata sandinya tetap di-hash adapter Argon2id milik aplikasi.** Ini bukan pengecualian terhadap keputusan di atas melainkan bagian dari isinya: hash yang dirangkai sendiri bukan penyederhanaan, melainkan akun yang tidak dapat dipakai masuk — dan kegagalannya baru terlihat pada percobaan masuk pertama, bukan pada saat pembuatan.
+
+**Alasan.** Persoalan §9.3 ternyata lebih sempit daripada yang tertulis di sana. Yang menolak berjalan di AWS adalah `admin:create`, karena ia **mencetak** kata sandi yang dibangkitkan sistem dan `stdout` Lambda mengalir ke CloudWatch. Administrator pertama bukan urusan perintah itu melainkan `seed:admin` (CK-A-09), yang sifatnya berlawanan: kata sandinya dibaca dari stdin, tidak pernah dicetak, dan tidak pernah menjadi argumen proses.
+
+Yang tersisa hanyalah bahwa **stdin tidak dapat disalurkan ke dalam invocation Lambda** — dan itu tidak perlu, karena perintahnya tidak harus berjalan di dalam Lambda. §9.3 ditulis sebelum alur terowongan ada; alur itu baru ditetapkan [DEPLOYMENT §5.1](DEPLOYMENT.md) pada hari yang sama dengan keputusan ini.
+
+**Dua sifat yang membuatnya tidak menuntut apa pun yang baru.** Pembuatan akun hanya memerlukan `INSERT` pada `pengguna`, yang sudah dimiliki `app_rw` sejak migrasi `0009` — kredensial pemilik tidak diperlukan. Dan terowongannya sudah terbukti dipakai dua kali sebelum keputusan ini diambil.
+
+**Alternatif yang ditolak.**
+
+*Jalur yang disarankan §9.3 — fungsi `migrate` membangkitkan kata sandi, menyimpannya ke rahasia berumur pendek, lalu mencetak ARN-nya saja.* Benar secara rancangan dan menjaga kata sandi tidak pernah berada di mesin operator. Ditolak karena menuntut jalur HTTP baru pada fungsi `migrate` **dan** izin `secretsmanager:CreateSecret` pada role yang sengaja dijaga paling sempit di seluruh sistem ([DEPLOYMENT §9.5](DEPLOYMENT.md)) — dua tambahan permanen demi satu tindakan yang dilakukan sekali seumur lingkungan.
+
+*Menjalankan `seed:admin` apa adanya lewat terowongan.* Nyaris sama, dan sempat menjadi usulan. Ditolak karena `seed-admin.ts` memanggil `bacaKonfigurasi()`, yang mewajibkan `ELICE_BASE_URL`, `ELICE_MODEL`, dan `ELICE_API_KEY` — perintah yang membuat akun Administrator tidak boleh menuntut kredensial layanan AI hanya untuk menyala.
+
+**Konsekuensi yang diterima.**
+
+1. **Satu jalur pembuatan akun berada di luar lapisan rute.** Ia hanya dipakai sekali per lingkungan, tidak pernah dapat dihubungi dari internet, dan menuntut terowongan beserta aturan security group sementara — tiga hal yang seluruhnya berada di tangan operator.
+2. **Aturan security group sementara wajib dicabut kembali**, sama seperti pada pengisian rahasia. Ia dibuat di luar Terraform, sehingga `terraform plan` tidak akan mengingatkan apabila tertinggal.
+3. Kata sandi awal berada di mesin operator. Ia diganti pada masuk pertama lewat `PATCH /api/saya/kata-sandi`, dan berkas sementaranya dihapus.
+
 ---
 
 ## Riwayat
 
 | Tanggal | Perubahan |
 |---|---|
+| 12 Agustus 2026 | **CK-A-14** — titik henti §9.3 ditutup. Administrator pertama di AWS dibuat dari mesin operator lewat terowongan SSM, bukan dari dalam Lambda. Persoalannya ternyata lebih sempit daripada yang tertulis: yang menolak berjalan di AWS adalah `admin:create` yang **mencetak** kata sandi, sedangkan Administrator pertama adalah urusan `seed:admin` yang membacanya dari stdin dan tidak mencetak apa pun. Pembuatan akun hanya memerlukan `INSERT` yang sudah dimiliki `app_rw`, sehingga tidak ada izin baru sama sekali |
 | 12 Agustus 2026 | **CK-A-13** — koneksi RDS memverifikasi sertifikat memakai bundel CA Amazon RDS yang disalin ke image, dipercaya lewat `NODE_EXTRA_CA_CERTS`. Ditemukan saat rilis pertama gagal dengan `self-signed certificate in certificate chain`: verifikasi memang sudah menyala sejak awal, dan CA-nya yang tidak ada. `sslmode` dipatok `verify-full` karena arti `require` akan **melemah** pada pg v9 |
 | 12 Agustus 2026 | **CK-A-12** — peringatan kedua §12.2 **dibuktikan pada B4 dan terbukti benar**. Request ber-body wajib membawa `x-amz-content-sha256`; tanpanya `POST` dan `PATCH` dijawab 403 sementara seluruh jalur `GET` tetap sehat. Kewajiban jatuh pada pengirim, diselesaikan satu pembungkus `fetch` di frontend, dan tidak mengganggu portabilitas on-prem |
 | 11 Agustus 2026 | **CK-A-11** — reserved concurrency dicabut dari kedua fungsi; Pasal 6 disesuaikan. Angka 40 tidak dapat disetel, bukan tidak diinginkan: plafon concurrency akun berada di atau di bawah 10, sehingga reservasi sebesar 1 pun ditolak. Remnya berpindah ke plafon akun dan justru lebih ketat, tetapi **tidak lagi tertulis di repositori mana pun** — dicatat pemicu peninjauan ulang ketika plafon mencapai 50 |
