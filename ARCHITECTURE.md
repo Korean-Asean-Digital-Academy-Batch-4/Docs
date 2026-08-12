@@ -500,7 +500,9 @@ Pembacaan melewati interface `Secrets` di `ports/`, dengan dua implementasi: `ad
 
 > ⚠️ Sertifikat ACM untuk CloudFront **wajib diterbitkan di `us-east-1`**, sedangkan seluruh sumber daya lain berada di `ap-southeast-3` (CK-16). Ditangani dengan provider alias kedua pada Terraform. Kelalaian pada butir ini menggagalkan `terraform apply`.
 >
-> ⚠️ **Wajib dibuktikan pada hari pertama infrastruktur naik:** perilaku penandatanganan Origin Access Control terhadap request **ber-body** — `POST` dan `PATCH` seperti Simpan Nilai. Kombinasi OAC dengan Function URL memiliki ketentuan tersendiri mengenai penyertaan body dalam tanda tangan SigV4. Diuji lewat request sungguhan sejak API masih berupa stub, bukan ditemukan ketika frontend mulai menyimpan nilai. Prosedurnya ditetapkan [DEPLOYMENT.md](DEPLOYMENT.md) pasal 5.
+> ⚠️ ~~Wajib dibuktikan pada hari pertama infrastruktur naik:~~ **SUDAH DIBUKTIKAN 12 Agustus 2026, dan peringatannya terbukti benar** — CK-A-12.
+>
+> Request ber-body menuntut header **`x-amz-content-sha256`** berisi SHA-256 heksadesimal dari body persis seperti yang dikirim. Tanpa header itu, `POST` dan `PATCH` dijawab **403** — termasuk Simpan Nilai. Lambda Function URL tidak menerima `UNSIGNED-PAYLOAD`. Kewajiban ini jatuh pada **pengirim**, yaitu frontend, bukan pada CloudFront. Rinciannya beserta buktinya pada **CK-A-12**; prosedur pengujiannya pada [DEPLOYMENT.md §5.2](DEPLOYMENT.md).
 
 ---
 
@@ -775,12 +777,53 @@ Rincian komponen ditinggalkan karena rapor adalah dokumen ringkas yang dibaca or
 2. **Migrasi berbarengan tidak lagi ditolak seketika oleh reservasi 1.** Yang mencegahnya kini hanya advisory lock di dalam penerap, sebagaimana memang dirancang sejak awal; yang hilang hanya penolakan cepatnya.
 3. **Request ke-11 memperoleh `429` dari Lambda, bukan dari aplikasi.** Bentuk jawabannya karenanya bukan amplop `kesalahan` [API §2](API.md) melainkan galat Lambda apa adanya. Frontend tetap menampilkannya sebagai kegagalan beralasan (P21), tetapi teksnya tidak berbahasa Indonesia.
 
+### CK-A-12 · 12 Agustus 2026 · Request ber-body wajib membawa `x-amz-content-sha256` — melengkapi §12.2
+
+**Diputuskan.** Setiap request yang membawa body menuju `/api/*` **wajib** menyertakan header `x-amz-content-sha256` bernilai SHA-256 heksadesimal huruf kecil dari body persis seperti yang dikirim. Kewajiban itu jatuh pada **pengirim** — frontend, skrip pengujian, dan alat apa pun yang memanggil API lewat CloudFront.
+
+**Alasan.** Peringatan kedua §12.2 dibuktikan pada B4, dan hasilnya tegas:
+
+| Request | Tanpa `x-amz-content-sha256` | Dengan header |
+|---|:--:|:--:|
+| `GET /api/healthz` | **200** | 200 |
+| `POST` 12 bita | **403** | **200**, sidik jari cocok |
+| `PATCH` 18 bita | **403** | **200**, sidik jari cocok |
+| `POST` 28.811 bita — Simpan Nilai sekelas | **403** | **200**, sidik jari cocok |
+
+Sebabnya bukan kekeliruan susunan, melainkan ketentuan layanan: **Lambda Function URL tidak menerima `UNSIGNED-PAYLOAD`**. SigV4 memasukkan sidik jari payload ke dalam tanda tangan, dan OAC mengambil sidik jari itu dari header di atas alih-alih menghitungnya sendiri. Header yang tidak ada berarti tanda tangan atas payload kosong, sedangkan body yang sampai tidak kosong — dan Lambda menolaknya.
+
+**Yang menjadikannya berbahaya adalah bentuk kegagalannya.** `GET` berjalan sempurna, sehingga seluruh jalur baca — masuk, daftar kelas, lihat nilai — tampak sehat. Yang mati hanya jalur tulis, yaitu tepat bagian yang paling menentukan dan paling akhir diuji. Inilah yang dimaksud §12.2 dengan "bukan ditemukan ketika frontend mulai menyimpan nilai".
+
+**Penerapannya satu tempat, bukan tersebar.** Frontend membungkus `fetch` sekali; setiap mutasi lewat pembungkus itu:
+
+```ts
+const badan = JSON.stringify(muatan);
+const sidik = [...new Uint8Array(await crypto.subtle.digest("SHA-256", new TextEncoder().encode(badan)))]
+  .map((b) => b.toString(16).padStart(2, "0"))
+  .join("");
+```
+
+`crypto.subtle` hanya tersedia pada secure context, dan itu terpenuhi: seluruh trafik melewati HTTPS (§12).
+
+**Portabilitas on-prem tidak terganggu.** Di sana Caddy menggantikan CloudFront dan tidak memeriksa header apa pun, sehingga header tambahan diabaikan. Pembungkus yang sama berjalan di kedua lingkungan tanpa percabangan — janji Pasal 13 tetap utuh.
+
+**Alternatif yang ditolak.**
+
+*Menyetel OAC `signing_behavior = "never"` dan mengamankan Function URL dengan cara lain.* Menghapus kewajiban ini sekaligus menghapus jaminan Pasal 2 bahwa URL yang bocor tidak dapat dipakai siapa pun. Ditukar dengan kenyamanan satu header.
+
+*Menyisipkan header lewat CloudFront Function pada viewer request.* Tidak mungkin: CloudFront Function tidak dapat membaca body request, sehingga tidak dapat menghitung sidik jarinya.
+
+*Berpindah ke API Gateway atau ALB.* Menyelesaikannya, tetapi membatalkan CK-02 dan CK-13 beserta seluruh perhitungan biayanya, demi satu header.
+
+**Konsekuensi yang diterima.** Klien API mana pun di luar frontend — `curl` pada runbook, uji integrasi yang menembak lingkungan sungguhan, alat pihak ketiga — wajib menghitung sidik jari yang sama. Kegagalan lupa menyertakannya berbunyi `403` tanpa keterangan, sehingga bentuknya dicatat di sini agar dapat dikenali dalam hitungan detik alih-alih jam.
+
 ---
 
 ## Riwayat
 
 | Tanggal | Perubahan |
 |---|---|
+| 12 Agustus 2026 | **CK-A-12** — peringatan kedua §12.2 **dibuktikan pada B4 dan terbukti benar**. Request ber-body wajib membawa `x-amz-content-sha256`; tanpanya `POST` dan `PATCH` dijawab 403 sementara seluruh jalur `GET` tetap sehat. Kewajiban jatuh pada pengirim, diselesaikan satu pembungkus `fetch` di frontend, dan tidak mengganggu portabilitas on-prem |
 | 11 Agustus 2026 | **CK-A-11** — reserved concurrency dicabut dari kedua fungsi; Pasal 6 disesuaikan. Angka 40 tidak dapat disetel, bukan tidak diinginkan: plafon concurrency akun berada di atau di bawah 10, sehingga reservasi sebesar 1 pun ditolak. Remnya berpindah ke plafon akun dan justru lebih ketat, tetapi **tidak lagi tertulis di repositori mana pun** — dicatat pemicu peninjauan ulang ketika plafon mencapai 50 |
 | 11 Agustus 2026 | §10 — alamat tombol Suggestion dikoreksi dari `/api/me/suggestion` menjadi **`/api/saya/suggestion`**, sesuai [API.md §9.1](API.md) dan konvensi alamat berbahasa Indonesia pada AGENTS §5.1. `/api/saya/nilai` sudah memakai bentuk itu sejak A6 |
 | 11 Agustus 2026 | **§11.3 dan CK-A-10** — isi berkas rapor ditetapkan menjawab V5: kepala, satu tabel No/Mata Pelajaran/KKM/Nilai Akhir/Kehadiran, dan catatan wali kelas. Seluruh bidangnya sudah ada pada model data, sehingga tidak ada amandemen SCHEMA maupun API. Empat hal yang lazim ada pada rapor SMA dicatat sebagai sengaja tidak dimuat beserta sebabnya |

@@ -227,7 +227,7 @@ Konsekuensinya: variabel lingkungan dijaga tetap sedikit — hanya ARN rahasia, 
 
 ## 5. Urutan penaikan pertama
 
-**Belum ditulis seluruhnya.** Yang sudah ditetapkan hanya §5.1; sisanya — pembuktian penandatanganan OAC, penerbitan sertifikat ACM di `us-east-1`, dan kedua record CNAME — ditulis ketika `infra/` dikerjakan.
+**Sebagian.** §5.1 dan §5.2 sudah ditulis. Yang tersisa — penerbitan sertifikat ACM di `us-east-1` dan kedua record CNAME — menunggu domain dibeli (CK-17).
 
 ### 5.1 Pengisian rahasia
 
@@ -330,6 +330,33 @@ Diulang untuk `app_ro`. Pemisahan siapa boleh membaca yang mana ditegakkan IAM (
 **Parameter SSM tidak dikelola Terraform sama sekali.** Resource `aws_ssm_parameter` mewajibkan atribut `value`, sehingga tidak ada cara membuatnya lewat Terraform tanpa nilainya masuk ke state — dan `ignore_changes` tidak menolong, karena ia hanya mengabaikan perubahan sesudah nilai pertama tertulis. Terraform karenanya hanya menyusun ARN-nya dari nama yang sudah disepakati di atas, dan tidak pernah membacanya.
 
 **Fungsi Lambda menerima nama, bukan nilai.** Pembacaannya terjadi saat container menyala, lewat interface `Secrets` di `ports/` ([ARCHITECTURE §12.1](ARCHITECTURE.md)).
+
+### 5.2 Pembuktian penandatanganan OAC — B4
+
+Dijalankan **selagi image `:bootstrap` masih terpasang**, karena alat ukurnya berada di dalam image itu. Prosedur dan skripnya pada repositori `infra` di `uji-oac/`. Dilaksanakan **12 Agustus 2026**; hasilnya menjadi **CK-A-12** pada [ARCHITECTURE.md](ARCHITECTURE.md).
+
+**Hasilnya:** `GET` lolos tanpa syarat tambahan, sedangkan setiap request ber-body menuntut header `x-amz-content-sha256`. Rincian beserta akibatnya pada CK-A-12; yang dicatat di sini hanya dua jebakan yang ditemui saat menaikkannya, karena keduanya akan ditemui lagi oleh siapa pun yang membangun ulang lingkungan ini.
+
+#### Jebakan 1 — OAC menuntut DUA izin Lambda, bukan satu
+
+`lambda:InvokeFunctionUrl` **tidak cukup**. CloudFront juga memerlukan `lambda:InvokeFunction` pada fungsi yang sama. Dokumentasi OAC AWS menyebutkan keduanya sebagai dua perintah `add-permission` terpisah, dan yang kedua sangat mudah terbaca sebagai pengulangan yang pertama.
+
+Gejalanya: **403 pada setiap request**, termasuk `GET` tanpa body, dengan kebijakan yang tampak persis benar di layar.
+
+Yang membuatnya memakan waktu lama adalah pengujian yang menyesatkan: request bertanda tangan SigV4 memakai profil `edutrack` **lolos**, sehingga Function URL tampak sehat dan kecurigaan berpindah ke CloudFront. Sebabnya role `edutrack-terraform` ber-`AdministratorAccess` sehingga memiliki **kedua** izin, sementara principal CloudFront hanya diberi yang pertama.
+
+**Cara membedakannya dalam hitungan detik.** Bandingkan badan jawaban 403 dari kedua jalur:
+
+| Jalur | Badan jawaban | Artinya |
+|---|---|---|
+| Langsung ke Function URL, tanpa tanda tangan | `{"Message":"Forbidden"}` | Tidak ada tanda tangan sama sekali |
+| Lewat CloudFront | `{"Message":"Forbidden. For troubleshooting Function URL authorization issues, see: …}` | Tanda tangan **ada** dan ditolak — persoalannya izin atau payload hash |
+
+#### Jebakan 2 — `custom_error_response` berlaku se-distribusi
+
+Blok itu semula dipasang untuk perutean React SPA. Ia **tidak dapat dibatasi pada satu cache behavior**: CloudFront hanya mengenal error response tingkat distribusi. Akibatnya setiap 403 dan 404 dari `/api/*` ikut dibelokkan ke `/index.html`, sehingga kontrak amplop `kesalahan` [API §2](API.md) rusak — 404 berubah menjadi 200 berisi HTML — dan galat yang sesungguhnya tertutup jawaban bucket frontend.
+
+Perutean SPA karenanya diselesaikan lewat CloudFront Function pada perilaku bawaan saja, dan ditulis ketika repositori frontend ada.
 
 ---
 
@@ -827,6 +854,7 @@ Variabel lingkungan tidak memiliki persoalan itu: image `:bootstrap` mengabaikan
 
 | Tanggal | Perubahan |
 |---|---|
+| 12 Agustus 2026 | **§5.2 ditulis — B4 selesai.** Penandatanganan OAC atas request ber-body dibuktikan; hasilnya **CK-A-12** pada [ARCHITECTURE.md](ARCHITECTURE.md). Dicatat dua jebakan yang ditemui saat menaikkannya: OAC menuntut **dua** izin Lambda (`InvokeFunctionUrl` **dan** `InvokeFunction`), dan `custom_error_response` berlaku se-distribusi sehingga merusak kontrak amplop `kesalahan` pada `/api/*` |
 | 11 Agustus 2026 | §3.3 langkah 11 dikoreksi dari `/healthz` menjadi `/api/healthz`. CloudFront hanya meneruskan `/api/*` ke Lambda, sehingga bentuk semula dilayani bucket frontend dan selalu lulus tanpa memeriksa apa pun. Ditemukan saat `infra/` dikodekan |
 | 11 Agustus 2026 | **CK-D-08** — kedua fungsi menjalankan image dan perintah yang sama persis; yang membedakannya variabel lingkungan `PERAN`. Lambda Web Adapter menuntut aplikasi yang mendengarkan HTTP, sehingga perintah migrasi yang berjalan sekali lalu keluar tidak dapat dipasang sebagai fungsi. `image_config` juga tidak dapat dipakai karena ia bagian dari cangkang yang berlaku bagi image `:bootstrap` sekalipun |
 | 11 Agustus 2026 | **CK-D-07** — nilai awal `function_version` pada alias `live` diamandemen dari `"1"` menjadi `"$LATEST"`. Keduanya tidak dapat berlaku bersamaan dengan `publish = false`, karena fungsi yang baru dibuat tidak memiliki version bernomor untuk ditunjuk. §2.2 disesuaikan |
