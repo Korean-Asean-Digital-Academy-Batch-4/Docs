@@ -596,7 +596,16 @@ Dipinjam GitHub Actions lewat OIDC. **Tidak ada access key, dan tidak ada IAM us
 
 | Role | Dipinjam oleh | Izin | Yang justru penting: tidak boleh |
 |---|---|---|---|
-| `edutrack-gha-backend` | Repositori `Korean-Asean-Digital-Academy-Batch-4/backend`, ref `main` | Push ke satu repositori ECR · `lambda:UpdateFunctionCode`, `PublishVersion`, `UpdateAlias`, `GetFunction`, `InvokeFunction` pada dua fungsi | `CreateFunction`, `UpdateFunctionConfiguration`, `DeleteFunction`, `iam:PassRole`, apa pun pada bucket frontend |
+| `edutrack-gha-backend` | Repositori `Korean-Asean-Digital-Academy-Batch-4/backend`, ref `main` | Push ke satu repositori ECR · `lambda:UpdateFunctionCode`, `PublishVersion`, `UpdateAlias`, `GetFunction`, **`GetFunctionConfiguration`**, **`GetAlias`**, `InvokeFunction` pada dua fungsi | `CreateFunction`, `UpdateFunctionConfiguration`, `DeleteFunction`, `iam:PassRole`, apa pun pada bucket frontend |
+
+**Dua tindakan baca ditambahkan 12 Agustus 2026**, sesudah rilis pertama gagal karenanya. Keduanya tidak pernah didaftar semula karena pasal ini ditulis mendahului §3.3, dan yang menuntutnya adalah langkah pada pasal itu:
+
+| Tindakan | Dituntut oleh |
+|---|---|
+| `lambda:GetFunctionConfiguration` | `aws lambda wait function-updated` — §3.3 langkah 5 dan 8. Waiter memanggilnya berulang, bukan `GetFunction` |
+| `lambda:GetAlias` | Pembacaan version sebelumnya untuk jalur rollback — §3.3 langkah 12 |
+
+**Keduanya hanya membaca, dan tidak melonggarkan apa pun.** Yang menjaga pembagian kepemilikan CK-D-02 adalah ketiadaan `UpdateFunctionConfiguration` — perhatikan bahwa namanya nyaris sama dengan `GetFunctionConfiguration` yang kini diizinkan. Yang satu mengubah cangkang yang dimiliki Terraform; yang lain hanya melihatnya.
 | `edutrack-gha-frontend` | Repositori frontend, ref `main` | `s3:PutObject/DeleteObject/ListBucket` pada bucket frontend · `cloudfront:CreateInvalidation` pada satu distribusi | Lambda, ECR, RDS, bucket rapor |
 
 **Ketiadaan `iam:PassRole` adalah akibat langsung dari pembagian kepemilikan pada Pasal 2 dan 3**: Terraform memiliki cangkang fungsi, CI hanya menukar isinya. Karena CI tidak pernah membuat maupun mengonfigurasi ulang fungsi, izin paling berbahaya itu dapat dihilangkan sepenuhnya.
@@ -884,6 +893,7 @@ Variabel lingkungan tidak memiliki persoalan itu: image `:bootstrap` mengabaikan
 
 | Tanggal | Perubahan |
 |---|---|
+| 12 Agustus 2026 | §9.4 melengkapi izin role OIDC dengan `lambda:GetFunctionConfiguration` dan `lambda:GetAlias`. Keduanya tidak pernah didaftar karena Pasal 9 ditulis mendahului §3.3, sedangkan yang menuntutnya adalah `aws lambda wait function-updated` dan pembacaan version untuk rollback. Ditemukan ketika rilis pertama gagal pada langkah 5 |
 | 12 Agustus 2026 | **§5.1 dikoreksi setelah dijalankan untuk pertama kalinya.** Tiga cacat: contohnya memakai `create-secret` padahal wadahnya sudah dibuat Terraform; kata sandinya dibangkitkan di dalam `printf` sehingga tidak dapat dipakai ulang untuk `ALTER ROLE`; dan `.pgpass` **tidak dapat dipakai** karena kata sandi bangkitan RDS dapat memuat titik dua, yaitu pemisah bidang formatnya. Ditambahkan langkah verifikasi yang benar-benar mencoba masuk, bukan sekadar memeriksa keberadaan versi |
 | 12 Agustus 2026 | **§5.2 ditulis — B4 selesai.** Penandatanganan OAC atas request ber-body dibuktikan; hasilnya **CK-A-12** pada [ARCHITECTURE.md](ARCHITECTURE.md). Dicatat dua jebakan yang ditemui saat menaikkannya: OAC menuntut **dua** izin Lambda (`InvokeFunctionUrl` **dan** `InvokeFunction`), dan `custom_error_response` berlaku se-distribusi sehingga merusak kontrak amplop `kesalahan` pada `/api/*` |
 | 11 Agustus 2026 | §3.3 langkah 11 dikoreksi dari `/healthz` menjadi `/api/healthz`. CloudFront hanya meneruskan `/api/*` ke Lambda, sehingga bentuk semula dilayani bucket frontend dan selalu lulus tanpa memeriksa apa pun. Ditemukan saat `infra/` dikodekan |
